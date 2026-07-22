@@ -2,16 +2,31 @@
 
 ## Version State
 
-Current version: 1.0.3
+Current version: 1.0.4
 
-Release tag: v-1.0.3
+Release tag: v-1.0.4
 
-Changelog label: v 1.0.3
+Changelog label: v 1.0.4
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.4
+
+### [v 1.0.4] 2026-07-22 11:19 pm - Align shared bottom-right notifications
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Aligned the TechMedia release with the shared UI-owned Sonner notification boundary.
+- Verified that TechMedia modules publish to the common bottom-right toaster without owning a
+  competing Sonner runtime.
+- Bumped repository version to 1.0.4.
 
 ## v-1.0.3
 
