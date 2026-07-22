@@ -1,10 +1,10 @@
 ﻿import assert from "node:assert/strict";
 import { createConnection, type RowDataPacket } from "mysql2/promise";
-import { createApp } from "../../apps/platform/api/src/app.js";
-import { closePlatformDatabase } from "../../apps/platform/api/src/database/platform-database.js";
-import { closeAllTenantDatabases } from "../../apps/platform/api/src/database/tenant-database.js";
-import { env } from "../../apps/platform/api/src/env.js";
-import { signAuthToken } from "../../apps/platform/api/src/auth/jwt.js";
+import { createApp } from "../../src/platform/api/src/app.js";
+import { closePlatformDatabase } from "../../src/platform/api/src/database/platform-database.js";
+import { closeAllTenantDatabases } from "../../src/platform/api/src/database/tenant-database.js";
+import { env } from "../../src/platform/api/src/env.js";
+import { signAuthToken } from "../../src/platform/api/src/auth/jwt.js";
 
 type TenantRow = RowDataPacket & { db_name: string; tenant_code: string; uuid: string };
 type RecordValue = { id: number; status: string } & Record<string, unknown>;

@@ -14,7 +14,7 @@ const requestedPort = process.argv[4]?.trim();
 const apps = {
   "platform-api": {
     displayName: "api",
-    cwd: "apps/platform/api",
+    cwd: "src/platform/api",
     envKey: "PLATFORM_API_PORT",
     host: "127.0.0.1",
     command: process.execPath,
@@ -22,7 +22,7 @@ const apps = {
   },
   "platform-web": {
     displayName: "web",
-    cwd: "apps/platform/web",
+    cwd: "src/platform/web",
     envKey: "PLATFORM_WEB_PORT",
     host: "127.0.0.1",
     command: process.execPath,

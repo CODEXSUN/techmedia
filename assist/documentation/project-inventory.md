@@ -38,8 +38,8 @@ they are not TechMedia runtime dependencies.
 ```text
 <workspace>/
   techmedia/
-    apps/platform/api/
-    apps/platform/web/
+    src/platform/api/
+    src/platform/web/
     assist/
     tools/
   framework/
@@ -64,7 +64,7 @@ source imports and cross-repository table writes are prohibited.
 ## Database Ownership And Order
 
 1. TechMedia Platform owns master and tenant-runtime tables under
-   `apps/platform/api/src/modules/`.
+   `src/platform/api/src/modules/`.
 2. Core owns tenant common, organisation, and master tables under `core/api/src/modules/`.
 3. No other sibling application participates in TechMedia database lifecycle.
 

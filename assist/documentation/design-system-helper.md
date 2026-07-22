@@ -12,7 +12,7 @@ The goal is simple: every module should feel like the same product. Only the dat
 - TechMedia UI repository: `../ui/src`
 - Workspace primitives: `../ui/src/workspace`
 - Theme tokens and palettes: `../ui/src/design-system`
-- Platform module examples: Tenant, Domain, Plan, Subscription, Apps, and Industry under `apps/platform/web/src/modules`
+- Platform module examples: Tenant, Domain, Plan, Subscription, Apps, and Industry under `src/platform/web/src/modules`
 
 Do not copy old business logic from CXSUN. Use it only to understand flow, spacing, tone, loading behavior, and interaction rhythm.
 

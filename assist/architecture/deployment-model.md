@@ -50,7 +50,7 @@ Build and deployment workflows must not create workspace-local `dist`, `dist-typ
 
 ## Hosted Runtime
 
-The hosted baseline serves `dist/apps/platform/web` as static files and runs the compiled Platform
+The hosted baseline serves `dist/platform/web` as static files and runs the compiled Platform
 API behind a reverse proxy. Production must not depend on Vite or `npm run dev`.
 
 Platform Web embeds `/api/platform` as its browser API base. `PLATFORM_WEB_ORIGIN` defines the

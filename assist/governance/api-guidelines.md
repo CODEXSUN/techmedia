@@ -162,7 +162,7 @@ Error:
 
 ## API Guard Pattern
 
-All protected routes use shared guard helpers from `apps/platform/api/src/auth/guards.ts`.
+All protected routes use shared guard helpers from `src/platform/api/src/auth/guards.ts`.
 
 ### Available Guards
 
@@ -178,10 +178,10 @@ All protected routes use shared guard helpers from `apps/platform/api/src/auth/g
 
 ### Route Ownership
 
-| Route module                  | File                                     | Owner                    |
-| ----------------------------- | ---------------------------------------- | ------------------------ |
-| Auth (login, session, logout) | `apps/platform/api/src/auth/routes.ts`   | `@codexsun/platform-api` |
-| Tenant management CRUD        | `apps/platform/api/src/tenant/routes.ts` | `@codexsun/platform-api` |
+| Route module                  | File                                    | Owner                     |
+| ----------------------------- | --------------------------------------- | ------------------------- |
+| Auth (login, session, logout) | `src/platform/api/src/auth/routes.ts`   | `@techmedia/platform-api` |
+| Tenant management CRUD        | `src/platform/api/src/tenant/routes.ts` | `@techmedia/platform-api` |
 
 ### Audit Events
 

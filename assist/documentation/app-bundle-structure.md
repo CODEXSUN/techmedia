@@ -9,8 +9,8 @@ boundaries are ownership boundaries, not folders that may be crossed for conveni
 
 ```text
 techmedia/
-  apps/platform/api/     # executable API, auth, tenant context, Platform modules, DB composition
-  apps/platform/web/     # executable React shell, desks, routing, navigation composition
+  src/platform/api/      # executable API, auth, tenant context, Platform modules, DB composition
+  src/platform/web/      # executable React shell, desks, routing, navigation composition
   tools/                 # stack, database, boundary, version, and release tooling
 ```
 
@@ -38,7 +38,7 @@ A full business repository uses:
       shared/            # cross-module code within this app only
 ```
 
-Current full business repositories installed in TechMedia are `core` and `mail`.
+The current full business repository installed in TechMedia is `core`.
 
 ### Backend leaf
 
@@ -79,14 +79,9 @@ Settings, print, show, or test files are added only for real owned behavior.
 - `framework/src`: stable backend contracts and runtime primitives; no business tables or seeds.
 - `ui/src`: reusable presentation primitives; no business fields, routes, schemas, or workflows.
 
-## Boundary-Only Repositories
-
-- `ecommerce/src`
-- `sites/src`
-
-They remain intentionally small until real modules exist. Do not add placeholder role files.
-When implemented, they must adopt the business repository structure and register through public
-package contracts.
+Billing, Mail, Ecommerce, and Sites are not part of the current TechMedia composition. If added in
+the future, they must adopt the business repository structure and register through public package
+contracts without moving their behavior into Platform.
 
 ## Standalone Devkit
 

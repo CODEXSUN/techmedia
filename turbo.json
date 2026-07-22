@@ -19,7 +19,7 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "../ui/src/styles.css"],
-      "outputs": ["../../dist/**", "../../../dist/**"]
+      "outputs": ["../../../dist/**"]
     },
     "typecheck": {
       "dependsOn": ["^build"],
@@ -31,7 +31,7 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "outputs": ["../../../dist/**", "../../dist/**"]
+      "outputs": ["../../../dist/**"]
     }
   }
 }

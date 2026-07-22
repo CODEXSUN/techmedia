@@ -35,7 +35,7 @@ export function affectedProductStacks(paths) {
   for (const input of paths) {
     const path = String(input).replace(/\\/gu, "/");
     if (
-      path.startsWith("apps/platform/") ||
+      path.startsWith("src/platform/") ||
       path.startsWith("../core/") ||
       path.startsWith("core/") ||
       path.startsWith("../framework/") ||

@@ -38,7 +38,7 @@ Billing, Mail, Ecommerce, and Sites do not participate in TechMedia database lif
 
 Ownership:
 
-- Platform master and tenant runtime: `apps/platform/api/src/modules/`
+- Platform master and tenant runtime: `src/platform/api/src/modules/`
 - Core tenant business data: `../core/api/src/modules/`
 
 Composition roots only order public module-owned lifecycle functions. They must not copy SQL, seed

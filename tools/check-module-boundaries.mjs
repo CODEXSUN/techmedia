@@ -10,7 +10,7 @@ const moduleRoots = [
   },
   {
     app: "platform-api",
-    path: join(process.cwd(), "apps", "platform", "api", "src", "modules")
+    path: join(process.cwd(), "src", "platform", "api", "src", "modules")
   }
 ];
 
@@ -53,7 +53,7 @@ const webModuleRoots = [
   },
   {
     app: "platform-web",
-    path: join(process.cwd(), "apps", "platform", "web", "src", "modules")
+    path: join(process.cwd(), "src", "platform", "web", "src", "modules")
   }
 ];
 

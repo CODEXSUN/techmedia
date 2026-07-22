@@ -20,7 +20,7 @@ These rules guide all AI agents working on CODEXSUN.
 
 Every current and future CODEXSUN application must use the repository's single npm workspace installation. Run npm commands only from the repository root. There must be one root `node_modules`, one root `package-lock.json`, and one root `dist`; nested `node_modules`, `dist`, and `dist-types` folders are forbidden.
 
-Agents must not use pnpm or Yarn, create alternative lockfiles or package-manager stores, run `npm install` inside a workspace, or add workspace configuration that emits local dependency or build-output folders. After dependency, package, workspace, or build changes, agents must run `npm run dependencies:check` and scan `apps/`, `packages/`, and `tools/` for nested `node_modules`, `dist`, and `dist-types` directories before reporting completion.
+Agents must not use pnpm or Yarn, create alternative lockfiles or package-manager stores, run `npm install` inside a workspace, or add workspace configuration that emits local dependency or build-output folders. After dependency, package, workspace, or build changes, agents must run `npm run dependencies:check` and scan `src/` and `tools/` for nested `node_modules`, `dist`, and `dist-types` directories before reporting completion.
 
 ## Planning Rules
 

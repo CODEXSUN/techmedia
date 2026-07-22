@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createApp } from "../../apps/platform/api/src/app.js";
+import { createApp } from "../../src/platform/api/src/app.js";
 
 const app = await createApp();
 

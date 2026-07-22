@@ -2,7 +2,7 @@
 
 ## Repository Boundary
 
-TECHMEDIA uses nine sibling Git repositories. The current physical map is maintained in
+TECHMEDIA uses the sibling repositories listed in the current physical map maintained in
 `assist/documentation/project-inventory.md`.
 
 - `techmedia`: executable Platform and composition root.
@@ -19,7 +19,7 @@ approved events. Private sibling source imports and cross-repository table write
 
 ## Composition Root
 
-`techmedia/apps/platform` may:
+`techmedia/src/platform` may:
 
 - Register public app modules.
 - Inject tenant/session/permission/queue dependencies.
@@ -97,11 +97,9 @@ Country â†’ State â†’ District â†’ City â†’ Pincode
 
 ## Database Ownership
 
-- Platform master and tenant-runtime tables: `techmedia/apps/platform/api/src/modules/`.
+- Platform master and tenant-runtime tables: `techmedia/src/platform/api/src/modules/`.
 - Core tenant tables: `core/api/src/modules/`.
-- Billing tenant tables: `billing/api/src/modules/`.
-- Mail tenant tables: `mail/api/src/modules/mail/`.
-- Framework, UI, Ecommerce, and Sites currently own no business tables.
+- Framework and UI own no business tables. Billing, Mail, Ecommerce, and Sites are not composed.
 - Devkit is outside the Platform database lifecycle.
 
 A database composition file may order and record public migration/seed functions. It may not hold

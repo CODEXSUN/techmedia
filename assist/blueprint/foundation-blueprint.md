@@ -968,7 +968,7 @@ Platform will also have its own runnable app.
 Structure:
 
 ```text
-apps/platform/
+src/platform/
   api/
   web/
   worker/
@@ -982,7 +982,7 @@ The Platform app manages platform-level and tenant-level operations.
 The Platform web app will contain three desks with separate route groups, layouts, logins, and auth guards.
 
 ```text
-apps/platform/web/
+src/platform/web/
   /sa
   /admin
   /

@@ -10,6 +10,8 @@ test("TechMedia packages compose into the single Platform runtime without sharin
 });
 
 test("stack impact keeps product-only changes inside their release boundary", () => {
+  assert.deepEqual(affectedProductStacks(["src/platform/api/src/app.ts"]), ["techmedia"]);
+  assert.deepEqual(affectedProductStacks(["src/platform/web/src/main.tsx"]), ["techmedia"]);
   assert.deepEqual(affectedProductStacks(["../core/api/src/app.ts"]), ["techmedia"]);
   assert.deepEqual(affectedProductStacks(["../framework/src/api/index.ts"]), ["techmedia"]);
   assert.deepEqual(affectedProductStacks(["tools/product-stack-contract.mjs"]), ["techmedia"]);
