@@ -67,14 +67,20 @@ prepare_env() {
 validate_env() {
   [ "$(env_value DB_USER codexsun_app)" != "root" ] || { echo "DB_USER must be a dedicated non-root account." >&2; exit 78; }
   [ "$(env_value TECHMEDIA_DB_FRESH_ON_START 0)" = "0" ] || { echo "Production database reset must remain disabled." >&2; exit 78; }
+  [ "$(env_value TECHMEDIA_ALLOW_PRODUCTION_DB_RESET 0)" = "0" ] || { echo "Production database reset must remain disabled." >&2; exit 78; }
+  [ "$(env_value TECHMEDIA_ALLOW_LIVE_RESTORE 0)" = "0" ] || { echo "Live restore must remain disabled during deployment." >&2; exit 78; }
   for key in DEFAULT_TENANT_CORPORATE_ID DEFAULT_TENANT_DB_NAME DEFAULT_TENANT_DOMAIN DEFAULT_TENANT_NAME DEFAULT_TENANT_SLUG; do
     [ -n "$(env_value "$key" "")" ] || { echo "$key is required." >&2; exit 78; }
   done
 }
 
-ensure_networks() {
+require_shared_network() {
   network=$(env_value CODEXSUN_EDGE_NETWORK codexsun-network)
-  docker network inspect "$network" >/dev/null 2>&1 || docker network create "$network" >/dev/null
+  docker network inspect "$network" >/dev/null 2>&1 || {
+    echo "Shared CODEXSUN network is missing: $network" >&2
+    echo "Install or repair CODEXSUN infrastructure first; Tech Media will not create the shared network." >&2
+    exit 69
+  }
 }
 
 require_shared_infrastructure() {

@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 prepare_env
 validate_env
 docker info >/dev/null 2>&1 || { echo "Docker Engine is not reachable." >&2; exit 69; }
-ensure_networks
+require_shared_network
 require_shared_infrastructure
 ensure_master_database
 

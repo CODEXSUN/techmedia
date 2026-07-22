@@ -2,16 +2,34 @@
 
 ## Version State
 
-Current version: 1.0.1
+Current version: 1.0.2
 
-Release tag: v-1.0.1
+Release tag: v-1.0.2
 
-Changelog label: v 1.0.1
+Changelog label: v 1.0.2
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.2
+
+### [v 1.0.2] 2026-07-22 9:46 pm - Enforce application-only container deployment boundaries
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Added mandatory Tech Media container-agent rules with VPS prerequisites, application-only
+  ownership, forbidden destructive operations, and required smoke verification.
+- Changed Tech Media setup to require the existing external CODEXSUN network and healthy shared
+  MariaDB/Redis/Media containers instead of creating shared infrastructure.
+- Added deployment guards that keep database fresh/reset and live-restore controls disabled during
+  normal rollout.
+- Aligned package, workspace, container build, image, and deployment defaults to version 1.0.2.
 
 ## v-1.0.1
 

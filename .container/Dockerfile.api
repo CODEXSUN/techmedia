@@ -20,7 +20,7 @@ RUN npm prune --omit=dev \
   && npm prune --omit=dev --prefix ../core
 
 FROM node:${NODE_RUNTIME_VERSION}-bookworm-slim AS runtime
-ARG TECHMEDIA_VERSION=1.0.1
+ARG TECHMEDIA_VERSION=1.0.2
 ARG NPM_RUNTIME_VERSION=12.0.1
 LABEL org.opencontainers.image.title="Techmedia Platform API" org.opencontainers.image.version="$TECHMEDIA_VERSION"
 WORKDIR /workspace/techmedia
