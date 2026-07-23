@@ -56,7 +56,7 @@ export function TenantSiteProvider({
   useEffect(() => {
     document.title = pageTitle
       ? `${pageTitle} | ${portal.brandName}`
-      : `${portal.brandName} | Operations & Accounts`;
+      : `${portal.brandName} | Computer Hardware & LogicX Software`;
   }, [pageTitle, portal.brandName]);
 
   const value = useMemo(() => ({ loading, portal }), [loading, portal]);

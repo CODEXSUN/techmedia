@@ -26,17 +26,66 @@ export class QueueManagerRepository {
   }
 
   async settings(): Promise<QueueRuntimeSettings> {
-    const jobs = await this.list();
+    const [setting, counts] = await Promise.all([
+      this.configuredBackend(),
+      getPlatformDatabase()
+        .selectFrom("queue_jobs")
+        .select(["status", sql<number>`COUNT(*)`.as("count")])
+        .groupBy("status")
+        .execute()
+    ]);
+    const count = (status: QueueJobStatus) =>
+      Number(counts.find((entry) => entry.status === status)?.count ?? 0);
     return {
-      backend: env.TECHMEDIA_QUEUE_BACKEND,
-      backendLabel:
-        env.TECHMEDIA_QUEUE_BACKEND === "bullmq-redis" ? "BullMQ + Redis" : "Database queue",
-      canRunInline: env.TECHMEDIA_QUEUE_BACKEND !== "bullmq-redis",
-      completed: jobs.filter((job) => job.status === "completed").length,
-      failed: jobs.filter((job) => job.status === "failed").length,
-      pending: jobs.filter((job) => job.status === "pending").length,
-      running: jobs.filter((job) => job.status === "running").length
+      backend: setting,
+      backendLabel: setting === "bullmq-redis" ? "BullMQ + Redis" : "Database queue",
+      backendHealth: {
+        checkedAt: new Date().toISOString(),
+        latencyMs: 0,
+        status: setting === "database" ? "available" : "degraded"
+      },
+      canRunInline: setting !== "bullmq-redis",
+      completed: count("completed"),
+      failed: count("failed"),
+      pending: count("pending"),
+      redisConfigured: Boolean(env.TECHMEDIA_REDIS_URL.trim()),
+      running: count("running"),
+      workerEnabled: env.TECHMEDIA_QUEUE_WORKER_ENABLED === "1",
+      workerIntervalMs: env.TECHMEDIA_QUEUE_WORKER_INTERVAL_MS
     };
+  }
+
+  async configuredBackend() {
+    const setting = await getPlatformDatabase()
+      .selectFrom("queue_runtime_settings")
+      .select("backend")
+      .where("setting_key", "=", "primary")
+      .executeTakeFirst();
+    return setting?.backend ?? env.TECHMEDIA_QUEUE_BACKEND;
+  }
+
+  async setBackend(backend: "bullmq-redis" | "database", updatedBy?: string) {
+    await getPlatformDatabase()
+      .updateTable("queue_runtime_settings")
+      .set({
+        backend,
+        updated_at: new Date(),
+        updated_by: updatedBy?.trim() || null
+      })
+      .where("setting_key", "=", "primary")
+      .execute();
+    return this.configuredBackend();
+  }
+
+  async pendingJobs() {
+    const rows = await getPlatformDatabase()
+      .selectFrom("queue_jobs")
+      .selectAll()
+      .where("status", "=", "pending")
+      .orderBy("priority", "asc")
+      .orderBy("created_at", "asc")
+      .execute();
+    return rows.map(toQueueJob);
   }
 
   async enqueue(input: QueueJobPayload) {

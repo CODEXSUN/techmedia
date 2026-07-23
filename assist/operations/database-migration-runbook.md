@@ -31,8 +31,12 @@ Do not continue if backup freshness, restore status, tenant targets, or rollback
 2. Platform master module seeds.
 3. Tenant runtime migrations.
 4. Core migrations: Common lookups, Organisation, then Master.
-5. Tenant runtime seeds.
-6. Core seeds in the same dependency order.
+5. CRM Enquiry migration when `crm` is enabled for the tenant.
+6. Frappe connection migration when `frappe` is enabled for the tenant.
+7. Tenant runtime seeds.
+8. Core seeds in the same dependency order.
+9. CRM Enquiry seed when `crm` is enabled for the tenant.
+10. Frappe permission seed when `frappe` is enabled for the tenant.
 
 Billing, Mail, Ecommerce, and Sites do not participate in TechMedia database lifecycle.
 
@@ -40,6 +44,18 @@ Ownership:
 
 - Platform master and tenant runtime: `src/platform/api/src/modules/`
 - Core tenant business data: `../core/api/src/modules/`
+- CRM tenant business data: `src/platform/api/src/modules/crm/`
+- Frappe tenant integration settings: `src/platform/api/src/modules/frappe/`
+
+The Frappe owner includes the forward `frappe.connection.verification-status-v2` migration. It
+adds verification status and last-check timestamps to existing tenant connection tables using
+idempotent column additions; run the normal tenant migration lifecycle before deploying the badge
+behavior.
+
+The CRM owner includes the forward `crm.enquiry.unassigned-v4` migration. It makes
+`crm_enquiries.assigned_to_user_id` nullable so unassigned active enquiries can be owned by the
+Open Enquiry queue. Run the normal tenant migration lifecycle before deploying the strict assigned,
+created, and unassigned list rules.
 
 Composition roots only order public module-owned lifecycle functions. They must not copy SQL, seed
 arrays, repositories, or private services across repository boundaries.

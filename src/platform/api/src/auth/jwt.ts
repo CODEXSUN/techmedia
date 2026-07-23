@@ -4,11 +4,11 @@ import { env } from "../env.js";
 export type AuthUserType = "super_admin" | "staff" | "tenant";
 
 export type AuthTokenPayload = {
-  aud: "techmedia-platform";
+  aud: "codexsun-platform";
   email: string;
   exp: number;
   iat: number;
-  iss: "techmedia-platform-api";
+  iss: "codexsun-platform-api";
   jti: string;
   name?: string;
   sessionIssuedAt: string;
@@ -16,6 +16,8 @@ export type AuthTokenPayload = {
   tenantDbName?: string;
   tenantId?: string;
   tenantUuid?: string;
+  tenantRole?: string;
+  permissions?: string[];
   userId: string;
   userType: AuthUserType;
 };
@@ -26,10 +28,10 @@ export function signAuthToken(
   const now = Math.floor(Date.now() / 1000);
   const payload: AuthTokenPayload = {
     ...input,
-    aud: "techmedia-platform",
+    aud: "codexsun-platform",
     exp: now + 60 * 60 * 4,
     iat: now,
-    iss: "techmedia-platform-api",
+    iss: "codexsun-platform-api",
     jti: randomUUID(),
     sessionIssuedAt: new Date(now * 1000).toISOString()
   };
@@ -52,8 +54,8 @@ export function verifyAuthToken(token: string): AuthTokenPayload | null {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as AuthTokenPayload;
     const now = Math.floor(Date.now() / 1000);
     if (
-      payload.iss !== "techmedia-platform-api" ||
-      payload.aud !== "techmedia-platform" ||
+      payload.iss !== "codexsun-platform-api" ||
+      payload.aud !== "codexsun-platform" ||
       payload.exp <= now
     ) {
       return null;

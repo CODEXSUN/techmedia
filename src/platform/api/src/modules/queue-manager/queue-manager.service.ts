@@ -2,8 +2,14 @@
 import { processDatabaseMaintenanceJob } from "../database-maintenance/database-maintenance.worker.js";
 import { QueueManagerRepository } from "./queue-manager.repository.js";
 import { env } from "../../env.js";
-import { publishBullMqJob } from "./queue-manager.bullmq.js";
-import type { QueueJobFilters, QueueJobPayload } from "./queue-manager.types.js";
+import {
+  cancelBullMqJob,
+  checkBullMqHealth,
+  closeBullMq,
+  publishBullMqJob,
+  retryBullMqJob
+} from "./queue-manager.bullmq.js";
+import type { QueueBackend, QueueJobFilters, QueueJobPayload } from "./queue-manager.types.js";
 
 export class QueueManagerService {
   constructor(
@@ -19,24 +25,51 @@ export class QueueManagerService {
     return this.repository.find(id);
   }
 
-  runtimeSettings() {
-    return this.repository.settings();
+  async runtimeSettings() {
+    const settings = await this.repository.settings();
+    if (settings.backend === "bullmq-redis") {
+      settings.backendHealth = await checkBullMqHealth();
+    }
+    return settings;
   }
 
   async enqueue(input: QueueJobPayload) {
     const job = await this.repository.enqueue(input);
-    if (job) await publishBullMqJob(job);
+    if (job && (await this.repository.configuredBackend()) === "bullmq-redis") {
+      await publishBullMqJob(job);
+    }
     return job;
+  }
+
+  async switchBackend(backend: QueueBackend) {
+    const current = await this.repository.configuredBackend();
+    if (backend === current) return this.runtimeSettings();
+    if (backend === "bullmq-redis") {
+      const health = await checkBullMqHealth();
+      if (health.status !== "available") {
+        throw new Error(health.message || "Redis is unavailable.");
+      }
+      for (const job of await this.repository.pendingJobs()) {
+        await publishBullMqJob(job);
+      }
+    } else {
+      await closeBullMq();
+    }
+    await this.repository.setBackend(backend);
+    await this.activity.recordActivity({
+      action: "queue.backend.changed",
+      details: { from: current, to: backend },
+      moduleKey: "platform.queue-manager",
+      recordLabel: "Queue backend"
+    });
+    return this.runtimeSettings();
   }
 
   async runJob(id: number, options: { fromWorker?: boolean } = {}) {
     const job = await this.repository.find(id);
     if (!job) return null;
-    if (
-      env.TECHMEDIA_QUEUE_BACKEND === "bullmq-redis" &&
-      job.status === "pending" &&
-      !options.fromWorker
-    ) {
+    const backend = await this.repository.configuredBackend();
+    if (backend === "bullmq-redis" && job.status === "pending" && !options.fromWorker) {
       await publishBullMqJob(job);
       return job;
     }
@@ -84,7 +117,9 @@ export class QueueManagerService {
   async retryJob(id: number) {
     const job = await this.repository.retry(id);
     if (!job) return null;
-    await publishBullMqJob(job);
+    if ((await this.repository.configuredBackend()) === "bullmq-redis") {
+      await retryBullMqJob(job);
+    }
     await this.activity.recordActivity({
       action: "queue.job.retried",
       moduleKey: "platform.queue-manager",
@@ -96,6 +131,10 @@ export class QueueManagerService {
   }
 
   async cancelJob(id: number) {
+    const current = await this.repository.find(id);
+    if (current && (await this.repository.configuredBackend()) === "bullmq-redis") {
+      await cancelBullMqJob(current);
+    }
     const job = await this.repository.cancel(id);
     if (!job) return null;
     await this.activity.recordActivity({

@@ -45,6 +45,18 @@
   margin: 0;
 }
 
+.techmedia-auth-logo-dark {
+  display: none;
+}
+
+.dark .techmedia-auth-logo-light {
+  display: none;
+}
+
+.dark .techmedia-auth-logo-dark {
+  display: block;
+}
+
 @media (max-width: 760px) {
   .status-list {
     grid-template-columns: 1fr;

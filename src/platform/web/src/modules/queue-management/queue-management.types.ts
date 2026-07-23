@@ -26,12 +26,21 @@ export type QueueJobRecord = {
 
 export type QueueRuntimeSettings = {
   backend: "database" | "bullmq-redis";
+  backendHealth: {
+    checkedAt: string;
+    latencyMs: number;
+    message?: string;
+    status: "available" | "degraded" | "unavailable";
+  };
   backendLabel: string;
   canRunInline: boolean;
   completed: number;
   failed: number;
   pending: number;
+  redisConfigured: boolean;
   running: number;
+  workerEnabled: boolean;
+  workerIntervalMs: number;
 };
 
 export type QueueJobFilters = {

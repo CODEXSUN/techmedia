@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "../../shared/api/platform-api";
+import { apiGet, apiPost, apiPut } from "../../shared/api/platform-api";
 import type {
   QueueCleanupResult,
   QueueJobFilters,
@@ -8,6 +8,10 @@ import type {
 
 export function getQueueRuntimeSettings() {
   return apiGet<QueueRuntimeSettings>("/admin/queue/settings", "sa");
+}
+
+export function updateQueueBackend(backend: QueueRuntimeSettings["backend"]) {
+  return apiPut<QueueRuntimeSettings>("/admin/queue/settings/backend", { backend }, "sa");
 }
 
 export function listQueueJobs(filters?: Partial<QueueJobFilters>) {

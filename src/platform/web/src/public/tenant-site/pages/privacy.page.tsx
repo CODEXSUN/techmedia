@@ -1,103 +1,43 @@
-﻿import { Link } from "@tanstack/react-router";
-import { ArrowRight, ShieldCheck } from "lucide-react";
 import { TenantPageIntro } from "../blocks/tenant-page-intro";
-import { useTenantSite } from "../tenant-site.context";
 import { TenantSiteTemplate } from "../templates/tenant-site.template";
 
 export function TenantPrivacyPage() {
   return (
     <TenantSiteTemplate activePage="privacy" pageTitle="Privacy">
-      <PrivacyPageContent />
-    </TenantSiteTemplate>
-  );
-}
-
-function PrivacyPageContent() {
-  const { portal } = useTenantSite();
-
-  return (
-    <>
       <TenantPageIntro
-        eyebrow="Business data privacy"
-        title="Invoices, accounts, staff activity, and digital documents belong behind controlled access."
-        summary={`This page describes the public product-information boundary for ${portal.brandName}. Exact company policies, retention periods, and deployment controls should be confirmed through the responsible service contact.`}
+        eyebrow="Privacy"
+        title="Business information should stay inside the business context that owns it."
+        summary="This public summary explains the privacy direction for TechMedia and LogicX. Final contractual terms may add region, service, and customer-specific detail."
       />
-      <section className="tenant-page-section tenant-prose">
-        <article>
-          <span>01</span>
-          <div>
-            <h2>Public product information</h2>
-            <p>
-              These pages explain operations features, product experience, security approach,
-              guides, and updates. Reading this material does not require access to business
-              records.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>02</span>
-          <div>
-            <h2>Account sign-in</h2>
-            <p>
-              Customer, item, invoice, e-way bill, e-invoice, receipt, payment, ledger, report, and
-              staff activity data begins only after authorised sign-in.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>03</span>
-          <div>
-            <h2>Staff responsibility</h2>
-            <p>
-              Visibility and actions should follow each employee&apos;s business responsibility.
-              Access can be changed when staff join, leave, or move without removing the
-              company&apos;s document history.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>04</span>
-          <div>
-            <h2>Connected communication and providers</h2>
-            <p>
-              Mail, messaging, payment, storage, compliance, and other connected providers may
-              process information under their own policies. Connections should be approved and
-              configured by authorised administrators.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>05</span>
-          <div>
-            <h2>Light AI assistance</h2>
-            <p>
-              AI-assisted preparation should respect staff access, label estimates or generated
-              suggestions, and require human confirmation before important financial actions.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>06</span>
-          <div>
-            <h2>Retention, backup, and support access</h2>
-            <p>
-              Exact retention periods, backup schedules, restore objectives, infrastructure regions,
-              and support-access rules depend on the deployed service arrangement and should be
-              confirmed before production use.
-            </p>
-          </div>
-        </article>
+      <section className="tenant-section tenant-prose">
+        <h2>Information we handle</h2>
+        <p>
+          Account, tenant, user, enquiry, store, product, operational, support, and technical
+          information may be handled when the related feature is enabled and used.
+        </p>
+        <h2>Why it is used</h2>
+        <p>
+          Information is used to authenticate users, provide requested workflows, protect tenant
+          boundaries, support the service, diagnose failures, and improve authorised product
+          operation.
+        </p>
+        <h2>Tenant and store boundaries</h2>
+        <p>
+          Business data must remain scoped to its tenant. Future multi-store access will follow
+          explicit roles and location permissions rather than making every store visible to every
+          user.
+        </p>
+        <h2>Your responsibility</h2>
+        <p>
+          Use authorised accounts, protect credentials, assign access carefully, and avoid entering
+          unnecessary sensitive information in general notes or support messages.
+        </p>
+        <h2>Questions</h2>
+        <p>
+          Use the TechMedia contact route for privacy or data-handling questions. Do not include
+          passwords, one-time codes, or access tokens.
+        </p>
       </section>
-      <section className="tenant-page-section tenant-legal-note">
-        <ShieldCheck />
-        <div>
-          <span>Need a clearer control view?</span>
-          <h2>See how staff access, document checks, and activity support safer operations.</h2>
-        </div>
-        <Link to="/security">
-          Operations controls <ArrowRight />
-        </Link>
-      </section>
-    </>
+    </TenantSiteTemplate>
   );
 }

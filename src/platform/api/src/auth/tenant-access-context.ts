@@ -15,25 +15,38 @@ export function tenantAccessContext(request: FastifyRequest) {
     tenantId: request.headers["x-tenant-id"]
   });
   const database = getTenantDatabaseByName(tenantDatabase);
+  const actorUser = () =>
+    database
+      .selectFrom("users")
+      .select(["id", "uuid", "email", "name", "role", "status"])
+      .where("email", "=", claims.email ?? "")
+      .where("status", "=", "active")
+      .executeTakeFirst();
+  const can = async (permission: string) => {
+    const user = await actorUser();
+    if (!user) return false;
+    if (permission.startsWith("platform.application.") && user.role !== "admin") return false;
+    const allowed = await database
+      .selectFrom("user_roles as userRole")
+      .innerJoin("roles as role", "role.id", "userRole.role_id")
+      .innerJoin("role_permissions as rolePermission", "rolePermission.role_id", "role.id")
+      .innerJoin("permissions as permission", "permission.id", "rolePermission.permission_id")
+      .select("permission.id")
+      .where("userRole.user_id", "=", user.id)
+      .where("userRole.status", "=", "active")
+      .where("role.status", "=", "active")
+      .where("rolePermission.status", "=", "active")
+      .where("permission.status", "=", "active")
+      .where("permission.key", "=", permission)
+      .executeTakeFirst();
+    return Boolean(allowed);
+  };
   return {
     actorEmail: claims.email ?? "tenant@techmedia.app",
+    actorUser,
+    can,
     authorize: async (permission: string) => {
-      const allowed = await database
-        .selectFrom("users as user")
-        .innerJoin("user_roles as userRole", "userRole.user_id", "user.id")
-        .innerJoin("roles as role", "role.id", "userRole.role_id")
-        .innerJoin("role_permissions as rolePermission", "rolePermission.role_id", "role.id")
-        .innerJoin("permissions as permission", "permission.id", "rolePermission.permission_id")
-        .select("permission.id")
-        .where("user.email", "=", claims.email ?? "")
-        .where("user.status", "=", "active")
-        .where("userRole.status", "=", "active")
-        .where("role.status", "=", "active")
-        .where("rolePermission.status", "=", "active")
-        .where("permission.status", "=", "active")
-        .where("permission.key", "=", permission)
-        .executeTakeFirst();
-      if (!allowed) throw AppError.forbidden(`Permission ${permission} is required.`);
+      if (!(await can(permission))) throw AppError.forbidden(`Permission ${permission} is required.`);
     },
     database,
     tenantDatabase,

@@ -20,6 +20,7 @@ export type PlatformDatabase = {
   platform_activity: PlatformActivityTable;
   platform_apps: PlatformAppsTable;
   queue_jobs: QueueJobsTable;
+  queue_runtime_settings: QueueRuntimeSettingsTable;
   storage_objects: StorageObjectsTable;
   subscriptions: SubscriptionsTable;
   tenant_domains: TenantDomainsTable;
@@ -28,6 +29,12 @@ export type PlatformDatabase = {
 };
 
 export type TenantDatabase = {
+  crm_enquiries: CrmEnquiriesTable;
+  crm_enquiry_messages: CrmEnquiryMessagesTable;
+  crm_enquiry_schedules: CrmEnquirySchedulesTable;
+  frappe_connection_settings: FrappeConnectionSettingsTable;
+  frappe_enquiry_links: FrappeEnquiryLinksTable;
+  frappe_sync_settings: FrappeSyncSettingsTable;
   schema_migrations: TenantMigrationsTable;
   module_settings: TenantModuleSettingsTable;
   permissions: TenantPermissionsTable;
@@ -35,6 +42,83 @@ export type TenantDatabase = {
   roles: TenantRolesTable;
   user_roles: TenantUserRolesTable;
   users: TenantUsersTable;
+};
+
+export type FrappeConnectionSettingsTable = {
+  api_key_ciphertext: string;
+  api_secret_ciphertext: string;
+  base_url: string;
+  connection_key: string;
+  connection_name: string;
+  created_at: TimestampColumn;
+  enabled: boolean | number;
+  id: Generated<number>;
+  last_checked_at: TimestampColumn | null;
+  last_verified_at: TimestampColumn | null;
+  updated_at: TimestampColumn;
+  uuid: string;
+  verification_status: "live" | "offline" | "unverified";
+};
+
+export type CrmEnquiriesTable = {
+  assigned_to_user_id: number | null;
+  created_at: TimestampColumn;
+  created_by_user_id: number;
+  customer: string;
+  enquiry_date: string | null;
+  enquiry_group: string;
+  id: Generated<number>;
+  lifecycle_status: "active" | "suspended";
+  mobile: string;
+  priority: "low" | "normal" | "high" | "urgent";
+  status: "open" | "follow" | "escalation" | "won" | "lost";
+  title: string;
+  updated_at: TimestampColumn;
+  uuid: string;
+  workspace: string;
+};
+
+export type CrmEnquiryMessagesTable = {
+  comment: string;
+  created_at: TimestampColumn;
+  enquiry_id: number;
+  id: Generated<number>;
+  position: number;
+  updated_at: TimestampColumn;
+};
+
+export type CrmEnquirySchedulesTable = {
+  created_at: TimestampColumn;
+  enquiry_id: number;
+  id: Generated<number>;
+  scheduled_on: string;
+  updated_at: TimestampColumn;
+};
+
+export type FrappeSyncSettingsTable = {
+  created_at: TimestampColumn;
+  enquiry_doctype: string;
+  id: Generated<number>;
+  last_pull_at: TimestampColumn | null;
+  last_push_at: TimestampColumn | null;
+  pull_enquiries_enabled: boolean | number;
+  push_enquiries_enabled: boolean | number;
+  setting_key: string;
+  updated_at: TimestampColumn;
+  uuid: string;
+};
+
+export type FrappeEnquiryLinksTable = {
+  created_at: TimestampColumn;
+  crm_enquiry_id: number;
+  frappe_modified_at: TimestampColumn | null;
+  frappe_name: string;
+  id: Generated<number>;
+  last_error: string | null;
+  last_synced_at: TimestampColumn | null;
+  sync_status: "error" | "synced";
+  updated_at: TimestampColumn;
+  uuid: string;
 };
 
 export type PlatformAppsTable = {
@@ -132,6 +216,15 @@ export type QueueJobsTable = {
   status: "cancelled" | "completed" | "failed" | "pending" | "running";
   tenant_id: string | null;
   updated_at: TimestampColumn;
+  uuid: string;
+};
+
+export type QueueRuntimeSettingsTable = {
+  backend: "bullmq-redis" | "database";
+  id: Generated<number>;
+  setting_key: string;
+  updated_at: TimestampColumn;
+  updated_by: string | null;
   uuid: string;
 };
 

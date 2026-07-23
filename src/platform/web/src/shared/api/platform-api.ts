@@ -12,6 +12,11 @@ const TOKEN_KEYS: Record<Desk, string> = {
 
 const TENANT_ID_KEY = "techmedia_tenant_id";
 const TENANT_DB_NAME_KEY = "techmedia_tenant_db_name";
+const CORE_TENANT_KEYS = {
+  database: "codexsun_tenant_db_name",
+  id: "codexsun_tenant_id",
+  token: "codexsun_session_tenant"
+} as const;
 const TENANT_RUNTIME_KEYS = [
   "techmedia.tenant.landing-app.live",
   "codexsun.tenant.company-id",
@@ -95,6 +100,9 @@ function clearTenantSession(): void {
     localStorage.removeItem(TOKEN_KEYS.tenant);
     localStorage.removeItem(TENANT_ID_KEY);
     localStorage.removeItem(TENANT_DB_NAME_KEY);
+    localStorage.removeItem(CORE_TENANT_KEYS.database);
+    localStorage.removeItem(CORE_TENANT_KEYS.id);
+    localStorage.removeItem(CORE_TENANT_KEYS.token);
     for (const key of TENANT_RUNTIME_KEYS) localStorage.removeItem(key);
   } catch {}
 }
@@ -107,6 +115,13 @@ function writeTenantSession(input: {
   setTenantId(input.tenantId);
   setTenantDbName(input.tenantDbName);
   setToken("tenant", input.accessToken);
+  // Core is a separately bundled dependency and still reads its established
+  // storage contract. Mirror the authenticated TechMedia context at that seam.
+  try {
+    localStorage.setItem(CORE_TENANT_KEYS.database, input.tenantDbName);
+    localStorage.setItem(CORE_TENANT_KEYS.id, input.tenantId);
+    localStorage.setItem(CORE_TENANT_KEYS.token, input.accessToken);
+  } catch {}
 }
 
 function authHeaders(desk?: Desk): Record<string, string> {

@@ -6,7 +6,8 @@ import {
   getQueueRuntimeSettings,
   listQueueJobs,
   retryQueueJob,
-  runQueueJob
+  runQueueJob,
+  updateQueueBackend
 } from "./queue-management.services";
 import type { QueueJobFilters } from "./queue-management.types";
 
@@ -38,6 +39,10 @@ export function useQueueJobMutations() {
     void client.invalidateQueries({ queryKey: ["admin", "database"] });
   };
   return {
+    backend: useMutation({
+      mutationFn: updateQueueBackend,
+      onSuccess: done
+    }),
     cancel: useMutation({
       mutationFn: (id: number) => cancelQueueJob(queueJobAction(id).id),
       onSuccess: done

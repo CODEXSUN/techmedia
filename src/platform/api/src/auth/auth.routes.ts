@@ -112,6 +112,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         tenantDbName: payload.tenantDbName,
         tenantId: payload.tenantId,
         tenantUuid: payload.tenantUuid,
+        tenantRole: payload.tenantRole,
+        permissions: payload.permissions ?? [],
         userType: payload.userType
       },
       {

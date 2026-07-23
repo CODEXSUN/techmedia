@@ -6,21 +6,27 @@ const queues = new Map<string, Queue>();
 const workers = new Map<string, Worker>();
 
 export function bullMqAvailable() {
-  return env.TECHMEDIA_QUEUE_BACKEND === "bullmq-redis";
+  return Boolean(env.TECHMEDIA_REDIS_URL.trim());
 }
 
 export async function publishBullMqJob(job: QueueJobRecord) {
-  if (!bullMqAvailable()) return;
+  if (!bullMqAvailable()) throw new Error("Redis URL is not configured.");
   const queue = queueFor(job.queueName);
+  const jobId = job.idempotencyKey ?? job.uuid;
+  const existing = await queue.getJob(jobId);
+  if (existing) {
+    return { deduplicated: true, jobId: String(existing.id) };
+  }
   const options: JobsOptions = {
     attempts: job.maxAttempts,
     backoff: { delay: 5000, type: "exponential" },
-    jobId: job.idempotencyKey ?? job.uuid,
+    jobId,
     priority: job.priority,
     removeOnComplete: false,
     removeOnFail: false
   };
-  await queue.add(job.jobName, { queueJobId: job.id, ...job.payload }, options);
+  const queued = await queue.add(job.jobName, { queueJobId: job.id, ...job.payload }, options);
+  return { deduplicated: false, jobId: String(queued.id) };
 }
 
 export function startBullMqWorker(
@@ -39,8 +45,71 @@ export function startBullMqWorker(
     },
     { connection: redisConnectionOptions() }
   );
+  worker.on("error", (error) => {
+    console.error(`[queue.redis] worker error queue=${queueName}: ${error.message}`);
+  });
   workers.set(queueName, worker);
   return worker;
+}
+
+export async function checkBullMqHealth(timeoutMs = 3000) {
+  const startedAt = Date.now();
+  if (!bullMqAvailable()) {
+    return {
+      checkedAt: new Date().toISOString(),
+      latencyMs: 0,
+      message: "Redis URL is not configured.",
+      status: "unavailable" as const
+    };
+  }
+  try {
+    const queue = queueFor("techmedia-system-health");
+    await Promise.race([
+      queue.getJobCounts("waiting", "active", "failed"),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Redis health check timed out.")), timeoutMs)
+      )
+    ]);
+    return {
+      checkedAt: new Date().toISOString(),
+      latencyMs: Date.now() - startedAt,
+      status: "available" as const
+    };
+  } catch (error) {
+    return {
+      checkedAt: new Date().toISOString(),
+      latencyMs: Date.now() - startedAt,
+      message: error instanceof Error ? error.message : "Redis is unavailable.",
+      status: "unavailable" as const
+    };
+  }
+}
+
+export async function cancelBullMqJob(job: QueueJobRecord) {
+  const queued = await queueFor(job.queueName).getJob(job.idempotencyKey ?? job.uuid);
+  if (!queued) return false;
+  await queued.remove();
+  return true;
+}
+
+export async function retryBullMqJob(job: QueueJobRecord) {
+  const queue = queueFor(job.queueName);
+  const queued = await queue.getJob(job.idempotencyKey ?? job.uuid);
+  if (!queued) {
+    await publishBullMqJob(job);
+    return true;
+  }
+  const state = await queued.getState();
+  if (state === "failed") {
+    await queued.retry();
+    return true;
+  }
+  if (state === "completed") {
+    await queued.remove();
+    await publishBullMqJob(job);
+    return true;
+  }
+  return state === "waiting" || state === "delayed" || state === "active";
 }
 
 export async function closeBullMq() {
@@ -54,6 +123,9 @@ function queueFor(queueName: string) {
   const existing = queues.get(queueName);
   if (existing) return existing;
   const queue = new Queue(queueName, { connection: redisConnectionOptions() });
+  queue.on("error", (error) => {
+    console.error(`[queue.redis] connection error queue=${queueName}: ${error.message}`);
+  });
   queues.set(queueName, queue);
   return queue;
 }

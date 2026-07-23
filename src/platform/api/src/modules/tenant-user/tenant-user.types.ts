@@ -17,6 +17,7 @@ export type TenantUserSavePayload = {
   status: TenantUserStatus;
 };
 export type TenantUserListFilters = { search?: string };
+export type TenantUserReference = Pick<TenantUser, "email" | "id" | "name" | "uuid">;
 export type TenantUserContext = {
   actorEmail: string;
   authorize: (permission: string) => Promise<void>;

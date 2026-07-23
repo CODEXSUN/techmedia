@@ -5,7 +5,7 @@
 This is the authoritative current workspace map for the TechMedia application. Historical
 Copied source-project notes do not override this inventory.
 
-Last reviewed: 2026-07-22.
+Last reviewed: 2026-07-23.
 
 ## Executable Application
 
@@ -14,6 +14,26 @@ Last reviewed: 2026-07-22.
 | `techmedia` | `techmedia` | Runs the Platform API on 7050 and Platform Web on 7060 |
 
 TechMedia is the only executable composition root for this application.
+
+The tenant application surface contains three registered apps:
+
+- `Application` is the administration desk and is visible only to the protected tenant admin
+  identity. Tenant staff, manager, and normal-user identities cannot expose it through role
+  permission assignment.
+- `CRM` is the permission-aware business app. Its module-owned Enquiry aggregate lives under
+  `src/platform/api/src/modules/crm/` and `src/platform/web/src/modules/crm/`.
+- `Frappe` is the admin-only integration app. Its encrypted tenant connection settings live under
+  `src/platform/api/src/modules/frappe/` and `src/platform/web/src/modules/frappe/`. The owner also
+  provides the fixed `POST /tenant/frappe/settings/verify` handshake, which validates current or
+  stored credentials against Frappe without persisting verification-only form values. Saved
+  connections retain module-owned `unverified`, `live`, or `offline` verification state and
+  last-check timestamps for the desk status badges.
+
+The public web surface is a simple TechMedia company site owned by
+`src/platform/web/src/public/tenant-site/`. Its product position is computer hardware wholesale
+and retail, practical technology support, and LogicX business software. Multi-tenant, multi-store,
+and franchise-style network capabilities are described only as staged product direction until
+their module-owned implementations exist.
 
 Container host ports are intentionally distinct from native development: API `18050`, Web
 `18060`. It uses the single shared CODEXSUN MariaDB, Redis, and media containers on
@@ -66,15 +86,23 @@ source imports and cross-repository table writes are prohibited.
 1. TechMedia Platform owns master and tenant-runtime tables under
    `src/platform/api/src/modules/`.
 2. Core owns tenant common, organisation, and master tables under `core/api/src/modules/`.
-3. No other sibling application participates in TechMedia database lifecycle.
+3. TechMedia CRM owns tenant enquiry and enquiry-schedule tables under
+   `src/platform/api/src/modules/crm/`.
+4. TechMedia Frappe owns encrypted tenant connection settings under
+   `src/platform/api/src/modules/frappe/`.
+5. No sibling application participates in TechMedia database lifecycle.
 
 Tenant lifecycle order:
 
 1. Platform master migrations and seeds.
 2. Tenant runtime migrations.
 3. Core migrations.
-4. Tenant runtime seeds.
-5. Core seeds.
+4. CRM migration when the CRM app is enabled.
+5. Frappe connection migration when the Frappe app is enabled.
+6. Tenant runtime seeds.
+7. Core seeds.
+8. CRM seed when the CRM app is enabled.
+9. Frappe permission seed when the Frappe app is enabled.
 
 Composition roots order exported lifecycle functions only. SQL, seed records, relationship
 resolution, protected records, and lifecycle policy remain in their owning leaves.

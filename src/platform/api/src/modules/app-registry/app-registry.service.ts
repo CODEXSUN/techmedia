@@ -5,7 +5,7 @@ import type {
 } from "./app-registry.types.js";
 import { AppRegistryRepository } from "./app-registry.repository.js";
 
-export const defaultTenantModuleKeys = ["platform.application"] as const;
+export const defaultTenantModuleKeys = ["platform.application", "crm", "frappe"] as const;
 
 export const platformAppRegistry: PlatformAppDefinition[] = [
   {
@@ -16,6 +16,28 @@ export const platformAppRegistry: PlatformAppDefinition[] = [
     id: 0,
     label: "Application",
     moduleKey: "platform.application",
+    stack: "platform",
+    uuid: ""
+  },
+  {
+    alwaysEnabled: true,
+    defaultLanding: false,
+    description: "Enquiry ownership, open work, rich workspace notes, assignments, and schedules.",
+    appId: "crm",
+    id: 0,
+    label: "CRM",
+    moduleKey: "crm",
+    stack: "platform",
+    uuid: ""
+  },
+  {
+    alwaysEnabled: true,
+    defaultLanding: false,
+    description: "Encrypted tenant connection settings for Frappe CRM integration.",
+    appId: "frappe",
+    id: 0,
+    label: "Frappe",
+    moduleKey: "frappe",
     stack: "platform",
     uuid: ""
   }

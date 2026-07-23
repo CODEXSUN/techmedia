@@ -1,105 +1,42 @@
-﻿import { Link } from "@tanstack/react-router";
-import { ArrowRight, FileCheck2 } from "lucide-react";
 import { TenantPageIntro } from "../blocks/tenant-page-intro";
-import { useTenantSite } from "../tenant-site.context";
 import { TenantSiteTemplate } from "../templates/tenant-site.template";
 
 export function TenantTermsPage() {
   return (
     <TenantSiteTemplate activePage="terms" pageTitle="Terms">
-      <TermsPageContent />
-    </TenantSiteTemplate>
-  );
-}
-
-function TermsPageContent() {
-  const { portal } = useTenantSite();
-
-  return (
-    <>
       <TenantPageIntro
-        eyebrow="Application terms"
-        title="Clear responsibility for operations data, staff access, and final financial decisions."
-        summary={`These baseline terms describe the ${portal.brandName} product-information pages and authenticated application use. Commercial, support, and deployment terms may be published separately.`}
+        eyebrow="Terms of use"
+        title="Use TechMedia and LogicX only for authorised business activity."
+        summary="These are concise public-use principles. Commercial agreements, quotations, warranties, service terms, and tenant contracts may contain additional conditions."
       />
-      <section className="tenant-page-section tenant-prose">
-        <article>
-          <span>01</span>
-          <div>
-            <h2>Public pages</h2>
-            <p>
-              Product pages provide general information about operations, accounts, document flows,
-              staff controls, security, and product direction. They do not grant access to business
-              data.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>02</span>
-          <div>
-            <h2>Authorised application access</h2>
-            <p>
-              Accounts may be used only by authorised people. Available areas and actions depend on
-              the responsibilities and permissions assigned to the signed-in user.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>03</span>
-          <div>
-            <h2>Document and financial accuracy</h2>
-            <p>
-              Users remain responsible for checking customer, item, tax, total, transport,
-              compliance, payment, and approval information before completing business actions.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>04</span>
-          <div>
-            <h2>Staff changes</h2>
-            <p>
-              Administrators are responsible for updating access when employees join, leave, or
-              change roles. Shared passwords and transferred personal credentials should not be used
-              as a handover method.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>05</span>
-          <div>
-            <h2>External services and automation</h2>
-            <p>
-              Connected mail, messaging, payment, compliance, storage, and AI providers may apply
-              their own availability, limits, and data-processing rules. Important automated or
-              assisted financial actions require appropriate review.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>06</span>
-          <div>
-            <h2>Service change and maintenance</h2>
-            <p>
-              Features and guidance may evolve as the product improves. Maintenance, migration, and
-              background processing should preserve business records, document history, and access
-              expectations.
-            </p>
-          </div>
-        </article>
+      <section className="tenant-section tenant-prose">
+        <h2>Accounts and access</h2>
+        <p>
+          Users must use their own authorised account and must not bypass role, tenant, store, or
+          application restrictions.
+        </p>
+        <h2>Hardware and services</h2>
+        <p>
+          Product specification, availability, price, delivery, warranty, installation, and support
+          obligations are governed by the applicable quotation, invoice, manufacturer terms, or
+          service agreement.
+        </p>
+        <h2>Software use</h2>
+        <p>
+          Do not misuse the service, interfere with other tenants, probe restricted systems, upload
+          harmful content, or use automation outside an approved integration.
+        </p>
+        <h2>Business records</h2>
+        <p>
+          Customers remain responsible for the accuracy, legality, retention, and authorised use of
+          the business information entered by their users.
+        </p>
+        <h2>Roadmap statements</h2>
+        <p>
+          Descriptions of planned multi-store, inventory, or franchise capabilities express product
+          direction and do not guarantee a release date or final implementation.
+        </p>
       </section>
-      <section className="tenant-page-section tenant-legal-note">
-        <FileCheck2 />
-        <div>
-          <span>Need help with a specific workflow?</span>
-          <h2>
-            Use the product contact route for operations setup, support, and service questions.
-          </h2>
-        </div>
-        <Link to="/contact">
-          Contact options <ArrowRight />
-        </Link>
-      </section>
-    </>
+    </TenantSiteTemplate>
   );
 }

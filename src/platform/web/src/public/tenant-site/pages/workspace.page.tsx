@@ -1,138 +1,104 @@
-﻿import {
+import {
   ArrowRight,
-  CheckCircle2,
-  ClipboardCheck,
-  Layers3,
-  LockKeyhole,
-  UsersRound
+  Boxes,
+  Building,
+  Cpu,
+  Headphones,
+  Laptop,
+  PackageSearch,
+  Store
 } from "lucide-react";
-import { TenantFaq, type TenantFaqItem } from "../blocks/tenant-faq";
 import { TenantPageIntro } from "../blocks/tenant-page-intro";
 import { TenantPortalCta } from "../blocks/tenant-portal-cta";
-import { TenantProductPreview } from "../blocks/tenant-product-preview";
-import { TenantSectionHeading } from "../blocks/tenant-section-heading";
-import { operationsSlides } from "../tenant-site.content";
 import { useTenantSite } from "../tenant-site.context";
 import { TenantSiteTemplate } from "../templates/tenant-site.template";
 
-const workspaceFaq: TenantFaqItem[] = [
-  {
-    question: "Can a new staff member learn the operations flow quickly?",
-    answer:
-      "Yes. The experience keeps customer, item, tax, totals, document status, and next actions in a predictable order so new staff can become productive without memorising disconnected screens."
-  },
-  {
-    question: "What happens when operations responsibility moves to another employee?",
-    answer:
-      "Access can be changed without deleting the business trail. Pending documents, customer context, status, and activity remain available to the authorised replacement."
-  },
-  {
-    question: "How does the flow improve invoice accuracy?",
-    answer:
-      "Guided fields, reusable master data, tax and total checks, visible document status, and review steps help catch errors before a document moves forward."
-  }
-];
-
 export function TenantWorkspacePage() {
   return (
-    <TenantSiteTemplate activePage="workspace" pageTitle="Operations">
-      <WorkspacePageContent />
+    <TenantSiteTemplate activePage="workspace" pageTitle="Computer hardware">
+      <HardwarePageContent />
     </TenantSiteTemplate>
   );
 }
 
-function WorkspacePageContent() {
+function HardwarePageContent() {
   const { portal } = useTenantSite();
 
   return (
     <>
       <TenantPageIntro
-        eyebrow={`${portal.brandName} operations experience`}
-        title="Operations work that new staff can understand from the first day."
-        summary="Create invoices, continue into e-way bills and e-invoices, follow collections, and review daily work without teaching people a maze of screens."
+        eyebrow="Computer hardware"
+        title="Hardware supply for retail customers, resellers, offices, and projects."
+        summary={`${portal.brandName} connects product sourcing, practical advice, order coordination, and support for everyday computer and business technology needs.`}
         actions={
-          <a className="tenant-portal-primary" href={portal.loginPath}>
-            Open operations <ArrowRight />
+          <a className="tenant-button tenant-button-primary" href={portal.loginPath}>
+            Open application <ArrowRight />
           </a>
         }
       />
-      <section className="tenant-page-section tenant-workspace-section">
-        <header className="tenant-page-section-heading">
-          <span>How daily operations fits together</span>
-          <h2>Enter the sale once. Carry accurate information through every next step.</h2>
-        </header>
-        <div className="tenant-workspace-steps">
-          {operationsSlides.map((slide, index) => (
-            <article key={slide.title}>
-              <div>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                {index === 0 ? <LockKeyhole /> : <CheckCircle2 />}
-              </div>
-              <small>{slide.label}</small>
-              <h3>{slide.title}</h3>
-              <p>{slide.description}</p>
-            </article>
-          ))}
+      <section className="tenant-section">
+        <div className="tenant-section-heading">
+          <span>Product areas</span>
+          <h2>Useful technology without an overwhelming catalogue experience.</h2>
         </div>
-        <div className="tenant-context-panel">
-          <div>
-            <span>Operations flow</span>
-            <strong>Quotation to receipt</strong>
-          </div>
-          <div>
-            <span>Compliance documents</span>
-            <strong>E-way bill and e-invoice</strong>
-          </div>
-          <div>
-            <span>Staff experience</span>
-            <strong>Guided and responsibility based</strong>
-          </div>
-        </div>
-      </section>
-      <section className="tenant-page-section tenant-workspace-product">
-        <TenantSectionHeading
-          eyebrow="See the operations model"
-          title="A calm surface for daily work. A deeper system for accuracy underneath."
-          summary="The product keeps routine invoicing easy while allowing stronger document checks, accounts visibility, staff controls, and automation when the business needs them."
-        />
-        <TenantProductPreview label="Operations work centre" />
-      </section>
-      <section className="tenant-page-section tenant-workspace-outcomes">
-        <TenantSectionHeading
-          eyebrow="Built for the working day"
-          title="Less time correcting work. More confidence in every document and handover."
-        />
-        <div className="tenant-workspace-outcome-grid">
-          <article>
-            <Layers3 />
-            <span>Connected operations</span>
-            <h3>Sales, compliance, receipts, and accounts stay together</h3>
+        <div className="tenant-card-grid tenant-card-grid-three">
+          <article className="tenant-card">
+            <Laptop />
+            <h3>Computers</h3>
             <p>
-              The team can move forward without copying the same customer and document information
-              between disconnected tools.
+              Laptops, desktops, workstations, upgrades, and configured systems for home and
+              business use.
             </p>
           </article>
-          <article>
-            <UsersRound />
-            <span>Easy staff change</span>
-            <h3>Responsibility can move without losing history</h3>
+          <article className="tenant-card">
+            <Cpu />
+            <h3>Components</h3>
             <p>
-              New staff can see the pending work, document status, and customer trail they inherit.
+              Processors, memory, storage, cabinets, power supplies, networking, and essential
+              replacement parts.
             </p>
           </article>
-          <article>
-            <ClipboardCheck />
-            <span>Digital documentation</span>
-            <h3>Documents and activity remain easy to find</h3>
+          <article className="tenant-card">
+            <PackageSearch />
+            <h3>Peripherals</h3>
             <p>
-              Invoices, receipts, compliance references, attachments, and important changes stay
-              connected to the work they explain.
+              Monitors, printers, keyboards, mice, power protection, accessories, and supporting
+              equipment.
             </p>
           </article>
         </div>
       </section>
-      <TenantFaq items={workspaceFaq} />
-      <TenantPortalCta />
+      <section className="tenant-section tenant-section-soft">
+        <div className="tenant-split">
+          <div>
+            <span className="tenant-kicker">Wholesale and retail</span>
+            <h2>Different buying needs, one dependable supply approach.</h2>
+            <p>
+              Retail customers need clear advice and the right product. Wholesale buyers need
+              availability, repeatable ordering, pricing coordination, and delivery clarity.
+              TechMedia is shaped around both.
+            </p>
+          </div>
+          <div className="tenant-check-list">
+            <span>
+              <Store /> Retail product guidance
+            </span>
+            <span>
+              <Boxes /> Wholesale and reseller supply
+            </span>
+            <span>
+              <Building /> Office and institutional requirements
+            </span>
+            <span>
+              <Headphones /> Setup and service coordination
+            </span>
+          </div>
+        </div>
+      </section>
+      <TenantPortalCta
+        title="Bring your hardware enquiries into one working system."
+        summary="The current application includes CRM enquiry handling; product, stock, store, and order capabilities will grow as independently owned modules."
+      />
     </>
   );
 }

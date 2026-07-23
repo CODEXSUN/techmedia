@@ -33,6 +33,24 @@ export class TenantUserRepository {
       );
     return result.rows[0] ? mapRow(result.rows[0]) : null;
   }
+  async listActiveReferences() {
+    const rows = await this.database
+      .selectFrom("users")
+      .select(["id", "uuid", "name", "email"])
+      .where("status", "=", "active")
+      .orderBy("name", "asc")
+      .execute();
+    return rows.map((row) => ({ ...row, id: Number(row.id) }));
+  }
+  async findActiveReference(id: number) {
+    const row = await this.database
+      .selectFrom("users")
+      .select(["id", "uuid", "name", "email"])
+      .where("id", "=", id)
+      .where("status", "=", "active")
+      .executeTakeFirst();
+    return row ? { ...row, id: Number(row.id) } : null;
+  }
   async create(input: TenantUserSavePayload, uuid: string, passwordHash: string) {
     const result =
       await sql`INSERT INTO users (uuid,name,email,password_hash,role,status,is_protected)

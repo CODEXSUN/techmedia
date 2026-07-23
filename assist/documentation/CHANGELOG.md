@@ -2,16 +2,38 @@
 
 ## Version State
 
-Current version: 1.0.4
+Current version: 1.0.5
 
-Release tag: v-1.0.4
+Release tag: v-1.0.5
 
-Changelog label: v 1.0.4
+Changelog label: v 1.0.5
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.5
+
+### [v 1.0.5] 2026-07-23 11:11 am - Add CRM and Frappe tenant workflows
+
+#### Database Changes
+
+- Database update: Yes.
+- Added module-owned tenant migrations and seeds for CRM enquiries/schedules and encrypted Frappe
+  connection settings, plus the forward Queue Manager backend and delivery metadata update.
+- Updated tenant access and role seed contracts in their owners; existing tenant databases require
+  the ordered forward migrations and repeatable seeds before enabling the new apps.
+
+#### App Codebase Changes
+
+- Added the independently owned CRM API/Web workflow with tenant-aware enquiry lifecycle,
+  scheduling, permissions, and navigation.
+- Added the Frappe connection API/Web module with encrypted credentials, fixed contracts, protected
+  permissions, and reusable server-side connection access without returning secrets to browsers.
+- Integrated durable database and BullMQ/Redis Queue V2 backends, tenant administration updates,
+  application registration, refreshed public tenant pages, and updated operational documentation.
+- Bumped repository version to 1.0.5.
 
 ## v-1.0.4
 

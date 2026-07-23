@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "@codexsun/ui/components/sonner";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";
 import { QueueManagementForm } from "./queue-management.form";
 import {
@@ -20,6 +21,7 @@ export function QueueManagementWorkspace() {
   const settings = useQueueRuntimeQuery();
   const mutations = useQueueJobMutations();
   const busy =
+    mutations.backend.isPending ||
     mutations.cancel.isPending ||
     mutations.cleanup.isPending ||
     mutations.retry.isPending ||
@@ -27,13 +29,31 @@ export function QueueManagementWorkspace() {
   return (
     <WorkspacePage
       title="Queue Management"
-      description="Manage database-backed platform jobs now, with the same surface ready for BullMQ and Redis later."
+      description="Run jobs locally with the database queue or switch live workloads to BullMQ and Redis."
       technicalName="page.queue-management"
     >
       <div className="rounded-md border bg-card p-3 shadow-sm">
         <QueueManagementForm
           filters={filters}
           loading={jobs.isLoading || settings.isLoading || busy}
+          settings={settings.data}
+          onBackendChange={(backend) => {
+            const label = backend === "bullmq-redis" ? "BullMQ + Redis" : "database queue";
+            if (
+              !window.confirm(
+                `Switch the active queue backend to ${label}? Pending jobs will remain durable.`
+              )
+            ) {
+              return;
+            }
+            mutations.backend.mutate(backend, {
+              onError: (error) =>
+                toast.error("Queue backend was not changed", {
+                  description: error instanceof Error ? error.message : "Please try again."
+                }),
+              onSuccess: () => toast.success(`Queue backend changed to ${label}`)
+            });
+          }}
           onCleanup={() => mutations.cleanup.mutate()}
           onFiltersChange={setFilters}
           onRefresh={() => {

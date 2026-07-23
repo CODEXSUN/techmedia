@@ -9,8 +9,9 @@ Platform application.
 - Core: composed into the Platform API and Web workspaces as the only business foundation package.
 - Billing, Mail, Ecommerce, and Sites: not installed or composed in TechMedia.
 
-Core, Framework, and UI remain foundation packages rather than tenant-selectable applications. The current
-App Operations registry therefore exposes only the Platform-owned Application entry.
+Core, Framework, and UI remain foundation packages rather than tenant-selectable applications.
+The tenant workspace registers Platform-owned Application, CRM, and Frappe entries; App Operations
+continues to report the single composed Platform runtime.
 
 ## Controls
 

@@ -37,6 +37,7 @@ export class AuthService {
     if (!user || user.status !== "active" || !verifyPassword(input.password, user.password_hash)) {
       return null;
     }
+    const permissions = await tenantRepository.findTenantUserPermissionKeys(tenant, user.id);
 
     return {
       accessToken: signAuthToken({
@@ -46,6 +47,8 @@ export class AuthService {
         tenantDbName: tenant.dbName,
         tenantId: tenant.uuid,
         tenantUuid: tenant.uuid,
+        tenantRole: user.role,
+        permissions,
         userId: user.uuid,
         userType: "tenant"
       }),
@@ -55,6 +58,8 @@ export class AuthService {
       tenantDbName: tenant.dbName,
       tenantId: tenant.uuid,
       tenantUuid: tenant.uuid,
+      tenantRole: user.role,
+      permissions,
       userType: "tenant" as const
     };
   }

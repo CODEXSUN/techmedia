@@ -1,73 +1,70 @@
-﻿import type { TenantPublicPortal } from "../../modules/tenant-portal";
+import type { TenantPublicPortal } from "../../modules/tenant-portal";
 
 export const fallbackTenantPortal: TenantPublicPortal = {
-  brandName: "TECHMEDIA",
+  brandName: "Tech Media",
   configured: false,
   domain: "",
-  eyebrow: "Operations that keeps work moving",
+  eyebrow: "Computer hardware and LogicX software",
   features: [
     {
-      description: "Create clear sales documents with guided tax, totals, and payment details.",
+      description: "Wholesale supply for resellers, offices, institutions, and project needs.",
       label: "01",
-      title: "Fast, accurate invoicing"
+      title: "Hardware wholesale"
     },
     {
-      description: "Prepare e-way bills and e-invoices from organised operations information.",
+      description: "Straightforward computer and accessory buying support for retail customers.",
       label: "02",
-      title: "Compliance-ready documents"
+      title: "Technology retail"
     },
     {
-      description: "Follow receivables, document status, and staff activity as work happens.",
+      description: "Business software for enquiries, teams, stores, and future location networks.",
       label: "03",
-      title: "Real-time visibility"
+      title: "LogicX software"
     }
   ],
-  footerText:
-    "Operations, accounts, compliance documents, staff controls, and daily follow-up in one clear business flow.",
-  headline: "Invoice faster. Stay accurate. Know what happens next.",
+  footerText: "Computer hardware, wholesale, retail, support, and LogicX business software.",
+  headline: "Technology for the counter, office, store, and growing business.",
   loginPath: "/login",
   posts: [
     {
-      description: "A clear operations flow that a new team member can understand quickly.",
-      href: "/features",
-      label: "Operations guide",
-      title: "An invoice flow new staff can learn quickly"
+      description: "Choose computer specifications around real workload and support life.",
+      href: "/blog",
+      label: "Buying guide",
+      title: "Practical hardware selection"
     },
     {
-      description: "Reuse checked invoice details to reduce repeated work during dispatch.",
-      href: "/features",
-      label: "E-way bill",
-      title: "Prepare movement documents without double entry"
-    },
-    {
-      description:
-        "Keep pending work and document history clear when staff responsibilities change.",
+      description: "Prepare shared rules and local responsibility before adding stores.",
       href: "/security",
-      label: "Staff handover",
-      title: "Switch people without losing the operations trail"
+      label: "Store network",
+      title: "Plan multi-store operations"
+    },
+    {
+      description: "Start with customer enquiries and grow through deliberate business modules.",
+      href: "/features",
+      label: "LogicX",
+      title: "A staged software foundation"
     }
   ],
   publicSiteUrl: null,
   slides: [
     {
-      description: "Bring customer, item, tax, discount, and payment details into one guided flow.",
-      label: "Invoice",
-      title: "Create a complete invoice without the usual friction"
+      description: "Computers, components, peripherals, and configured business systems.",
+      label: "Hardware",
+      title: "Technology products for daily work"
     },
     {
-      description: "Reuse checked operations details for e-way bills and e-invoices.",
-      label: "Compliance",
-      title: "Move from operations to compliance with confidence"
+      description: "Supply and support shaped for wholesale and retail buying needs.",
+      label: "Trade",
+      title: "Clear coordination from enquiry to delivery"
     },
     {
-      description:
-        "Follow sales, receivables, staff activity, and document exceptions as work moves.",
-      label: "Live view",
-      title: "See operations work while it is happening"
+      description: "CRM now, with multi-store and tenant capabilities added in stages.",
+      label: "LogicX",
+      title: "Software that grows with the business"
     }
   ],
   summary:
-    "Create invoices, prepare e-way bills and e-invoices, follow accounts, and keep staff work visible from one clean business system.",
+    "TechMedia combines computer hardware, wholesale and retail service, and LogicX business software.",
   tenantCode: null,
   theme: "blue"
 };

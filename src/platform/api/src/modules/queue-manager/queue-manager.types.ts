@@ -49,9 +49,18 @@ export type QueueJobRecord = {
 export type QueueRuntimeSettings = {
   backend: QueueBackend;
   backendLabel: string;
+  backendHealth: {
+    checkedAt: string;
+    latencyMs: number;
+    message?: string;
+    status: "available" | "degraded" | "unavailable";
+  };
   canRunInline: boolean;
   pending: number;
   running: number;
   failed: number;
   completed: number;
+  redisConfigured: boolean;
+  workerEnabled: boolean;
+  workerIntervalMs: number;
 };

@@ -1,19 +1,24 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@codexsun/ui/components/button";
 import { Field } from "@codexsun/ui/components/Field";
-import { AuthLayout } from "@codexsun/ui/layouts/auth-layout";
 import { LogIn } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { developmentTenantLogin, type Desk, login } from "../../shared/api/platform-api";
+import { TechMediaAuthLayout } from "./TechMediaAuthLayout";
 
 type LoginPageProps = {
   desk: Desk;
   title: string;
 };
 
+const tenantLoginSettings: { corporateId: string; showCorporateId: boolean } = {
+  corporateId: "techmedia",
+  showCorporateId: false
+};
+
 export function LoginPage({ desk, title }: LoginPageProps) {
   const navigate = useNavigate();
-  const [corporateId, setCorporateId] = useState("");
+  const [corporateId, setCorporateId] = useState(tenantLoginSettings.corporateId);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -91,9 +96,9 @@ export function LoginPage({ desk, title }: LoginPageProps) {
   }
 
   return (
-    <AuthLayout surface={desk} title={title}>
+    <TechMediaAuthLayout surface={desk} title={title}>
       <form className="auth-form" onSubmit={submit}>
-        {desk === "tenant" ? (
+        {desk === "tenant" && tenantLoginSettings.showCorporateId ? (
           <Field
             autoComplete="organization"
             className="auth-field"
@@ -129,6 +134,6 @@ export function LoginPage({ desk, title }: LoginPageProps) {
           {loading ? "Signing in..." : "Sign in"}
         </Button>
       </form>
-    </AuthLayout>
+    </TechMediaAuthLayout>
   );
 }

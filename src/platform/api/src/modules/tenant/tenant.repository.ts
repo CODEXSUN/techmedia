@@ -219,6 +219,24 @@ export class TenantRepository {
     return row as TenantUserRow | undefined;
   }
 
+  async findTenantUserPermissionKeys(tenant: Tenant, userId: number) {
+    const database = getTenantDatabase(tenant);
+    const rows = await database
+      .selectFrom("user_roles as userRole")
+      .innerJoin("roles as role", "role.id", "userRole.role_id")
+      .innerJoin("role_permissions as rolePermission", "rolePermission.role_id", "role.id")
+      .innerJoin("permissions as permission", "permission.id", "rolePermission.permission_id")
+      .select("permission.key")
+      .where("userRole.user_id", "=", userId)
+      .where("userRole.status", "=", "active")
+      .where("role.status", "=", "active")
+      .where("rolePermission.status", "=", "active")
+      .where("permission.status", "=", "active")
+      .orderBy("permission.key", "asc")
+      .execute();
+    return rows.map((row) => row.key);
+  }
+
   private async audit(tenantId: number, eventName: string) {
     await getPlatformDatabase()
       .insertInto("tenant_audit_events")

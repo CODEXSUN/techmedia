@@ -26,6 +26,7 @@ const envSchema = z.object({
   TECHMEDIA_QUEUE_WORKER_ENABLED: z.enum(["0", "1"]).default("1"),
   TECHMEDIA_QUEUE_WORKER_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   TECHMEDIA_REDIS_URL: z.string().min(1, "TECHMEDIA_REDIS_URL is required"),
+  TECHMEDIA_INTEGRATION_ENCRYPTION_KEY: z.string().default(""),
   TECHMEDIA_ALLOW_LIVE_RESTORE: z.enum(["0", "1"]).default("0"),
   TECHMEDIA_LIVE_RESTORE_CONFIRM: z.string().default(""),
   TECHMEDIA_RESTORE_TEST_DB_NAME: z.string().default(""),

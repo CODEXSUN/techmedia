@@ -1,9 +1,9 @@
-﻿import { ArrowRight, ExternalLink } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useTenantSite } from "../tenant-site.context";
 
 export function TenantPortalCta({
-  summary = "Open the application to create documents, follow accounts, review staff work, and continue the next operations action.",
-  title = "Ready to make daily operations easier?"
+  summary = "Sign in to continue with the TechMedia application workspace and available business tools.",
+  title = "Ready to continue with TechMedia?"
 }: {
   summary?: string;
   title?: string;
@@ -11,22 +11,15 @@ export function TenantPortalCta({
   const { portal } = useTenantSite();
 
   return (
-    <section className="tenant-portal-cta">
+    <section className="tenant-cta">
       <div>
-        <span>Continue with {portal.brandName}</span>
+        <span>TechMedia application</span>
         <h2>{title}</h2>
         <p>{summary}</p>
       </div>
-      <div className="tenant-portal-actions">
-        <a className="tenant-portal-primary" href={portal.loginPath}>
-          Open application <ArrowRight />
-        </a>
-        {portal.publicSiteUrl ? (
-          <a className="tenant-portal-secondary" href={portal.publicSiteUrl}>
-            Public site <ExternalLink />
-          </a>
-        ) : null}
-      </div>
+      <a className="tenant-button tenant-button-primary" href={portal.loginPath}>
+        Open application <ArrowRight />
+      </a>
     </section>
   );
 }

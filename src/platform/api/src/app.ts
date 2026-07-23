@@ -21,6 +21,8 @@ import { databaseMaintenanceModule } from "./modules/database-maintenance/index.
 import { queueManagerModule } from "./modules/queue-manager/index.js";
 import { storageManagerModule } from "./modules/storage-manager/index.js";
 import { appOrchestrationModule } from "./modules/app-orchestration/index.js";
+import { crmModule } from "./modules/crm/index.js";
+import { frappeModule } from "./modules/frappe/index.js";
 import { startQueueManagerWorker } from "./modules/queue-manager/queue-manager.runtime.js";
 import { QueueManagerService } from "./modules/queue-manager/queue-manager.service.js";
 import { seedDefaultTenant } from "./modules/tenant/tenant.seed.js";
@@ -78,7 +80,9 @@ export async function createApp() {
             databaseMaintenanceModule.key,
             queueManagerModule.key,
             storageManagerModule.key,
-            appOrchestrationModule.key
+            appOrchestrationModule.key,
+            crmModule.key,
+            frappeModule.key
           ],
           runtime: "platform-foundation"
         },
@@ -113,7 +117,9 @@ export async function createApp() {
       databaseMaintenanceModule,
       queueManagerModule,
       storageManagerModule,
-      appOrchestrationModule
+      appOrchestrationModule,
+      crmModule,
+      frappeModule
     ],
     { app },
     {

@@ -7,7 +7,7 @@ export type Tenant = {
   dbType: string;
   dbUser: string;
   enabledModuleKeys: string[];
-  defaultLandingApp: "application";
+  defaultLandingApp: PlatformAppId;
   id: number;
   mobile: string | null;
   payloadSettings: Record<string, unknown>;
@@ -31,7 +31,7 @@ export type TenantSavePayload = {
   dbType: string;
   dbUser: string;
   enabledModuleKeys: string[];
-  defaultLandingApp: "application";
+  defaultLandingApp: PlatformAppId;
   mobile: string | null;
   payloadSettings: Record<string, unknown>;
   primaryDomain: string;
@@ -54,11 +54,12 @@ export type TenantRuntime = {
     defaultLanding: boolean;
     description: string;
     enabled: boolean;
-    id: "application";
+    id: PlatformAppId;
     label: string;
     moduleKey: string;
     stack: "platform";
   }>;
-  defaultLandingApp: "application";
+  defaultLandingApp: PlatformAppId;
   tenant: Tenant | null;
 };
+import type { PlatformAppId } from "../../app/app-registry";

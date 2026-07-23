@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const appId = z.literal("application");
+const appId = z.enum(["application", "crm", "frappe"]);
 const stack = z.literal("platform");
 
 export const platformAppSaveSchema = z

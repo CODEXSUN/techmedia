@@ -10,6 +10,8 @@ import type {
   TenantUserSavePayload,
   TenantUserStatus
 } from "./tenant-user.types.js";
+import type { Kysely } from "kysely";
+import type { TenantDatabase } from "../../database/schema.js";
 
 export class TenantUserService {
   private readonly repository: TenantUserRepository;
@@ -104,6 +106,15 @@ export class TenantUserService {
       throw error;
     }
   }
+}
+
+/** Fixed public lookup contract for modules that reference active tenant users. */
+export function tenantUserReferenceContract(database: Kysely<TenantDatabase>) {
+  const repository = new TenantUserRepository(database);
+  return {
+    find: (id: number) => repository.findActiveReference(id),
+    list: () => repository.listActiveReferences()
+  };
 }
 function normalize(input: TenantUserSavePayload, creating: boolean): TenantUserSavePayload {
   const password = input.password?.trim();

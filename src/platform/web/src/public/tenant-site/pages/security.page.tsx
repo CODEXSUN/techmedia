@@ -1,111 +1,98 @@
-﻿import { ArrowRight, BadgeCheck, ClipboardCheck, Eye, LockKeyhole } from "lucide-react";
-import { TenantFaq, type TenantFaqItem } from "../blocks/tenant-faq";
+import {
+  ArrowRight,
+  Building2,
+  Database,
+  KeyRound,
+  Network,
+  ShieldCheck,
+  Store,
+  UsersRound
+} from "lucide-react";
 import { TenantPageIntro } from "../blocks/tenant-page-intro";
 import { TenantPortalCta } from "../blocks/tenant-portal-cta";
-import { TenantSectionHeading } from "../blocks/tenant-section-heading";
-import { TenantSecuritySection } from "../sections/security.section";
 import { useTenantSite } from "../tenant-site.context";
 import { TenantSiteTemplate } from "../templates/tenant-site.template";
 
-const securityFaq: TenantFaqItem[] = [
-  {
-    question: "Can operations access be limited by staff responsibility?",
-    answer:
-      "Yes. Sales, purchase, receipt, payment, reporting, approval, and administration actions can be shaped around the responsibilities assigned to each account."
-  },
-  {
-    question: "What happens when an employee leaves or changes roles?",
-    answer:
-      "Their access can be changed while the company keeps its customer records, documents, pending work, status, and activity trail. A replacement can continue from the authorised business context instead of starting from memory."
-  },
-  {
-    question: "Can important document changes be reviewed later?",
-    answer:
-      "Financial and compliance workflows are designed to keep important lifecycle actions traceable. The exact activity available depends on the document and the access granted to the signed-in user."
-  },
-  {
-    question: "How are invoice mistakes reduced?",
-    answer:
-      "Reusable master data, visible totals, required-field validation, status, and review steps help the team catch incomplete or inconsistent details before final actions."
-  }
-];
-
 export function TenantSecurityPage() {
   return (
-    <TenantSiteTemplate activePage="security" pageTitle="Security">
-      <SecurityPageContent />
+    <TenantSiteTemplate activePage="security" pageTitle="Stores and tenancy">
+      <StoresPageContent />
     </TenantSiteTemplate>
   );
 }
 
-function SecurityPageContent() {
+function StoresPageContent() {
   const { portal } = useTenantSite();
 
   return (
     <>
       <TenantPageIntro
-        eyebrow="Operations control"
-        title="Protect operations work without making staff work harder."
-        summary={`${portal.brandName} keeps sign-in, staff responsibility, document validation, status, and activity around the work so financial control feels practical every day.`}
+        eyebrow="Stores, tenants, and access"
+        title="A clean foundation for one store today and a controlled network tomorrow."
+        summary={`${portal.brandName} is being prepared for isolated businesses, location-aware operations, and franchise-style growth without treating every user or store as the same.`}
         actions={
-          <a className="tenant-portal-primary" href={portal.loginPath}>
-            Open secure operations <ArrowRight />
+          <a className="tenant-button tenant-button-primary" href={portal.loginPath}>
+            Open secure workspace <ArrowRight />
           </a>
         }
       />
-      <TenantSecuritySection />
-      <section className="tenant-page-section tenant-assurance-section">
-        <TenantSectionHeading
-          eyebrow="Practical financial controls"
-          title="Prevent avoidable mistakes, keep responsibility visible, and make handovers easier to trust."
-          summary="Control is most useful when it appears inside the operations step: before a wrong total, an incomplete document, or an unauthorised action moves forward."
-        />
-        <div className="tenant-assurance-grid">
-          <article>
-            <LockKeyhole />
-            <span>Account access</span>
-            <h3>Business records begin behind sign-in</h3>
+      <section className="tenant-section">
+        <div className="tenant-card-grid tenant-card-grid-three">
+          <article className="tenant-card">
+            <Building2 />
+            <h3>Tenant separation</h3>
             <p>
-              Public product information stays separate from customer, invoice, payment, ledger,
-              report, and staff activity data.
+              Each business keeps its own identity, database context, users, roles, and application
+              configuration.
             </p>
           </article>
-          <article>
-            <Eye />
-            <span>Staff visibility</span>
-            <h3>People see the areas needed for their work</h3>
+          <article className="tenant-card">
+            <KeyRound />
+            <h3>Role-aware access</h3>
             <p>
-              Sales staff can focus on operations, accounts staff can focus on money movement, and
-              reviewers can focus on checks and approvals.
+              Administrative setup stays protected while staff receive only the business tools their
+              responsibilities require.
             </p>
           </article>
-          <article>
-            <ClipboardCheck />
-            <span>Document accuracy</span>
-            <h3>Validation appears before important actions</h3>
+          <article className="tenant-card">
+            <Database />
+            <h3>Data boundaries</h3>
             <p>
-              Missing fields, inconsistent values, status, and required review remain visible before
-              a document continues to the next stage.
-            </p>
-          </article>
-          <article>
-            <BadgeCheck />
-            <span>Accountability</span>
-            <h3>Critical activity is easier to explain later</h3>
-            <p>
-              Important creation, change, approval, cancellation, and lifecycle actions are designed
-              to remain traceable for operational review.
+              Tenant context remains explicit through authentication, APIs, persistence, jobs, and
+              future integrations.
             </p>
           </article>
         </div>
       </section>
-      <TenantFaq
-        items={securityFaq}
-        title="Clear answers about operations control and staff access"
-      />
+      <section className="tenant-section tenant-section-soft">
+        <div className="tenant-split">
+          <div>
+            <span className="tenant-kicker">Multi-store direction</span>
+            <h2>Central visibility with local responsibility.</h2>
+            <p>
+              The planned store model separates location-level activity while allowing authorised
+              owners and head-office teams to understand the wider business.
+            </p>
+          </div>
+          <div className="tenant-check-list">
+            <span>
+              <Store /> Store-specific teams and activity
+            </span>
+            <span>
+              <UsersRound /> Owner, manager, and staff roles
+            </span>
+            <span>
+              <Network /> Shared network standards
+            </span>
+            <span>
+              <ShieldCheck /> Permission-aware cross-store visibility
+            </span>
+          </div>
+        </div>
+      </section>
       <TenantPortalCta
-        title="Give the team a faster operations flow without giving up control."
-        summary="Continue through sign-in to work with the documents and actions assigned to your account."
+        title="Use the current secure foundation while the store model grows."
+        summary="Application administration is restricted to the tenant admin; CRM access follows explicit enquiry permissions."
       />
     </>
   );

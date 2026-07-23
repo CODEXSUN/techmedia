@@ -1,46 +1,38 @@
-﻿import { Link } from "@tanstack/react-router";
-import { ArrowRight, ExternalLink, Sparkles } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowRight } from "lucide-react";
 import { useTenantSite } from "../tenant-site.context";
 import type { TenantPublicPageKey } from "../tenant-site.types";
+
+const navigation = [
+  { key: "workspace", label: "Hardware", to: "/workspace" },
+  { key: "features", label: "LogicX", to: "/features" },
+  { key: "security", label: "Stores", to: "/security" },
+  { key: "about", label: "About", to: "/about" },
+  { key: "contact", label: "Contact", to: "/contact" }
+] as const;
 
 export function TenantSiteHeader({ activePage }: { activePage: TenantPublicPageKey }) {
   const { portal } = useTenantSite();
 
   return (
-    <nav className="tenant-portal-nav" aria-label="Operations product navigation">
-      <Link className="tenant-portal-brand" to="/" aria-label={`${portal.brandName} home`}>
-        <span className="tenant-portal-mark" aria-hidden="true">
-          <Sparkles />
-        </span>
-        <span>
-          <strong>{portal.brandName}</strong>
-          <small>Operations &amp; Accounts</small>
-        </span>
+    <nav className="tenant-nav" aria-label="TechMedia navigation">
+      <Link className="tenant-brand" to="/" aria-label={`${portal.brandName} home`}>
+        <img className="tenant-brand-logo" src="/logo/logo.svg" alt="" aria-hidden="true" />
+        <strong>{portal.brandName}</strong>
       </Link>
-      <div className="tenant-portal-menu">
-        <Link to="/workspace" aria-current={activePage === "workspace" ? "page" : undefined}>
-          Operations
-        </Link>
-        <Link to="/features" aria-current={activePage === "features" ? "page" : undefined}>
-          Features
-        </Link>
-        <Link to="/security" aria-current={activePage === "security" ? "page" : undefined}>
-          Security
-        </Link>
-        <Link to="/blog" aria-current={activePage === "blog" ? "page" : undefined}>
-          Blog
-        </Link>
-        <Link to="/updates" aria-current={activePage === "updates" ? "page" : undefined}>
-          Updates
-        </Link>
-        {portal.publicSiteUrl ? (
-          <a href={portal.publicSiteUrl}>
-            Public site <ExternalLink />
-          </a>
-        ) : null}
+      <div className="tenant-menu">
+        {navigation.map((item) => (
+          <Link
+            key={item.key}
+            to={item.to}
+            aria-current={activePage === item.key ? "page" : undefined}
+          >
+            {item.label}
+          </Link>
+        ))}
       </div>
-      <a className="tenant-portal-login" href={portal.loginPath}>
-        Open application <ArrowRight />
+      <a className="tenant-nav-login" href={portal.loginPath}>
+        Sign in <ArrowRight />
       </a>
     </nav>
   );

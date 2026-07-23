@@ -9,7 +9,7 @@ export type Tenant = {
   dbType: string;
   dbUser: string;
   enabledModuleKeys: string[];
-  defaultLandingApp: "application";
+  defaultLandingApp: PlatformAppId;
   id: number;
   mobile: string | null;
   payloadSettings: Record<string, unknown>;
@@ -70,3 +70,4 @@ export type TenantPublicPortal = {
   tenantCode: string | null;
   theme: TenantPortalTheme;
 };
+import type { PlatformAppId } from "../app-registry/app-registry.types.js";

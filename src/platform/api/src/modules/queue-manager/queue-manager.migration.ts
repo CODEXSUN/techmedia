@@ -46,4 +46,17 @@ export async function migrateQueueManagerModule(db: Kysely<PlatformDatabase>) {
     .on("queue_jobs")
     .columns(["queue_name", "status"])
     .execute();
+
+  await db.schema
+    .createTable("queue_runtime_settings")
+    .ifNotExists()
+    .addColumn("id", "integer", (column) => column.primaryKey().autoIncrement())
+    .addColumn("uuid", "varchar(8)", (column) => column.notNull().unique())
+    .addColumn("setting_key", "varchar(80)", (column) => column.notNull().unique())
+    .addColumn("backend", "varchar(24)", (column) => column.notNull().defaultTo("database"))
+    .addColumn("updated_by", "varchar(180)")
+    .addColumn("updated_at", "datetime", (column) =>
+      column.notNull().defaultTo(sql`CURRENT_TIMESTAMP`)
+    )
+    .execute();
 }

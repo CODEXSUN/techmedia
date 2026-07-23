@@ -1,120 +1,57 @@
-﻿import { Link } from "@tanstack/react-router";
-import { ArrowRight, ArrowUpRight, BookOpen, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Boxes, Laptop, Network, Store } from "lucide-react";
 import { TenantPageIntro } from "../blocks/tenant-page-intro";
-import { TenantPortalCta } from "../blocks/tenant-portal-cta";
-import { TenantSectionHeading } from "../blocks/tenant-section-heading";
-import { operationsPosts } from "../tenant-site.content";
-import { useTenantSite } from "../tenant-site.context";
 import { TenantSiteTemplate } from "../templates/tenant-site.template";
+
+const notes = [
+  {
+    icon: Laptop,
+    label: "Buying guide",
+    title: "Choose business computers around workload, support, and upgrade life",
+    text: "A practical specification is easier to maintain than a machine selected only from a headline number."
+  },
+  {
+    icon: Boxes,
+    label: "Wholesale",
+    title: "Make repeat hardware orders easier to review",
+    text: "Keep product identity, quantity, substitution rules, delivery location, and responsible contact clear."
+  },
+  {
+    icon: Store,
+    label: "Retail",
+    title: "Connect customer enquiries with the next store action",
+    text: "Record the need, owner, priority, follow-up date, and outcome instead of relying on memory."
+  },
+  {
+    icon: Network,
+    label: "Store networks",
+    title: "Prepare operating rules before adding locations",
+    text: "Decide what is shared, what stays local, and which roles can see activity across stores."
+  }
+] as const;
 
 export function TenantBlogPage() {
   return (
-    <TenantSiteTemplate activePage="blog" pageTitle="Blog">
-      <BlogPageContent />
-    </TenantSiteTemplate>
-  );
-}
-
-function BlogPageContent() {
-  const { portal } = useTenantSite();
-  const featuredPost = operationsPosts[0];
-  const remainingPosts = operationsPosts.slice(1);
-
-  return (
-    <>
+    <TenantSiteTemplate activePage="blog" pageTitle="Notes">
       <TenantPageIntro
-        eyebrow={`${portal.brandName} operations journal`}
-        title="Practical thinking for cleaner invoices, stronger accounts, and easier staff adoption."
-        summary="Short, useful guidance for the operations problems teams face every dayâ€”from repeated entry and compliance checks to collections and handovers."
-        actions={
-          <a className="tenant-portal-secondary" href={portal.loginPath}>
-            Open the application <ArrowRight />
-          </a>
-        }
+        eyebrow="TechMedia notes"
+        title="Simple guidance for hardware, stores, and business software."
+        summary="Short, practical ideas drawn from computer trade, customer follow-up, and the work of preparing a business for more locations."
       />
-      {featuredPost ? (
-        <section className="tenant-page-section tenant-blog-feature">
-          <TenantSectionHeading
-            eyebrow="Featured perspective"
-            title="Start with the workflow that shapes every operations day."
-          />
-          <a href={featuredPost.href} className="tenant-featured-post">
-            <div className="tenant-featured-post-visual">
-              <span>OPERATIONS / JOURNAL</span>
-              <BookOpen />
-              <div>
-                <i />
-                <i />
-                <i />
-              </div>
-            </div>
-            <article>
-              <span>{featuredPost.label}</span>
-              <h2>{featuredPost.title}</h2>
-              <p>{featuredPost.description}</p>
-              <strong>
-                Read the full note <ArrowUpRight />
-              </strong>
+      <section className="tenant-section">
+        <div className="tenant-card-grid tenant-card-grid-two">
+          {notes.map(({ icon: Icon, label, text, title }) => (
+            <article className="tenant-card" key={title}>
+              <Icon />
+              <span className="tenant-card-label">{label}</span>
+              <h3>{title}</h3>
+              <p>{text}</p>
+              <span className="tenant-text-link">
+                Article publishing coming later <ArrowRight />
+              </span>
             </article>
-          </a>
-        </section>
-      ) : null}
-      <section className="tenant-page-section tenant-blog-index">
-        <TenantSectionHeading
-          eyebrow="Ideas for the working team"
-          title="Useful guidance from invoice creation to payment follow-up."
-          summary="Explore document accuracy, e-way bills, e-invoices, accounts review, staff handovers, and digital record keeping."
-        />
-        <div className="tenant-blog-grid">
-          {remainingPosts.map((post, index) => (
-            <a href={post.href} key={post.title}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              <small>{post.label}</small>
-              <h3>{post.title}</h3>
-              <p>{post.description}</p>
-              <strong>
-                Read note <ArrowRight />
-              </strong>
-            </a>
           ))}
         </div>
       </section>
-      <section className="tenant-page-section tenant-editorial-lanes">
-        <TenantSectionHeading
-          eyebrow="Explore by intent"
-          title="Move from an idea into a better daily operations habit."
-        />
-        <div>
-          <Link to="/workspace">
-            <BookOpen />
-            <span>
-              <strong>Operations experience</strong>
-              <small>See how invoices, compliance, and accounts connect.</small>
-            </span>
-            <ArrowRight />
-          </Link>
-          <Link to="/security">
-            <ShieldCheck />
-            <span>
-              <strong>Staff control and accuracy</strong>
-              <small>Keep access, handovers, checks, and history clear.</small>
-            </span>
-            <ArrowRight />
-          </Link>
-          <Link to="/updates">
-            <Sparkles />
-            <span>
-              <strong>Product improvements</strong>
-              <small>Follow the operations experience as it becomes faster and clearer.</small>
-            </span>
-            <ArrowRight />
-          </Link>
-        </div>
-      </section>
-      <TenantPortalCta
-        title="Ready to put the ideas into daily work?"
-        summary="Sign in to create operations documents, review accounts, and continue pending work."
-      />
-    </>
+    </TenantSiteTemplate>
   );
 }

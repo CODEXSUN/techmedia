@@ -54,9 +54,15 @@ assertOrdered("src/platform/api/src/modules/tenant/tenant.seed.ts", [
   "seedTenantRolePermissionModule("
 ]);
 assertOrdered("src/platform/api/src/database/tenant-app-database.ts", [
-  "migrateCoreTenantDatabase("
+  "migrateCoreTenantDatabase(",
+  "migrateCrmModule(",
+  "migrateFrappeModule("
 ]);
-assertOrdered("src/platform/api/src/database/tenant-app-database.ts", ["seedCoreTenantDatabase("]);
+assertOrdered("src/platform/api/src/database/tenant-app-database.ts", [
+  "seedCoreTenantDatabase(",
+  "seedCrmModule(",
+  "seedFrappeModule("
+]);
 
 const privateLifecycleImports = [];
 for (const repository of ["core", "framework", "ui"]) {

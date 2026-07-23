@@ -1,12 +1,5 @@
 import { lazy, useEffect, useMemo, useState, type ComponentType } from "react";
-import {
-  Building2Icon,
-  LayoutDashboardIcon,
-  RocketIcon,
-  Settings2Icon,
-  ShieldCheckIcon,
-  UserRoundIcon
-} from "lucide-react";
+import { LayoutDashboardIcon, PlugZapIcon, RocketIcon, UserRoundIcon } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@codexsun/ui/components/button";
 import { Card } from "@codexsun/ui/components/card";
@@ -227,6 +220,18 @@ const TenantRolePermissionWorkspace = lazy(() =>
     default: module.TenantRolePermissionWorkspace
   }))
 );
+const CrmWorkspace = lazy(() =>
+  import("../../modules/crm").then((module) => ({ default: module.CrmWorkspace }))
+);
+const CrmOverview = lazy(() =>
+  import("../../modules/crm").then((module) => ({ default: module.CrmOverview }))
+);
+const FrappeOverview = lazy(() =>
+  import("../../modules/frappe").then((module) => ({ default: module.FrappeOverview }))
+);
+const FrappeWorkspace = lazy(() =>
+  import("../../modules/frappe").then((module) => ({ default: module.FrappeWorkspace }))
+);
 
 type AppPage =
   | "application.overview"
@@ -238,6 +243,12 @@ type AppPage =
   | "application.access.permissions"
   | "application.access.user-roles"
   | "application.access.role-permissions"
+  | "crm.overview"
+  | "crm.enquiry.assigned"
+  | "crm.enquiry.created"
+  | "crm.enquiry.open"
+  | "frappe.overview"
+  | "frappe.settings"
   | "core.common.location.countries"
   | "core.common.location.states"
   | "core.common.location.districts"
@@ -285,10 +296,14 @@ export function AppDesk() {
   const [financialYearContextId, setFinancialYearContextId] = useState<number | null>(null);
   const runtime = runtimeQuery.data;
   const moduleKeys = runtime?.tenant?.enabledModuleKeys ?? ["platform.application"];
-  const enabledApps = enabledAppIds(moduleKeys);
+  const registeredApps = enabledAppIds(moduleKeys);
+  const enabledApps = accessibleApps(registeredApps, signedInUser);
   const switchableApps = uniqueApps(enabledApps);
-  const runtimeLandingApp =
+  const configuredLandingApp =
     runtime?.defaultLandingApp ?? defaultLandingApp(runtime?.tenant?.defaultLandingApp, moduleKeys);
+  const runtimeLandingApp = enabledApps.includes(configuredLandingApp)
+    ? configuredLandingApp
+    : (enabledApps[0] ?? "crm");
   const activeDefaultCompany =
     defaultCompanyQuery.data?.status === "active" ? defaultCompanyQuery.data : null;
   const persistedLandingApp = activeDefaultCompany?.landingApp as PlatformAppId | undefined;
@@ -298,7 +313,9 @@ export function AppDesk() {
       : persistedLandingApp && enabledApps.includes(persistedLandingApp)
         ? persistedLandingApp
         : runtimeLandingApp;
-  const activeApp = appFromPage(page, landingApp, switchableApps);
+  const activeApp = pageAllowed(page, signedInUser, switchableApps)
+    ? appFromPage(page, landingApp, switchableApps)
+    : (switchableApps[0] ?? "crm");
   const activeCompanies = useMemo(
     () => (companiesQuery.data ?? []).filter((company) => company.isActive),
     [companiesQuery.data]
@@ -317,7 +334,9 @@ export function AppDesk() {
     activeFinancialYears.find((year) => year.isCurrent) ??
     activeFinancialYears[0] ??
     null;
-  const safePage = page;
+  const safePage = pageAllowed(page, signedInUser, switchableApps)
+    ? page
+    : pageForApp(switchableApps[0] ?? "crm", signedInUser.permissions);
   const activePageTitle = titleForPage(safePage);
   const accountingYear = selectedFinancialYear?.name ?? "Accounting year";
   const defaultSelectionMutation = useMutation({
@@ -362,12 +381,18 @@ export function AppDesk() {
     if (!shouldResolveLandingPath) return;
     if (!publishedLandingApp && runtimeQuery.isLoading) return;
 
-    const landingPage = pageForApp(landingApp);
+    const landingPage = pageForApp(landingApp, signedInUser.permissions);
     setPage(landingPage);
     setShouldResolveLandingPath(false);
     window.history.replaceState({ page: landingPage }, "", `/app/${landingPage.replace(".", "/")}`);
     setPlatformDocumentTitle(titleForPage(landingPage));
   }, [landingApp, publishedLandingApp, runtimeQuery.isLoading, shouldResolveLandingPath]);
+
+  useEffect(() => {
+    if (page === safePage) return;
+    setPage(safePage);
+    window.history.replaceState({ page: safePage }, "", `/app/${safePage.replaceAll(".", "/")}`);
+  }, [page, safePage]);
 
   function selectPage(nextPage: AppPage) {
     setPage(nextPage);
@@ -394,14 +419,18 @@ export function AppDesk() {
     });
   }
 
-  const activeWorkspaceTitle = "Application";
-  const menuItems = appMenuItemsFor(activeApp, safePage, (nextPage) =>
-    selectPage(nextPage as AppPage)
+  const activeWorkspaceTitle =
+    activeApp === "crm" ? "CRM" : activeApp === "frappe" ? "Frappe" : "Application";
+  const menuItems = appMenuItemsFor(
+    activeApp,
+    safePage,
+    (nextPage) => selectPage(nextPage as AppPage),
+    signedInUser.permissions
   );
   const workspaceItems = appWorkspaceItems(switchableApps, activeApp).map((item) => ({
     ...item,
-    onSelect: () => selectPage("application.overview"),
-    url: "/app/application/overview"
+    onSelect: () => selectPage(pageForApp(item.id, signedInUser.permissions)),
+    url: `/app/${pageForApp(item.id, signedInUser.permissions).replaceAll(".", "/")}`
   }));
 
   const contextError =
@@ -441,11 +470,27 @@ export function AppDesk() {
     );
   }
 
+  if (switchableApps.length === 0) {
+    return (
+      <AuthGate desk="tenant">
+        <main className="grid min-h-screen place-items-center bg-background px-4 text-foreground">
+          <Card title="No application access">
+            <StatusBadge tone="amber">Restricted</StatusBadge>
+            <p className="mt-4 text-sm text-muted-foreground">
+              Your account has no enabled application permission. Ask a tenant administrator to
+              assign the appropriate application role.
+            </p>
+          </Card>
+        </main>
+      </AuthGate>
+    );
+  }
+
   return (
     <AuthGate desk="tenant">
       <ApplicationLayout
         brand={{
-          href: "/app/application/overview",
+          href: `/app/${pageForApp(activeApp, signedInUser.permissions).replaceAll(".", "/")}`,
           ...(companyBranding.lightLogoUrl ? { logoSrc: companyBranding.lightLogoUrl } : {}),
           ...(companyBranding.darkLogoUrl ? { logoDarkSrc: companyBranding.darkLogoUrl } : {}),
           logoAlt: `${selectedCompany?.name ?? "Company"} logo`,
@@ -507,6 +552,52 @@ export function AppDesk() {
           {safePage === "application.access.role-permissions" ? (
             <TenantRolePermissionWorkspace />
           ) : null}
+          {safePage === "crm.overview" ? <CrmOverview signedInUser={signedInUser} /> : null}
+          {safePage === "frappe.overview" ? <FrappeOverview signedInUser={signedInUser} /> : null}
+          {safePage === "frappe.settings" ? (
+            <FrappeWorkspace
+              canUpdate={signedInUser.permissions.includes("frappe.connection.update")}
+            />
+          ) : null}
+          {safePage === "crm.enquiry.assigned" ? (
+            <CrmWorkspace
+              canAssign={signedInUser.permissions.includes("crm.enquiry.assign")}
+              canCreate={signedInUser.permissions.includes("crm.enquiry.create")}
+              canForceDelete={signedInUser.tenantRole === "admin"}
+              canSuspend={
+                signedInUser.tenantRole === "admin" ||
+                signedInUser.permissions.includes("crm.enquiry.suspend")
+              }
+              canUpdate={signedInUser.permissions.includes("crm.enquiry.update")}
+              view="assigned"
+            />
+          ) : null}
+          {safePage === "crm.enquiry.created" ? (
+            <CrmWorkspace
+              canAssign={signedInUser.permissions.includes("crm.enquiry.assign")}
+              canCreate={signedInUser.permissions.includes("crm.enquiry.create")}
+              canForceDelete={signedInUser.tenantRole === "admin"}
+              canSuspend={
+                signedInUser.tenantRole === "admin" ||
+                signedInUser.permissions.includes("crm.enquiry.suspend")
+              }
+              canUpdate={signedInUser.permissions.includes("crm.enquiry.update")}
+              view="created"
+            />
+          ) : null}
+          {safePage === "crm.enquiry.open" ? (
+            <CrmWorkspace
+              canAssign={signedInUser.permissions.includes("crm.enquiry.assign")}
+              canCreate={signedInUser.permissions.includes("crm.enquiry.create")}
+              canForceDelete={signedInUser.tenantRole === "admin"}
+              canSuspend={
+                signedInUser.tenantRole === "admin" ||
+                signedInUser.permissions.includes("crm.enquiry.suspend")
+              }
+              canUpdate={signedInUser.permissions.includes("crm.enquiry.update")}
+              view="open"
+            />
+          ) : null}
           {safePage === "core.organisation.company" ? <CompanyWorkspace /> : null}
           {safePage === "core.organisation.financial-year" ? <FinancialYearWorkspace /> : null}
           {safePage === "core.organisation.default-company" ? (
@@ -553,18 +644,18 @@ function publishAccountingYear(id: number) {
 
 function landingAppOptions(apps: PlatformAppId[]): LandingAppOption[] {
   return apps.map((app) => ({
-    label: "Application",
+    label: app === "crm" ? "CRM" : app === "frappe" ? "Frappe" : "Application",
     value: app
   }));
 }
 
 function uniqueApps(apps: PlatformAppId[]) {
-  return Array.from(new Set(["application" as PlatformAppId, ...apps]));
+  return Array.from(new Set(apps));
 }
 
 function pageFromUrl(landingApp: PlatformAppId | null): AppPage {
   const [, , app, ...children] = window.location.pathname.split("/");
-  if (!app) return pageForApp(landingApp ?? "application");
+  if (!app) return pageForApp(landingApp ?? "application", []);
 
   const key = `${app}.${children.filter(Boolean).join(".") || "overview"}`;
   if (
@@ -577,6 +668,12 @@ function pageFromUrl(landingApp: PlatformAppId | null): AppPage {
     key === "application.access.permissions" ||
     key === "application.access.user-roles" ||
     key === "application.access.role-permissions" ||
+    key === "crm.overview" ||
+    key === "crm.enquiry.assigned" ||
+    key === "crm.enquiry.created" ||
+    key === "crm.enquiry.open" ||
+    key === "frappe.overview" ||
+    key === "frappe.settings" ||
     key === "core.common.location.countries" ||
     key === "core.common.location.states" ||
     key === "core.common.location.districts" ||
@@ -592,7 +689,7 @@ function pageFromUrl(landingApp: PlatformAppId | null): AppPage {
   ) {
     return key as AppPage;
   }
-  return pageForApp(landingApp ?? "application");
+  return pageForApp(landingApp ?? "application", []);
 }
 
 function LandingDesk({
@@ -612,11 +709,16 @@ function LandingDesk({
   }, [landingApp]);
 
   const choices = enabledApps.map((appId) => ({
-    description: "Shared workspace, organisation, masters, roles, and application desk.",
-    icon: LayoutDashboardIcon,
-    iconClass: "bg-slate-950 text-white",
+    description:
+      appId === "crm"
+        ? "Assigned, created, and open enquiries with schedules and workspace notes."
+        : appId === "frappe"
+          ? "Encrypted Frappe CRM connection settings for the upcoming sync workflows."
+          : "Shared workspace, organisation, masters, roles, and application desk.",
+    icon: appId === "frappe" ? PlugZapIcon : LayoutDashboardIcon,
+    iconClass: appId === "frappe" ? "bg-violet-700 text-white" : "bg-slate-950 text-white",
     id: appId,
-    label: "Application"
+    label: appId === "crm" ? "CRM" : appId === "frappe" ? "Frappe" : "Application"
   })) satisfies Array<{
     description: string;
     icon: typeof LayoutDashboardIcon;
@@ -697,7 +799,7 @@ function ApplicationOverview({
   signedInUser: ReturnType<typeof signedInTenantUser>;
 }) {
   return (
-    <section className="space-y-5">
+    <section>
       <div className="overflow-hidden rounded-md border bg-card shadow-sm">
         <div className="relative min-h-36 p-5 md:p-6">
           <div className="absolute inset-y-0 right-0 hidden w-1/2 bg-gradient-to-l from-indigo-100 via-sky-50 to-transparent md:block" />
@@ -724,122 +826,7 @@ function ApplicationOverview({
           </div>
         </div>
       </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <ApplicationDetailCard
-          caption="Default workspace selection"
-          icon={RocketIcon}
-          iconClassName="bg-slate-950 text-white"
-          statusTone="green"
-          title="Landing Desk"
-          value="Configured"
-        />
-        <ApplicationDetailCard
-          caption="Tenant identity and context"
-          icon={Building2Icon}
-          iconClassName="bg-sky-600 text-white"
-          statusTone="green"
-          title="Platform Profile"
-          value="Active"
-        />
-        <ApplicationDetailCard
-          caption="Tenant-scoped controls"
-          icon={Settings2Icon}
-          iconClassName="bg-amber-500 text-white"
-          statusTone="blue"
-          title="Settings"
-          value="Ready"
-        />
-        <ApplicationDetailCard
-          caption="Platform and Core workspaces"
-          icon={ShieldCheckIcon}
-          iconClassName="bg-emerald-600 text-white"
-          statusTone="green"
-          title="App Access"
-          value="2 areas"
-        />
-      </div>
-
-      <div className="rounded-md border bg-card p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold tracking-normal">Application Menu</h2>
-          <StatusBadge tone="green">Ready</StatusBadge>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <ApplicationShortcut
-            description="Choose which enabled app opens first for this workspace."
-            icon={LayoutDashboardIcon}
-            title="Landing Desk"
-          />
-          <ApplicationShortcut
-            description="Review application identity and tenant workspace context."
-            icon={Building2Icon}
-            title="Platform Profile"
-          />
-          <ApplicationShortcut
-            description="Manage tenant-scoped application settings and access controls."
-            icon={Settings2Icon}
-            title="Settings"
-          />
-        </div>
-      </div>
     </section>
-  );
-}
-
-function ApplicationDetailCard({
-  caption,
-  icon: Icon,
-  iconClassName,
-  statusTone,
-  title,
-  value
-}: {
-  caption: string;
-  icon: typeof LayoutDashboardIcon;
-  iconClassName: string;
-  statusTone: "blue" | "green";
-  title: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-md border bg-card p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <div className="mt-2 text-2xl font-semibold tracking-normal">{value}</div>
-        </div>
-        <span className={`grid size-11 shrink-0 place-items-center rounded-md ${iconClassName}`}>
-          <Icon className="size-5" />
-        </span>
-      </div>
-      <div className="mt-7 flex items-center justify-between gap-3 text-sm">
-        <span className="text-muted-foreground">{caption}</span>
-        <StatusBadge tone={statusTone}>Enabled</StatusBadge>
-      </div>
-    </div>
-  );
-}
-
-function ApplicationShortcut({
-  description,
-  icon: Icon,
-  title
-}: {
-  description: string;
-  icon: typeof LayoutDashboardIcon;
-  title: string;
-}) {
-  return (
-    <div className="flex min-h-28 items-start gap-3 rounded-md border bg-background p-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-md bg-muted text-foreground">
-        <Icon className="size-5" />
-      </span>
-      <div>
-        <h3 className="text-sm font-semibold">{title}</h3>
-        <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>
-      </div>
-    </div>
   );
 }
 
@@ -874,7 +861,9 @@ function signedInTenantUser() {
   return {
     email,
     fallback: userInitials(name),
-    name
+    name,
+    permissions: identity?.permissions ?? [],
+    tenantRole: identity?.tenantRole ?? "user"
   };
 }
 
@@ -885,11 +874,17 @@ function decodeTokenIdentity(token: string) {
     const payload = JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/"))) as {
       email?: unknown;
       name?: unknown;
+      permissions?: unknown;
+      tenantRole?: unknown;
     };
     if (typeof payload.email !== "string" || !payload.email.trim()) return null;
     return {
       email: payload.email.trim(),
-      name: typeof payload.name === "string" ? payload.name.trim() : ""
+      name: typeof payload.name === "string" ? payload.name.trim() : "",
+      permissions: Array.isArray(payload.permissions)
+        ? payload.permissions.filter((value): value is string => typeof value === "string")
+        : [],
+      tenantRole: typeof payload.tenantRole === "string" ? payload.tenantRole : "user"
     };
   } catch {
     return null;
@@ -957,6 +952,12 @@ function titleForPage(page: AppPage) {
     "application.access.permissions": "Permissions",
     "application.access.user-roles": "User Roles",
     "application.access.role-permissions": "Role Permissions",
+    "crm.overview": "Overview",
+    "crm.enquiry.assigned": "My Enquiry",
+    "crm.enquiry.created": "Enquiry created by me",
+    "crm.enquiry.open": "Open Enquiry",
+    "frappe.overview": "Overview",
+    "frappe.settings": "Settings",
     "core.common.location.cities": "Cities",
     "core.common.location.countries": "Countries",
     "core.common.location.districts": "Districts",
@@ -1036,12 +1037,16 @@ function appFromPage(
   _landingApp: PlatformAppId,
   _enabledApps: PlatformAppId[]
 ): PlatformAppId {
+  if (page.startsWith("crm")) return "crm";
+  if (page.startsWith("frappe")) return "frappe";
   if (page.startsWith("core")) return "application";
   return "application";
 }
 
-function pageForApp(_app: PlatformAppId): AppPage {
-  return "application.overview";
+function pageForApp(app: PlatformAppId, _permissions: string[]): AppPage {
+  if (app === "application") return "application.overview";
+  if (app === "frappe") return "frappe.overview";
+  return "crm.overview";
 }
 
 function isAppRootPath() {
@@ -1051,8 +1056,48 @@ function isAppRootPath() {
 function readPublishedLandingApp(): PlatformAppId | null {
   try {
     const stored = window.localStorage.getItem(LANDING_APP_STORAGE_KEY);
-    return stored === "application" ? stored : null;
+    return stored === "application" || stored === "crm" || stored === "frappe" ? stored : null;
   } catch {
     return null;
   }
+}
+
+function accessibleApps(
+  apps: PlatformAppId[],
+  user: { permissions: string[]; tenantRole: string }
+) {
+  const canUseCrm = user.permissions.some((permission) => permission.startsWith("crm.enquiry."));
+  const canUseFrappe = user.permissions.some((permission) =>
+    permission.startsWith("frappe.connection.")
+  );
+  return apps.filter(
+    (app) =>
+      (app === "application" && user.tenantRole === "admin") ||
+      (app === "crm" && canUseCrm) ||
+      (app === "frappe" && canUseFrappe)
+  );
+}
+
+function pageAllowed(
+  page: AppPage,
+  user: { permissions: string[]; tenantRole: string },
+  apps: PlatformAppId[]
+) {
+  if (page.startsWith("application") || page.startsWith("core")) {
+    return user.tenantRole === "admin" && apps.includes("application");
+  }
+  if (page.startsWith("frappe")) {
+    return apps.includes("frappe") && user.permissions.includes("frappe.connection.view");
+  }
+  if (!apps.includes("crm")) return false;
+  if (page === "crm.overview") {
+    return user.permissions.some((permission) => permission.startsWith("crm.enquiry."));
+  }
+  const permission =
+    page === "crm.enquiry.assigned"
+      ? "crm.enquiry.assigned.view"
+      : page === "crm.enquiry.created"
+        ? "crm.enquiry.created.view"
+        : "crm.enquiry.open.view";
+  return user.permissions.includes(permission);
 }

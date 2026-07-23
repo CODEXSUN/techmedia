@@ -1,143 +1,107 @@
-﻿import {
-  Activity,
+import {
   ArrowRight,
-  BadgeCheck,
-  FileCheck2,
-  FileText,
-  Mail,
-  ReceiptText,
+  Boxes,
+  Building2,
+  CalendarClock,
+  Contact,
+  Network,
   ShieldCheck,
-  Workflow
+  Store,
+  UsersRound
 } from "lucide-react";
 import { TenantPageIntro } from "../blocks/tenant-page-intro";
 import { TenantPortalCta } from "../blocks/tenant-portal-cta";
-import { TenantProductPreview } from "../blocks/tenant-product-preview";
-import { TenantSectionHeading } from "../blocks/tenant-section-heading";
-import { TenantFeaturesSection } from "../sections/features.section";
-import { TenantGrowthPathSection } from "../sections/growth-path.section";
 import { useTenantSite } from "../tenant-site.context";
 import { TenantSiteTemplate } from "../templates/tenant-site.template";
 
 export function TenantFeaturesPage() {
   return (
-    <TenantSiteTemplate activePage="features" pageTitle="Features">
-      <FeaturesPageContent />
+    <TenantSiteTemplate activePage="features" pageTitle="LogicX software">
+      <LogicXPageContent />
     </TenantSiteTemplate>
   );
 }
 
-function FeaturesPageContent() {
+function LogicXPageContent() {
   const { portal } = useTenantSite();
 
   return (
     <>
       <TenantPageIntro
-        eyebrow="Operations capabilities"
-        title="A complete operations flow that stays easy at the counter and powerful behind the scenes."
-        summary={`${portal.brandName} connects invoicing, e-way bills, e-invoices, accounts, staff work, digital documents, and live follow-up without making routine work feel heavy.`}
+        eyebrow="LogicX by TechMedia"
+        title="Business software that starts simple and grows with every store."
+        summary={`LogicX is ${portal.brandName}'s software direction for customer enquiries, team responsibility, store operations, and eventually multi-tenant, multi-location business networks.`}
         actions={
-          <a className="tenant-portal-primary" href={portal.loginPath}>
-            Open operations <ArrowRight />
+          <a className="tenant-button tenant-button-primary" href={portal.loginPath}>
+            Open LogicX foundation <ArrowRight />
           </a>
         }
       />
-      <TenantFeaturesSection
-        eyebrow="Core operations experience"
-        headline="From the first quotation to the final receipt, every step stays visible and easier to check."
-      />
-      <section className="tenant-page-section tenant-capability-section">
-        <TenantSectionHeading
-          eyebrow="Beyond basic invoicing"
-          title="Build an operating rhythm around accurate documents, clear responsibility, and timely action."
-          summary="The product supports the daily details that decide whether operations feels controlled: reusable records, compliance documents, staff access, reminders, and an organised digital trail."
-        />
-        <div className="tenant-capability-grid">
-          <article>
-            <ReceiptText />
-            <span>Invoice experience</span>
-            <h3>Keep fast entry and careful review in the same flow</h3>
+      <section className="tenant-section">
+        <div className="tenant-section-heading">
+          <span>Available foundation</span>
+          <h2>Start with clear customer follow-up and controlled access.</h2>
+        </div>
+        <div className="tenant-card-grid tenant-card-grid-three">
+          <article className="tenant-card">
+            <Contact />
+            <h3>CRM enquiries</h3>
             <p>
-              Use customer, item, price, tax, discount, numbering, payment, print, and sharing steps
-              without jumping between disconnected screens.
+              Capture titled enquiries, priorities, status, assigned users, notes, and scheduled
+              follow-ups.
             </p>
           </article>
-          <article>
-            <FileCheck2 />
-            <span>Compliance flow</span>
-            <h3>Prepare e-way bills and e-invoices from checked operations data</h3>
+          <article className="tenant-card">
+            <UsersRound />
+            <h3>User responsibility</h3>
             <p>
-              Reduce repeated typing, expose missing details early, and keep generation or
-              submission status beside the source document.
+              Give owners, managers, staff, and users the application access appropriate to their
+              work.
             </p>
           </article>
-          <article>
-            <Mail />
-            <span>Digital communication</span>
-            <h3>Keep the document and the conversation together</h3>
-            <p>
-              Share invoices and statements, organise attachments, and retain delivery history so
-              the team can understand what the customer received.
-            </p>
-          </article>
-          <article>
-            <BadgeCheck />
-            <span>Staff controls</span>
-            <h3>Give people clear responsibility without slowing them down</h3>
-            <p>
-              Shape access around sales, purchase, receipt, payment, reports, and approval work,
-              then change responsibility cleanly when staff move.
-            </p>
-          </article>
-          <article>
-            <Activity />
-            <span>Live monitoring</span>
-            <h3>See today&apos;s work before it becomes tomorrow&apos;s problem</h3>
-            <p>
-              Follow invoice progress, outstanding amounts, document exceptions, staff activity, and
-              pending follow-up from a readable operational view.
-            </p>
-          </article>
-          <article>
-            <Workflow />
-            <span>Automation with light assistance</span>
-            <h3>Automate repeated checks while people keep final control</h3>
-            <p>
-              Use rules, reminders, background processing, and carefully placed AI assistance for
-              repetitive preparationâ€”not for unreviewed financial decisions.
-            </p>
+          <article className="tenant-card">
+            <CalendarClock />
+            <h3>Follow-up workspace</h3>
+            <p>Keep assigned, created, and open enquiries visible with dates and working notes.</p>
           </article>
         </div>
       </section>
-      <section className="tenant-page-section tenant-feature-preview">
-        <TenantSectionHeading
-          eyebrow="The product experience"
-          title="Detailed enough for serious accounts. Calm enough for new staff to adopt quickly."
-          summary="Important fields, status, totals, and next actions remain visible while deeper controls stay available only when the workflow reaches them."
-        />
-        <TenantProductPreview label="Operations capability view" />
+      <section className="tenant-section tenant-section-soft">
+        <div className="tenant-section-heading">
+          <span>Product direction</span>
+          <h2>Designed to become a multi-store operating layer.</h2>
+        </div>
+        <div className="tenant-card-grid tenant-card-grid-four">
+          <article className="tenant-card">
+            <Store />
+            <h3>Stores</h3>
+            <p>Location-specific work, staff, counters, and daily visibility.</p>
+          </article>
+          <article className="tenant-card">
+            <Boxes />
+            <h3>Products and stock</h3>
+            <p>Hardware catalogues, availability, movement, and reorder context.</p>
+          </article>
+          <article className="tenant-card">
+            <Building2 />
+            <h3>Tenants</h3>
+            <p>Isolated business identity, data, users, permissions, and configuration.</p>
+          </article>
+          <article className="tenant-card">
+            <Network />
+            <h3>Franchise networks</h3>
+            <p>Shared standards with controlled local execution across locations.</p>
+          </article>
+        </div>
+        <p className="tenant-roadmap-note">
+          <ShieldCheck /> These are staged product goals. Current screens expose only capabilities
+          that are already implemented.
+        </p>
       </section>
-      <section className="tenant-page-section tenant-principle-grid">
-        <article>
-          <FileText />
-          <h3>Reusable business data</h3>
-          <p>Customers, items, taxes, prices, and terms reduce repeated entry across documents.</p>
-        </article>
-        <article>
-          <ShieldCheck />
-          <h3>Responsible staff access</h3>
-          <p>People work inside the sales, purchase, accounts, or review areas assigned to them.</p>
-        </article>
-        <article>
-          <Workflow />
-          <h3>Expandable accuracy</h3>
-          <p>
-            Add checks, approvals, reminders, integrations, and reporting without changing the
-            familiar operations foundation.
-          </p>
-        </article>
-      </section>
-      <TenantGrowthPathSection />
-      <TenantPortalCta />
+      <TenantPortalCta
+        title="Start with CRM. Add business modules deliberately."
+        summary="LogicX will grow through module-owned capabilities so stores and tenants can expand without mixing their data or responsibilities."
+      />
     </>
   );
 }

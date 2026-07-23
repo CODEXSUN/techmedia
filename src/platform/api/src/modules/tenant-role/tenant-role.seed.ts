@@ -10,6 +10,18 @@ export async function seedTenantRoleModule(database: Kysely<TenantDatabase>) {
       protected: true
     },
     {
+      key: "manager",
+      label: "Manager",
+      description: "CRM management access without Application administration.",
+      protected: true
+    },
+    {
+      key: "staff",
+      label: "Staff",
+      description: "CRM staff access without Application administration.",
+      protected: true
+    },
+    {
       key: "user",
       label: "User",
       description: "Standard tenant application user.",

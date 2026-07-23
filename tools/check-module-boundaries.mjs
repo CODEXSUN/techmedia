@@ -31,7 +31,9 @@ const reducedPlatformBackendModules = new Set([
   "tenant-role",
   "tenant-permission",
   "tenant-user-role",
-  "tenant-role-permission"
+  "tenant-role-permission",
+  "crm",
+  "frappe"
 ]);
 const reducedBackendRoles = [
   "module",
@@ -60,7 +62,9 @@ const webModuleRoots = [
 const requiredFrontendRoles = ["workspace", "list", "form", "services", "hooks", "types", "schema"];
 const shellOnlyFrontendModules = new Set();
 const shellOnlyFrontendRoles = ["module", "workspace", "services", "hooks", "types"];
-const capabilityFrontendRoles = new Map();
+const capabilityFrontendRoles = new Map([
+  ["platform-web/frappe", ["workspace", "form", "services", "hooks", "types", "schema"]]
+]);
 const backendBehaviorMarkers = {
   events: ["create"],
   migration: ["migrate"],

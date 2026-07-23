@@ -1,8 +1,6 @@
-﻿import { ArrowRight, Calculator, ReceiptText, TrendingUp, UsersRound } from "lucide-react";
+import { ArrowRight, Boxes, Code2, HeartHandshake, Store } from "lucide-react";
 import { TenantPageIntro } from "../blocks/tenant-page-intro";
 import { TenantPortalCta } from "../blocks/tenant-portal-cta";
-import { TenantSectionHeading } from "../blocks/tenant-section-heading";
-import { TenantGrowthPathSection } from "../sections/growth-path.section";
 import { useTenantSite } from "../tenant-site.context";
 import { TenantSiteTemplate } from "../templates/tenant-site.template";
 
@@ -21,80 +19,62 @@ function AboutPageContent() {
     <>
       <TenantPageIntro
         eyebrow={`About ${portal.brandName}`}
-        title="Built for businesses that need operations to stay simple as operations grow."
-        summary="TECHMEDIA is designed around the work behind every sale: accurate documents, clear accounts, timely follow-up, responsible staff access, and records that remain understandable later."
+        title="A computer technology company with hardware roots and a software future."
+        summary="TechMedia serves wholesale and retail technology needs while building LogicX: practical business software for customer work, stores, teams, and growing business networks."
         actions={
-          <a className="tenant-portal-primary" href={portal.loginPath}>
+          <a className="tenant-button tenant-button-primary" href={portal.loginPath}>
             Open application <ArrowRight />
           </a>
         }
       />
-      <section className="tenant-page-section tenant-principle-grid">
-        <article>
-          <ReceiptText />
-          <h3>Make daily operations feel natural</h3>
-          <p>
-            Keep the common invoice path obvious while advanced detail waits until it is needed.
-          </p>
-        </article>
-        <article>
-          <Calculator />
-          <h3>Make accuracy part of the workflow</h3>
-          <p>
-            Use reusable records, visible totals, validation, status, and review instead of memory.
-          </p>
-        </article>
-        <article>
-          <UsersRound />
-          <h3>Make staff change less disruptive</h3>
-          <p>Keep responsibility, pending work, documents, and history clear as people change.</p>
-        </article>
-      </section>
-      <section className="tenant-page-section tenant-story-panel">
-        <span>Our product belief</span>
-        <h2>Business software should carry complexity without passing it to every user.</h2>
-        <p>
-          Start with an easy invoice, extend into e-way bills and e-invoices, connect accounts, and
-          add deeper automation while the everyday experience remains calm and recognisable.
-        </p>
-      </section>
-      <section className="tenant-page-section tenant-audience-section">
-        <TenantSectionHeading
-          eyebrow="Made for the people behind the numbers"
-          title="One product experience, shaped around the different responsibilities in a operations office."
-          summary="Sales staff need speed, accounts staff need accuracy, and owners need a clear view of what is complete, pending, overdue, or exceptional."
-        />
-        <div className="tenant-audience-grid">
-          <article>
-            <ReceiptText />
-            <span>Operations staff</span>
-            <h3>Create and continue documents without losing momentum.</h3>
+      <section className="tenant-section">
+        <div className="tenant-card-grid tenant-card-grid-three">
+          <article className="tenant-card">
+            <Boxes />
+            <h3>Hardware knowledge</h3>
             <p>
-              Keep customers, items, tax, totals, e-way bills, e-invoices, print, and sharing inside
-              a learnable daily rhythm.
+              Understand the products, compatibility, supply realities, and support expectations
+              behind a technology purchase.
             </p>
           </article>
-          <article>
-            <Calculator />
-            <span>Accounts staff</span>
-            <h3>Connect money movement to the documents that created it.</h3>
+          <article className="tenant-card">
+            <Store />
+            <h3>Trade experience</h3>
             <p>
-              Review receipts, payments, outstanding balances, ledgers, reports, and exceptions with
-              the source transaction close by.
+              Support both retail conversations and wholesale relationships with clear, practical
+              coordination.
             </p>
           </article>
-          <article>
-            <TrendingUp />
-            <span>Business owners</span>
-            <h3>Understand daily performance without waiting for manual summaries.</h3>
+          <article className="tenant-card">
+            <Code2 />
+            <h3>LogicX software</h3>
             <p>
-              Follow sales, collections, overdue work, document status, and staff activity through a
-              concise operating view.
+              Turn what we learn from real business operations into focused, maintainable software
+              modules.
             </p>
           </article>
         </div>
       </section>
-      <TenantGrowthPathSection />
+      <section className="tenant-section tenant-section-soft">
+        <div className="tenant-split">
+          <div>
+            <span className="tenant-kicker">Our approach</span>
+            <h2>Useful first. Expandable by design.</h2>
+            <p>
+              We prefer software and service that solves the next real problem clearly. New store,
+              stock, sales, support, and franchise capabilities will be introduced in stages with
+              tenant and permission boundaries kept intact.
+            </p>
+          </div>
+          <div className="tenant-quote">
+            <HeartHandshake />
+            <blockquote>
+              Technology should make a business easier to run, easier to understand, and easier to
+              grow.
+            </blockquote>
+          </div>
+        </div>
+      </section>
       <TenantPortalCta />
     </>
   );

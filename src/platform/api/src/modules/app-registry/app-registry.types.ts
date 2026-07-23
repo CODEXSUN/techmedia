@@ -1,4 +1,4 @@
-export type PlatformAppId = "application";
+export type PlatformAppId = "application" | "crm" | "frappe";
 
 export type PlatformAppDefinition = {
   alwaysEnabled: boolean;
