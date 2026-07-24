@@ -10,7 +10,7 @@ export const defaultTenantModuleKeys = ["platform.application", "crm", "frappe"]
 export const platformAppRegistry: PlatformAppDefinition[] = [
   {
     alwaysEnabled: true,
-    defaultLanding: true,
+    defaultLanding: false,
     description: "Platform workspace, tenant profile, application settings, users, and access.",
     appId: "application",
     id: 0,
@@ -21,7 +21,7 @@ export const platformAppRegistry: PlatformAppDefinition[] = [
   },
   {
     alwaysEnabled: true,
-    defaultLanding: false,
+    defaultLanding: true,
     description: "Enquiry ownership, open work, rich workspace notes, assignments, and schedules.",
     appId: "crm",
     id: 0,
@@ -57,7 +57,7 @@ export function resolveLandingApp(value: unknown, enabledModuleKeys: string[]): 
   if (enabledApps.some((app) => app.appId === requested)) {
     return requested as PlatformAppId;
   }
-  return "application";
+  return enabledApps.some((app) => app.appId === "crm") ? "crm" : "application";
 }
 
 export class AppRegistryService {

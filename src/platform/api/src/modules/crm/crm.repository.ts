@@ -1,12 +1,25 @@
 import { sql, type Kysely } from "kysely";
 import type { TenantDatabase } from "../../database/schema.js";
 import type {
+  CrmEnquiryActivity,
+  CrmEnquiryAttachment,
+  CrmEnquiryAttachmentCreatePayload,
+  CrmEnquiryCall,
+  CrmEnquiryCallCreatePayload,
+  CrmEnquiryEmail,
+  CrmEnquiryEmailCreatePayload,
   CrmEnquiryListFilters,
   CrmEnquiryLifecycleStatus,
+  CrmEnquiryMessageCreatePayload,
+  CrmEnquiryNote,
+  CrmEnquiryNoteCreatePayload,
   CrmEnquiryPriority,
   CrmEnquirySavePayload,
   CrmEnquirySchedule,
-  CrmEnquiryStatus
+  CrmEnquiryStatus,
+  CrmStoredEnquiryMessage,
+  CrmEnquiryTask,
+  CrmEnquiryTaskCreatePayload
 } from "./crm.types.js";
 
 type EnquiryRow = {
@@ -21,6 +34,7 @@ type EnquiryRow = {
   mobile: string;
   priority: CrmEnquiryPriority;
   status: CrmEnquiryStatus;
+  subject: string;
   title: string;
   updated_at: Date | string;
   uuid: string;
@@ -28,8 +42,14 @@ type EnquiryRow = {
 };
 
 type StoredEnquiry = ReturnType<typeof mapEnquiry> & {
-  messages: Array<{ comment: string; id: number }>;
+  activities: CrmEnquiryActivity[];
+  attachments: CrmEnquiryAttachment[];
+  calls: CrmEnquiryCall[];
+  emails: CrmEnquiryEmail[];
+  messages: CrmStoredEnquiryMessage[];
+  notes: CrmEnquiryNote[];
   schedules: CrmEnquirySchedule[];
+  tasks: CrmEnquiryTask[];
 };
 
 export type CrmOverviewVisibility = {
@@ -52,33 +72,39 @@ export class CrmRepository {
               AND status IN ('open','follow','escalation')
               AND lifecycle_status='active'`;
     const result =
-      await sql<EnquiryRow>`SELECT id,uuid,title,priority,status,lifecycle_status,assigned_to_user_id,
+      await sql<EnquiryRow>`SELECT id,uuid,title,subject,priority,status,lifecycle_status,assigned_to_user_id,
       created_by_user_id,mobile,customer,enquiry_group,enquiry_date,workspace,created_at,updated_at FROM crm_enquiries
       WHERE ${viewCondition}
         AND (${filters.enquiryId ?? 0}=0 OR id=${filters.enquiryId ?? 0})
-        AND (${filters.search ?? ""}='' OR LOWER(title) LIKE ${term} OR CAST(id AS CHAR) LIKE ${term})
+        AND (${filters.search ?? ""}='' OR LOWER(title) LIKE ${term} OR LOWER(subject) LIKE ${term} OR CAST(id AS CHAR) LIKE ${term})
       ORDER BY updated_at DESC,id DESC`.execute(this.database);
     return this.withSchedules(result.rows.map(mapEnquiry));
   }
 
   async find(id: number) {
     const result =
-      await sql<EnquiryRow>`SELECT id,uuid,title,priority,status,lifecycle_status,assigned_to_user_id,
+      await sql<EnquiryRow>`SELECT id,uuid,title,subject,priority,status,lifecycle_status,assigned_to_user_id,
       created_by_user_id,mobile,customer,enquiry_group,enquiry_date,workspace,created_at,updated_at
       FROM crm_enquiries WHERE id=${id} LIMIT 1`.execute(this.database);
     const record = result.rows[0] ? mapEnquiry(result.rows[0]) : null;
     if (!record) return null;
     return {
       ...record,
+      activities: await this.listActivities(record.id),
+      attachments: await this.listAttachments(record.id),
+      calls: await this.listCalls(record.id),
+      emails: await this.listEmails(record.id),
       messages: await this.listMessages(record.id),
-      schedules: await this.listSchedules(record.id)
+      notes: await this.listNotes(record.id),
+      schedules: await this.listSchedules(record.id),
+      tasks: await this.listTasks(record.id)
     };
   }
 
   async create(input: CrmEnquirySavePayload, createdByUserId: number, uuid: string) {
     const result = await sql`INSERT INTO crm_enquiries
-      (uuid,title,priority,status,assigned_to_user_id,created_by_user_id,mobile,customer,enquiry_group,enquiry_date,workspace)
-      VALUES (${uuid},${input.title},${input.priority},${input.status},${input.assignedToUserId},${createdByUserId},
+      (uuid,title,subject,priority,status,assigned_to_user_id,created_by_user_id,mobile,customer,enquiry_group,enquiry_date,workspace)
+      VALUES (${uuid},${input.title},${input.subject},${input.priority},${input.status},${input.assignedToUserId},${createdByUserId},
         ${input.mobile},${input.customer},${input.enquiryGroup},${input.enquiryDate},${input.workspace})`.execute(
       this.database
     );
@@ -88,12 +114,12 @@ export class CrmRepository {
     return (await this.find(id))!;
   }
 
-  async update(id: number, input: CrmEnquirySavePayload) {
-    await sql`UPDATE crm_enquiries SET title=${input.title},priority=${input.priority},status=${input.status},
+  async update(id: number, input: CrmEnquirySavePayload, replaceMessages = false) {
+    await sql`UPDATE crm_enquiries SET title=${input.title},subject=${input.subject},priority=${input.priority},status=${input.status},
       assigned_to_user_id=${input.assignedToUserId},mobile=${input.mobile},customer=${input.customer},
       enquiry_group=${input.enquiryGroup},enquiry_date=${input.enquiryDate},workspace=${input.workspace}
       WHERE id=${id}`.execute(this.database);
-    await this.replaceMessages(id, input.messages);
+    if (replaceMessages) await this.replaceMessages(id, input.messages);
     await this.replaceSchedules(id, input.schedules);
     return this.find(id);
   }
@@ -112,18 +138,145 @@ export class CrmRepository {
     return record;
   }
 
+  async addMessage(
+    enquiryId: number,
+    input: CrmEnquiryMessageCreatePayload,
+    createdByUserId: number
+  ) {
+    const positionResult = await sql<{ next_position: number | string }>`SELECT
+      COALESCE(MAX(position),-1)+1 AS next_position
+      FROM crm_enquiry_messages WHERE enquiry_id=${enquiryId}`.execute(this.database);
+    await sql`INSERT INTO crm_enquiry_messages
+      (enquiry_id,position,message_type,comment,created_by_user_id)
+      VALUES (${enquiryId},${Number(positionResult.rows[0]?.next_position ?? 0)},${input.messageType},
+        ${input.comment},${createdByUserId})`.execute(this.database);
+    return this.find(enquiryId);
+  }
+
+  async updateLatestMessage(
+    enquiryId: number,
+    messageId: number,
+    createdByUserId: number,
+    comment: string
+  ) {
+    const result = await sql`UPDATE crm_enquiry_messages
+      SET comment=${comment}
+      WHERE enquiry_id=${enquiryId}
+        AND id=${messageId}
+        AND created_by_user_id=${createdByUserId}
+        AND id=(
+          SELECT latest.id FROM (
+            SELECT id FROM crm_enquiry_messages
+            WHERE enquiry_id=${enquiryId}
+            ORDER BY position DESC,id DESC
+            LIMIT 1
+          ) AS latest
+        )`.execute(this.database);
+    return Number(result.numAffectedRows ?? 0) > 0;
+  }
+
+  async deleteLatestMessage(enquiryId: number, messageId: number, createdByUserId: number) {
+    const result = await sql`DELETE FROM crm_enquiry_messages
+      WHERE enquiry_id=${enquiryId}
+        AND id=${messageId}
+        AND created_by_user_id=${createdByUserId}
+        AND id=(
+          SELECT latest.id FROM (
+            SELECT id FROM crm_enquiry_messages
+            WHERE enquiry_id=${enquiryId}
+            ORDER BY position DESC,id DESC
+            LIMIT 1
+          ) AS latest
+        )`.execute(this.database);
+    return Number(result.numAffectedRows ?? 0) > 0;
+  }
+
+  async addEmail(
+    enquiryId: number,
+    input: CrmEnquiryEmailCreatePayload,
+    createdByUserId: number,
+    uuid: string
+  ) {
+    await sql`INSERT INTO crm_enquiry_emails
+      (uuid,enquiry_id,recipient,subject,body,created_by_user_id)
+      VALUES (${uuid},${enquiryId},${input.recipient},${input.subject},${input.body},
+        ${createdByUserId})`.execute(this.database);
+    return this.find(enquiryId);
+  }
+
+  async addCall(
+    enquiryId: number,
+    input: CrmEnquiryCallCreatePayload,
+    createdByUserId: number,
+    uuid: string
+  ) {
+    await sql`INSERT INTO crm_enquiry_calls
+      (uuid,enquiry_id,phone,summary,called_at,created_by_user_id)
+      VALUES (${uuid},${enquiryId},${input.phone},${input.summary},${new Date(input.calledAt)},
+        ${createdByUserId})`.execute(this.database);
+    return this.find(enquiryId);
+  }
+
+  async addTask(
+    enquiryId: number,
+    input: CrmEnquiryTaskCreatePayload,
+    createdByUserId: number,
+    uuid: string
+  ) {
+    await sql`INSERT INTO crm_enquiry_tasks
+      (uuid,enquiry_id,title,task_status,due_on,created_by_user_id)
+      VALUES (${uuid},${enquiryId},${input.title},${input.status},${input.dueOn},
+        ${createdByUserId})`.execute(this.database);
+    return this.find(enquiryId);
+  }
+
+  async addNote(
+    enquiryId: number,
+    input: CrmEnquiryNoteCreatePayload,
+    createdByUserId: number,
+    uuid: string
+  ) {
+    await sql`INSERT INTO crm_enquiry_notes (uuid,enquiry_id,note,created_by_user_id)
+      VALUES (${uuid},${enquiryId},${input.note},${createdByUserId})`.execute(this.database);
+    return this.find(enquiryId);
+  }
+
+  async addAttachment(
+    enquiryId: number,
+    input: CrmEnquiryAttachmentCreatePayload,
+    createdByUserId: number,
+    uuid: string
+  ) {
+    await sql`INSERT INTO crm_enquiry_attachments
+      (uuid,enquiry_id,file_name,file_url,created_by_user_id)
+      VALUES (${uuid},${enquiryId},${input.fileName},${input.fileUrl},
+        ${createdByUserId})`.execute(this.database);
+    return this.find(enquiryId);
+  }
+
+  async addActivity(
+    enquiryId: number,
+    action: string,
+    details: string,
+    createdByUserId: number,
+    uuid: string
+  ) {
+    await sql`INSERT INTO crm_enquiry_activities
+      (uuid,enquiry_id,action,details,created_by_user_id)
+      VALUES (${uuid},${enquiryId},${action},${details},${createdByUserId})`.execute(this.database);
+  }
+
   async listReferences() {
     const result = await sql<
       Pick<EnquiryRow, "id" | "title">
-    >`SELECT id,title FROM crm_enquiries WHERE lifecycle_status='active' ORDER BY id DESC`.execute(
-      this.database
-    );
+    >`SELECT id,COALESCE(NULLIF(subject,''),title) AS title
+      FROM crm_enquiries WHERE lifecycle_status='active' ORDER BY id DESC`.execute(this.database);
     return result.rows.map((row) => ({ id: Number(row.id), title: row.title }));
   }
 
   async listAll() {
     const result =
-      await sql<EnquiryRow>`SELECT id,uuid,title,priority,status,lifecycle_status,assigned_to_user_id,
+      await sql<EnquiryRow>`SELECT id,uuid,title,subject,priority,status,lifecycle_status,assigned_to_user_id,
       created_by_user_id,mobile,customer,enquiry_group,enquiry_date,workspace,created_at,updated_at
       FROM crm_enquiries WHERE lifecycle_status='active' ORDER BY updated_at,id`.execute(
         this.database
@@ -193,12 +346,157 @@ export class CrmRepository {
     }));
   }
 
-  private async listMessages(enquiryId: number) {
-    const result = await sql<{ comment: string; id: number }>`SELECT id,comment
+  private async listMessages(enquiryId: number): Promise<CrmStoredEnquiryMessage[]> {
+    const result = await sql<{
+      comment: string;
+      created_at: Date | string;
+      created_by_user_id: number | null;
+      id: number;
+      message_type: "comment" | "reply";
+    }>`SELECT id,message_type,comment,created_by_user_id,created_at
       FROM crm_enquiry_messages WHERE enquiry_id=${enquiryId} ORDER BY position,id`.execute(
       this.database
     );
-    return result.rows.map((row) => ({ comment: row.comment, id: Number(row.id) }));
+    return result.rows.map((row) => ({
+      comment: row.comment,
+      createdAt: timestamp(row.created_at),
+      createdByUserId: row.created_by_user_id === null ? null : Number(row.created_by_user_id),
+      id: Number(row.id),
+      messageType: row.message_type
+    }));
+  }
+
+  private async listEmails(enquiryId: number): Promise<CrmEnquiryEmail[]> {
+    const result = await sql<{
+      body: string;
+      created_at: Date | string;
+      created_by_user_id: number;
+      id: number;
+      recipient: string;
+      subject: string;
+      uuid: string;
+    }>`SELECT id,uuid,recipient,subject,body,created_by_user_id,created_at
+      FROM crm_enquiry_emails WHERE enquiry_id=${enquiryId} ORDER BY created_at DESC,id DESC`.execute(
+      this.database
+    );
+    return result.rows.map((row) => ({
+      body: row.body,
+      createdAt: timestamp(row.created_at),
+      createdByUserId: Number(row.created_by_user_id),
+      id: Number(row.id),
+      recipient: row.recipient,
+      subject: row.subject,
+      uuid: row.uuid
+    }));
+  }
+
+  private async listCalls(enquiryId: number): Promise<CrmEnquiryCall[]> {
+    const result = await sql<{
+      called_at: Date | string;
+      created_at: Date | string;
+      created_by_user_id: number;
+      id: number;
+      phone: string;
+      summary: string;
+      uuid: string;
+    }>`SELECT id,uuid,phone,summary,called_at,created_by_user_id,created_at
+      FROM crm_enquiry_calls WHERE enquiry_id=${enquiryId} ORDER BY called_at DESC,id DESC`.execute(
+      this.database
+    );
+    return result.rows.map((row) => ({
+      calledAt: timestamp(row.called_at),
+      createdAt: timestamp(row.created_at),
+      createdByUserId: Number(row.created_by_user_id),
+      id: Number(row.id),
+      phone: row.phone,
+      summary: row.summary,
+      uuid: row.uuid
+    }));
+  }
+
+  private async listTasks(enquiryId: number): Promise<CrmEnquiryTask[]> {
+    const result = await sql<{
+      created_at: Date | string;
+      created_by_user_id: number;
+      due_on: Date | string | null;
+      id: number;
+      task_status: "completed" | "pending";
+      title: string;
+      uuid: string;
+    }>`SELECT id,uuid,title,task_status,due_on,created_by_user_id,created_at
+      FROM crm_enquiry_tasks WHERE enquiry_id=${enquiryId}
+      ORDER BY task_status,due_on IS NULL,due_on,id DESC`.execute(this.database);
+    return result.rows.map((row) => ({
+      createdAt: timestamp(row.created_at),
+      createdByUserId: Number(row.created_by_user_id),
+      dueOn: row.due_on ? dateOnly(row.due_on) : null,
+      id: Number(row.id),
+      status: row.task_status,
+      title: row.title,
+      uuid: row.uuid
+    }));
+  }
+
+  private async listNotes(enquiryId: number): Promise<CrmEnquiryNote[]> {
+    const result = await sql<{
+      created_at: Date | string;
+      created_by_user_id: number;
+      id: number;
+      note: string;
+      uuid: string;
+    }>`SELECT id,uuid,note,created_by_user_id,created_at
+      FROM crm_enquiry_notes WHERE enquiry_id=${enquiryId} ORDER BY created_at DESC,id DESC`.execute(
+      this.database
+    );
+    return result.rows.map((row) => ({
+      createdAt: timestamp(row.created_at),
+      createdByUserId: Number(row.created_by_user_id),
+      id: Number(row.id),
+      note: row.note,
+      uuid: row.uuid
+    }));
+  }
+
+  private async listAttachments(enquiryId: number): Promise<CrmEnquiryAttachment[]> {
+    const result = await sql<{
+      created_at: Date | string;
+      created_by_user_id: number;
+      file_name: string;
+      file_url: string;
+      id: number;
+      uuid: string;
+    }>`SELECT id,uuid,file_name,file_url,created_by_user_id,created_at
+      FROM crm_enquiry_attachments WHERE enquiry_id=${enquiryId}
+      ORDER BY created_at DESC,id DESC`.execute(this.database);
+    return result.rows.map((row) => ({
+      createdAt: timestamp(row.created_at),
+      createdByUserId: Number(row.created_by_user_id),
+      fileName: row.file_name,
+      fileUrl: row.file_url,
+      id: Number(row.id),
+      uuid: row.uuid
+    }));
+  }
+
+  private async listActivities(enquiryId: number): Promise<CrmEnquiryActivity[]> {
+    const result = await sql<{
+      action: string;
+      created_at: Date | string;
+      created_by_user_id: number;
+      details: string;
+      id: number;
+      uuid: string;
+    }>`SELECT id,uuid,action,details,created_by_user_id,created_at
+      FROM crm_enquiry_activities WHERE enquiry_id=${enquiryId}
+      ORDER BY created_at DESC,id DESC`.execute(this.database);
+    return result.rows.map((row) => ({
+      action: row.action,
+      createdAt: timestamp(row.created_at),
+      createdByUserId: Number(row.created_by_user_id),
+      details: row.details,
+      id: Number(row.id),
+      uuid: row.uuid
+    }));
   }
 
   private async replaceMessages(enquiryId: number, messages: CrmEnquirySavePayload["messages"]) {
@@ -221,17 +519,51 @@ export class CrmRepository {
     }
   }
 
-  private async withChildren(records: Array<Omit<StoredEnquiry, "messages" | "schedules">>) {
+  private async withChildren(
+    records: Array<
+      Omit<
+        StoredEnquiry,
+        | "activities"
+        | "attachments"
+        | "calls"
+        | "emails"
+        | "messages"
+        | "notes"
+        | "schedules"
+        | "tasks"
+      >
+    >
+  ) {
     return Promise.all(
       records.map(async (record) => ({
         ...record,
+        activities: await this.listActivities(record.id),
+        attachments: await this.listAttachments(record.id),
+        calls: await this.listCalls(record.id),
+        emails: await this.listEmails(record.id),
         messages: await this.listMessages(record.id),
-        schedules: await this.listSchedules(record.id)
+        notes: await this.listNotes(record.id),
+        schedules: await this.listSchedules(record.id),
+        tasks: await this.listTasks(record.id)
       }))
     );
   }
 
-  private withSchedules(records: Array<Omit<StoredEnquiry, "messages" | "schedules">>) {
+  private withSchedules(
+    records: Array<
+      Omit<
+        StoredEnquiry,
+        | "activities"
+        | "attachments"
+        | "calls"
+        | "emails"
+        | "messages"
+        | "notes"
+        | "schedules"
+        | "tasks"
+      >
+    >
+  ) {
     return this.withChildren(records);
   }
 }
@@ -249,6 +581,7 @@ function mapEnquiry(row: EnquiryRow) {
     mobile: row.mobile,
     priority: row.priority,
     status: row.status,
+    subject: row.subject,
     title: row.title,
     updatedAt: timestamp(row.updated_at),
     uuid: row.uuid,

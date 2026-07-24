@@ -66,7 +66,7 @@ export function TenantAppConnections({
 
   useEffect(() => {
     if (!enabledApps.some((app) => app.appId === landingApp)) {
-      setLandingApp("application");
+      setLandingApp(enabledApps.some((app) => app.appId === "crm") ? "crm" : "application");
     }
   }, [enabledApps, landingApp]);
 

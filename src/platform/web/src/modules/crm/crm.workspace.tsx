@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "@codexsun/ui/components/sonner";
 import {
@@ -27,7 +27,13 @@ import {
 } from "./crm.hooks";
 import { CrmList } from "./crm.list";
 import { CrmShow } from "./crm.show";
-import type { CrmEnquiry, CrmEnquirySavePayload, CrmEnquiryView } from "./crm.types";
+import type {
+  CrmEnquiry,
+  CrmEnquiryColumnId,
+  CrmEnquiryColumnVisibility,
+  CrmEnquirySavePayload,
+  CrmEnquiryView
+} from "./crm.types";
 
 type PendingAction = {
   record: CrmEnquiry;
@@ -42,6 +48,24 @@ const viewDetails: Record<CrmEnquiryView, { description: string; title: string }
     title: "Open Enquiry"
   }
 };
+
+const enquiryColumnOptions: Array<{ id: CrmEnquiryColumnId; label: string }> = [
+  { id: "id", label: "ID" },
+  { id: "mobile", label: "Mobile" },
+  { id: "customer", label: "Customer" },
+  { id: "title", label: "Enquiry details" },
+  { id: "enquiryGroup", label: "List in" },
+  { id: "dueDate", label: "Due date" },
+  { id: "createdBy", label: "User" },
+  { id: "assignedTo", label: "Assigned to" },
+  { id: "status", label: "Status" }
+];
+
+function allEnquiryColumnsVisible(): CrmEnquiryColumnVisibility {
+  return Object.fromEntries(
+    enquiryColumnOptions.map((column) => [column.id, true])
+  ) as CrmEnquiryColumnVisibility;
+}
 
 export function CrmWorkspace({
   canAssign,
@@ -60,6 +84,9 @@ export function CrmWorkspace({
 }) {
   const [search, setSearch] = useState("");
   const [enquiryId, setEnquiryId] = useState<number | undefined>();
+  const [listInFilter, setListInFilter] = useState("all");
+  const [visibleColumns, setVisibleColumns] =
+    useState<CrmEnquiryColumnVisibility>(allEnquiryColumnsVisible);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(100);
   const [editing, setEditing] = useState<CrmEnquiry | null | undefined>(undefined);
@@ -74,12 +101,41 @@ export function CrmWorkspace({
   const users = useCrmUsersQuery();
   const mutations = useCrmEnquiryMutations();
   const records = query.data ?? [];
-  const totalPages = Math.max(1, Math.ceil(records.length / rowsPerPage));
+  const listInOptions = useMemo(
+    () => [
+      { id: "all", label: "All lists" },
+      ...Array.from(new Set(records.map((record) => record.enquiryGroup.trim()).filter(Boolean)))
+        .sort((left, right) => left.localeCompare(right))
+        .map((group) => ({ id: `group:${group}`, label: group }))
+    ],
+    [records]
+  );
+  const filteredRecords = useMemo(
+    () =>
+      listInFilter === "all"
+        ? records
+        : records.filter((record) => `group:${record.enquiryGroup.trim()}` === listInFilter),
+    [listInFilter, records]
+  );
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages);
-  const visibleRecords = records.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const visibleRecords = filteredRecords.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+  const viewingIndex = viewing
+    ? filteredRecords.findIndex((record) => record.id === viewing.id)
+    : -1;
+  const nextViewing =
+    viewingIndex >= 0 && viewingIndex < filteredRecords.length - 1
+      ? filteredRecords[viewingIndex + 1]
+      : undefined;
   const details = viewDetails[view];
 
-  useEffect(() => setPage(1), [view, search, enquiryId]);
+  useEffect(() => setPage(1), [view, search, enquiryId, listInFilter]);
+  useEffect(() => {
+    if (!listInOptions.some((option) => option.id === listInFilter)) setListInFilter("all");
+  }, [listInFilter, listInOptions]);
 
   async function save(value: CrmEnquirySavePayload) {
     try {
@@ -87,7 +143,7 @@ export function CrmWorkspace({
         ? await mutations.update.mutateAsync({ id: editing.id, payload: value })
         : await mutations.create.mutateAsync(value);
       toast.success(`Enquiry ${editing ? "updated" : "created"}`, {
-        description: `#${saved.id} · ${saved.title}`
+        description: `#${saved.id} · ${saved.subject.trim() || saved.title}`
       });
       setEditing(undefined);
     } catch {}
@@ -107,13 +163,38 @@ export function CrmWorkspace({
           : action.type === "restore"
             ? "Enquiry restored"
             : "Enquiry suspended",
-        { description: `#${record.id} · ${record.title}` }
+        { description: `#${record.id} · ${record.subject.trim() || record.title}` }
       );
       setPendingAction(null);
       if (viewing?.id === record.id) setViewing(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The enquiry action failed.");
     }
+  }
+
+  async function resync(record: CrmEnquiry) {
+    try {
+      const result = await mutations.resync.mutateAsync(record);
+      toast.success("Enquiry synchronized with Frappe", {
+        description: `${result.frappeName} · ${result.action === "created" ? "Created" : "Updated"}`
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The Frappe synchronization failed.");
+    }
+  }
+
+  if (viewing) {
+    return (
+      <CrmShow
+        canResync={canUpdate}
+        onBack={() => setViewing(null)}
+        {...(nextViewing ? { onNext: () => setViewing(nextViewing) } : {})}
+        onRecordChange={setViewing}
+        onResync={() => resync(viewing)}
+        record={viewing}
+        resyncing={mutations.resync.isPending}
+      />
+    );
   }
 
   return (
@@ -146,7 +227,22 @@ export function CrmWorkspace({
       title={details.title}
     >
       <WorkspaceFilters
+        columnOptions={enquiryColumnOptions
+          .filter((column) => view !== "assigned" || column.id !== "assignedTo")
+          .map((column) => ({
+            ...column,
+            checked: visibleColumns[column.id],
+            onCheckedChange: (checked) =>
+              setVisibleColumns((current) => ({ ...current, [column.id]: checked }))
+          }))}
+        filterOptions={listInOptions}
+        filterValue={listInFilter}
+        onFilterValueChange={(value) => {
+          setListInFilter(value);
+          setPage(1);
+        }}
         onSearchValueChange={setSearch}
+        onShowAllColumns={() => setVisibleColumns(allEnquiryColumnsVisible())}
         searchPlaceholder="Search title or enquiry ID"
         searchValue={search}
         toolbarAction={
@@ -182,13 +278,17 @@ export function CrmWorkspace({
         {...(canUpdate ? { onSelect: setEditing } : {})}
         onView={setViewing}
         records={visibleRecords}
+        visibleColumns={{
+          ...visibleColumns,
+          assignedTo: view === "assigned" ? false : visibleColumns.assignedTo
+        }}
       />
       <WorkspacePagination
         page={currentPage}
         rowsPerPage={rowsPerPage}
-        showingLabel={buildShowingLabel(currentPage, rowsPerPage, records.length)}
+        showingLabel={buildShowingLabel(currentPage, rowsPerPage, filteredRecords.length)}
         singularLabel="enquiry"
-        totalCount={records.length}
+        totalCount={filteredRecords.length}
         totalPages={totalPages}
         onNextPage={() => setPage((value) => Math.min(totalPages, value + 1))}
         onPageChange={setPage}
@@ -205,23 +305,12 @@ export function CrmWorkspace({
           : {})}
         loading={mutations.create.isPending || mutations.update.isPending}
         onCancel={() => setEditing(undefined)}
+        onResync={() => editing && resync(editing)}
         onSubmit={(value) => void save(value)}
         open={editing !== undefined}
         record={editing ?? null}
+        resyncing={mutations.resync.isPending}
         users={users.data ?? []}
-      />
-      <CrmShow
-        onClose={() => setViewing(null)}
-        {...(canUpdate && viewing?.lifecycleStatus === "active"
-          ? {
-              onEdit: () => {
-                setEditing(viewing);
-                setViewing(null);
-              }
-            }
-          : {})}
-        open={viewing !== null}
-        record={viewing}
       />
       <CrmActionDialog
         action={pendingAction}

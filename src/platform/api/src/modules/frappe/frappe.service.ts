@@ -1,9 +1,17 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { AppError } from "@codexsun/framework/errors";
 import { recordTenantAccessAudit } from "../../database/tenant-access-audit.js";
+import {
+  decryptIntegrationCredential,
+  encryptIntegrationCredential
+} from "../../security/integration-credential.js";
 import { crmEnquirySyncContract } from "../crm/index.js";
-import { tenantUserReferenceContract } from "../tenant-user/index.js";
-import { env } from "../../env.js";
+import {
+  tenantUserFrappeCredentialContract,
+  tenantUserFrappeImportContract,
+  tenantUserReferenceContract
+} from "../tenant-user/index.js";
+import { tenantUserRoleStandardAccessContract } from "../tenant-user-role/index.js";
 import { FrappeRepository, type StoredFrappeConnection } from "./frappe.repository.js";
 import type {
   FrappeConnectionCredentials,
@@ -12,11 +20,14 @@ import type {
   FrappeConnectionVerificationPayload,
   FrappeConnectionVerificationResult,
   FrappeContext,
+  FrappeEnquiryLifecycleFactory,
+  FrappeEnquiryLifecycleResult,
   FrappeSyncResult,
-  FrappeSyncSettingsSavePayload
+  FrappeSyncSettingsSavePayload,
+  FrappeUserImportResult,
+  FrappeUserPreview
 } from "./frappe.types.js";
 
-const encryptionVersion = "v1";
 const handshakePath = "/api/method/frappe.auth.get_logged_user";
 const maximumHandshakeResponseBytes = 64 * 1024;
 
@@ -36,17 +47,13 @@ export class FrappeService {
   async save(input: FrappeConnectionSavePayload) {
     await this.context.authorize("frappe.connection.update");
     const current = await this.repository.find();
-    const apiKey = input.apiKey?.trim();
-    const apiSecret = input.apiSecret?.trim();
-    if (!current && (!apiKey || !apiSecret)) {
-      throw AppError.validation("API key and API secret are required for the first connection.");
-    }
     const baseUrl = normalizeBaseUrl(input.baseUrl);
+    const appCredentials = appCredentialsForSave(input, current);
     const resetVerification =
-      !current || Boolean(apiKey || apiSecret) || current.baseUrl !== baseUrl;
+      !current || current.baseUrl !== baseUrl || appCredentials.credentialsChanged;
     const record = await this.repository.save({
-      apiKeyCiphertext: apiKey ? encryptCredential(apiKey) : current!.apiKeyCiphertext,
-      apiSecretCiphertext: apiSecret ? encryptCredential(apiSecret) : current!.apiSecretCiphertext,
+      appKeyCiphertext: appCredentials.appKeyCiphertext,
+      appSecretCiphertext: appCredentials.appSecretCiphertext,
       baseUrl,
       connectionName: input.connectionName.trim(),
       enabled: input.enabled,
@@ -57,6 +64,11 @@ export class FrappeService {
         : (current?.verificationStatus ?? "unverified"),
       uuid: current?.uuid ?? randomBytes(4).toString("hex")
     });
+    if (resetVerification) {
+      if (!current || current.baseUrl !== baseUrl) {
+        await tenantUserFrappeCredentialContract(this.context.database).resetVerification();
+      }
+    }
     await recordTenantAccessAudit({
       action: current ? "updated" : "created",
       actorEmail: this.context.actorEmail,
@@ -75,18 +87,15 @@ export class FrappeService {
     await this.context.authorize("frappe.connection.update");
     const current = await this.repository.find();
     const baseUrl = normalizeBaseUrl(input.baseUrl);
-    const apiKey = input.apiKey?.trim() || decryptConfiguredCredential(current?.apiKeyCiphertext);
-    const apiSecret =
-      input.apiSecret?.trim() || decryptConfiguredCredential(current?.apiSecretCiphertext);
-    if (!apiKey || !apiSecret) {
-      throw AppError.validation(
-        "API key and API secret are required to verify the Frappe connection."
-      );
-    }
+    const credentials = appCredentialsForVerification(input, current);
 
     let result: FrappeConnectionVerificationResult;
     try {
-      result = await verifyFrappeHandshake({ apiKey, apiSecret, baseUrl });
+      result = await verifyFrappeHandshake({
+        apiKey: credentials.appKey,
+        apiSecret: credentials.appSecret,
+        baseUrl
+      });
     } catch (error) {
       const checkedAt = new Date();
       if (current && current.baseUrl === baseUrl) {
@@ -118,6 +127,15 @@ export class FrappeService {
     return result;
   }
 
+  async verifyUser(userId: number): Promise<FrappeConnectionVerificationResult> {
+    await this.context.authorize("platform.application.user.update");
+    const connection = await this.repository.find();
+    if (!connection?.enabled) {
+      throw AppError.conflict("Enable the Frappe connection before verifying user credentials.");
+    }
+    return verifyUserAgainstConnection(this.context.database, userId, connection);
+  }
+
   async getSyncSettings() {
     await this.context.authorize("frappe.connection.view");
     return this.repository.findSyncSettings();
@@ -140,8 +158,9 @@ export class FrappeService {
 
   async sync(direction: "pull" | "push"): Promise<FrappeSyncResult> {
     await this.context.authorize("frappe.connection.update");
+    const actor = await this.actor();
     const [connection, settings] = await Promise.all([
-      frappeConnectionContract({ database: this.context.database }).get(),
+      frappeConnectionContract({ database: this.context.database, userId: actor.id }).get(),
       this.repository.findSyncSettings()
     ]);
     if (!connection?.enabled) {
@@ -170,6 +189,98 @@ export class FrappeService {
       tenantId: this.context.tenantId
     });
     return result;
+  }
+
+  async previewUsers(): Promise<FrappeUserPreview[]> {
+    await this.context.authorize("frappe.connection.view");
+    await this.context.authorize("platform.application.user.view");
+    const connection = await this.connectionForActor();
+    const fields = JSON.stringify([
+      "name",
+      "full_name",
+      "email",
+      "username",
+      "enabled",
+      "user_type",
+      "last_active"
+    ]);
+    const filters = JSON.stringify([
+      ["enabled", "=", 1],
+      ["user_type", "=", "System User"]
+    ]);
+    const response = await frappeRequest<{ data?: FrappeUserDocument[] }>(
+      connection,
+      `/api/resource/User?fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}&limit_page_length=500&order_by=full_name%20asc`
+    );
+    const localUsers = await tenantUserFrappeImportContract({
+      actorEmail: this.context.actorEmail,
+      database: this.context.database,
+      tenantId: this.context.tenantId
+    }).listExisting();
+    const localByEmail = new Map(localUsers.map((user) => [user.email.toLowerCase(), user]));
+
+    return (response.data ?? [])
+      .filter((user) => !["Administrator", "Guest"].includes(user.name))
+      .map((user) => toFrappeUserPreview(user, localByEmail))
+      .filter((user): user is FrappeUserPreview => Boolean(user))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  async importUser(frappeUserId: string): Promise<FrappeUserImportResult> {
+    await this.context.authorize("frappe.connection.update");
+    await this.context.authorize("platform.application.user.create");
+    const connection = await this.connectionForActor();
+    const response = await frappeRequest<{ data?: FrappeUserDocument }>(
+      connection,
+      `/api/resource/User/${encodeURIComponent(frappeUserId.trim())}`
+    );
+    const remote = response.data;
+    if (!remote || !remote.enabled || remote.user_type !== "System User") {
+      throw AppError.validation("Only enabled Frappe System Users can be added.");
+    }
+    const email = frappeUserEmail(remote);
+    if (!email) throw AppError.validation("Frappe user must have a valid email address.");
+    const result = await tenantUserFrappeImportContract({
+      actorEmail: this.context.actorEmail,
+      database: this.context.database,
+      tenantId: this.context.tenantId
+    }).importUser({
+      email,
+      name: remote.full_name?.trim() || remote.username?.trim() || email
+    });
+    await tenantUserRoleStandardAccessContract({
+      actorEmail: this.context.actorEmail,
+      database: this.context.database,
+      tenantId: this.context.tenantId
+    }).ensureForUser(result.user.id);
+    await recordTenantAccessAudit({
+      action: result.created ? "user_imported" : "user_already_exists",
+      actorEmail: this.context.actorEmail,
+      moduleKey: "frappe.user-sync",
+      recordId: result.user.id,
+      recordLabel: remote.name,
+      recordUuid: result.user.uuid,
+      tenantId: this.context.tenantId
+    });
+    return result;
+  }
+
+  private async actor() {
+    const actor = await this.context.actorUser();
+    if (!actor) throw AppError.unauthorized("Active tenant user is required.");
+    return actor;
+  }
+
+  private async connectionForActor() {
+    const actor = await this.actor();
+    const connection = await frappeConnectionContract({
+      database: this.context.database,
+      userId: actor.id
+    }).get();
+    if (!connection?.enabled) {
+      throw AppError.conflict("Enable the Frappe connection before loading users.");
+    }
+    return connection;
   }
 
   private async pullEnquiries(
@@ -227,6 +338,7 @@ export class FrappeService {
           priority: current?.priority ?? "normal",
           schedules: current?.schedules.map(({ scheduledOn }) => ({ scheduledOn })) ?? [],
           status: fromFrappeStatus(document.status),
+          subject: document.enquiry_details ?? "",
           title: document.enquiry_details || document.name,
           workspace: document.status_details ?? ""
         });
@@ -249,6 +361,7 @@ export class FrappeService {
     connection: FrappeConnectionCredentials,
     doctype: string
   ): Promise<FrappeSyncResult> {
+    const userEmployeeName = await requiredFrappeEmployeeName(connection);
     const crm = crmEnquirySyncContract(this.context.database);
     const records = await crm.list();
     const users = await tenantUserReferenceContract(this.context.database).list();
@@ -269,16 +382,7 @@ export class FrappeService {
           employeeName = employees.data?.[0]?.name ?? "";
           employeeNames.set(assigned.email, employeeName);
         }
-        const payload = {
-          ...(employeeName ? { assigned_to_employee: employeeName } : {}),
-          ...(record.customer ? { customer: record.customer } : {}),
-          enquiry_details: record.title,
-          enquiry_messages: record.messages.map(({ comment }) => ({ comment })),
-          group: record.enquiryGroup,
-          mobile: record.mobile,
-          status: toFrappeStatus(record.status),
-          status_details: record.workspace
-        };
+        const payload = frappeEnquiryPayload(record, userEmployeeName, employeeName ?? "");
         const link = await this.repository.findLinkByCrmId(record.id);
         const response = link
           ? await frappeRequest<{ data?: FrappeEnquiryDocument }>(
@@ -322,15 +426,32 @@ type FrappeEnquiryDocument = {
   user_employee?: string;
 };
 
-export function frappeConnectionContract(context: { database: FrappeContext["database"] }) {
+type FrappeUserDocument = {
+  email?: string;
+  enabled?: number | boolean;
+  full_name?: string;
+  last_active?: string | null;
+  name: string;
+  user_type?: string;
+  username?: string;
+};
+
+export function frappeConnectionContract(context: {
+  database: FrappeContext["database"];
+  userId: number;
+}) {
   const repository = new FrappeRepository(context.database);
   return {
     async get(): Promise<FrappeConnectionCredentials | null> {
-      const record = await repository.find();
-      if (!record) return null;
+      const [record, credentials] = await Promise.all([
+        repository.find(),
+        tenantUserFrappeCredentialContract(context.database).find(context.userId)
+      ]);
+      if (!record || !credentials) return null;
       return {
-        apiKey: decryptCredential(record.apiKeyCiphertext),
-        apiSecret: decryptCredential(record.apiSecretCiphertext),
+        apiKey: credentials.apiKey,
+        apiSecret: credentials.apiSecret,
+        authenticatedUser: credentials.authenticatedUser,
         baseUrl: record.baseUrl,
         connectionName: record.connectionName,
         enabled: record.enabled
@@ -339,10 +460,260 @@ export function frappeConnectionContract(context: { database: FrappeContext["dat
   };
 }
 
+export const frappeEnquiryLifecycleContract: FrappeEnquiryLifecycleFactory = (context) => {
+  const repository = new FrappeRepository(context.database);
+  const crm = crmEnquirySyncContract(context.database);
+
+  async function upsert(
+    enquiryId: number,
+    userId: number,
+    required: boolean
+  ): Promise<FrappeEnquiryLifecycleResult> {
+    const target = await lifecycleTarget(context.database, repository, userId, required);
+    if (!target) return { action: "skipped", frappeName: null };
+    const record = await crm.find(enquiryId);
+    if (!record) throw AppError.notFound("Enquiry was not found for Frappe synchronization.");
+    if (record.lifecycleStatus === "suspended") {
+      throw AppError.conflict("Suspended enquiries cannot be synchronized with Frappe.");
+    }
+
+    const assigned = record.assignedToUserId
+      ? await tenantUserReferenceContract(context.database).find(record.assignedToUserId)
+      : null;
+    const employeeName = assigned
+      ? await findFrappeEmployeeName(context.database, userId, target.connection, assigned.email)
+      : "";
+    const userEmployeeName = await requiredFrappeEmployeeName(
+      target.connection,
+      context.database,
+      userId
+    );
+    const payload = frappeEnquiryPayload(record, userEmployeeName, employeeName);
+    const link = await repository.findLinkByCrmId(enquiryId);
+    const response = link
+      ? await frappeLifecycleRequest<{ data?: FrappeEnquiryDocument }>(
+          context.database,
+          userId,
+          target.connection,
+          `/api/resource/${encodeURIComponent(target.doctype)}/${encodeURIComponent(link.frappe_name)}`,
+          { body: JSON.stringify(payload), method: "PUT" }
+        )
+      : await frappeLifecycleRequest<{ data?: FrappeEnquiryDocument }>(
+          context.database,
+          userId,
+          target.connection,
+          `/api/resource/${encodeURIComponent(target.doctype)}`,
+          { body: JSON.stringify(payload), method: "POST" }
+        );
+    const document = response.data;
+    if (!document?.name) throw new Error("Frappe did not return an enquiry name.");
+    await repository.saveLink({
+      crmEnquiryId: enquiryId,
+      frappeModifiedAt: document.modified ?? null,
+      frappeName: document.name
+    });
+    await repository.recordSync("push");
+    await recordFrappeEnquiryAudit(context, link ? "updated" : "created", record);
+    return { action: link ? "updated" : "created", frappeName: document.name };
+  }
+
+  return {
+    async upsert(enquiryId, userId): Promise<FrappeEnquiryLifecycleResult> {
+      return upsert(enquiryId, userId, false);
+    },
+
+    async resync(enquiryId, userId) {
+      const result = await upsert(enquiryId, userId, true);
+      if (result.action === "skipped" || !result.frappeName) {
+        throw AppError.conflict("The enquiry could not be synchronized with Frappe.");
+      }
+      if (result.action !== "created" && result.action !== "updated") {
+        throw AppError.conflict("The enquiry could not be synchronized with Frappe.");
+      }
+      return { action: result.action, frappeName: result.frappeName };
+    },
+
+    async delete(enquiryId, userId): Promise<FrappeEnquiryLifecycleResult> {
+      const link = await repository.findLinkByCrmId(enquiryId);
+      if (!link) return { action: "skipped", frappeName: null };
+      const target = await lifecycleTarget(context.database, repository, userId, true);
+      if (!target) throw AppError.conflict("Enable push to Frappe before deleting this enquiry.");
+      const record = await crm.find(enquiryId);
+      if (!record) throw AppError.notFound("Enquiry was not found for Frappe deletion.");
+      await frappeLifecycleRequest<{ message?: string }>(
+        context.database,
+        userId,
+        target.connection,
+        `/api/resource/${encodeURIComponent(target.doctype)}/${encodeURIComponent(link.frappe_name)}`,
+        { method: "DELETE" },
+        [404]
+      );
+      await repository.recordSync("push");
+      await recordFrappeEnquiryAudit(context, "deleted", record);
+      return { action: "deleted", frappeName: link.frappe_name };
+    }
+  };
+};
+
+async function lifecycleTarget(
+  database: FrappeContext["database"],
+  repository: FrappeRepository,
+  userId: number,
+  required: boolean
+) {
+  const [record, settings, credentials] = await Promise.all([
+    repository.find(),
+    repository.findSyncSettings(),
+    tenantUserFrappeCredentialContract(database).find(userId)
+  ]);
+  if (!settings?.pushEnquiriesEnabled) {
+    if (required)
+      throw AppError.conflict("Enable push to Frappe before synchronizing this enquiry.");
+    return null;
+  }
+  if (!record?.enabled)
+    throw AppError.conflict("Enable the Frappe connection before saving enquiries.");
+  if (!credentials) {
+    throw AppError.conflict(
+      "Configure this user's Frappe API key and secret before saving enquiries."
+    );
+  }
+  if (credentials.verificationStatus !== "live") {
+    throw AppError.conflict("Verify this user's Frappe connection before saving enquiries.");
+  }
+  return {
+    connection: {
+      apiKey: credentials.apiKey,
+      apiSecret: credentials.apiSecret,
+      authenticatedUser: credentials.authenticatedUser,
+      baseUrl: record.baseUrl,
+      connectionName: record.connectionName,
+      enabled: record.enabled
+    } satisfies FrappeConnectionCredentials,
+    doctype: settings.enquiryDoctype
+  };
+}
+
+async function findFrappeEmployeeName(
+  database: FrappeContext["database"],
+  userId: number,
+  connection: FrappeConnectionCredentials,
+  userEmail: string
+) {
+  const filters = JSON.stringify([["user_id", "=", userEmail]]);
+  const employees = await frappeLifecycleRequest<{ data?: Array<{ name?: string }> }>(
+    database,
+    userId,
+    connection,
+    `/api/resource/Employee?fields=${encodeURIComponent('["name"]')}&filters=${encodeURIComponent(filters)}&limit_page_length=1`
+  );
+  return employees.data?.[0]?.name ?? "";
+}
+
+async function requiredFrappeEmployeeName(
+  connection: FrappeConnectionCredentials,
+  database?: FrappeContext["database"],
+  userId?: number
+) {
+  const authenticatedUser = connection.authenticatedUser?.trim();
+  if (!authenticatedUser) {
+    throw AppError.conflict(
+      "Verify this user's Frappe API credentials once before synchronizing enquiries."
+    );
+  }
+  const filters = JSON.stringify([["user_id", "=", authenticatedUser]]);
+  const path = `/api/resource/Employee?fields=${encodeURIComponent('["name"]')}&filters=${encodeURIComponent(filters)}&limit_page_length=1`;
+  const employees =
+    database && userId
+      ? await frappeLifecycleRequest<{ data?: Array<{ name?: string }> }>(
+          database,
+          userId,
+          connection,
+          path
+        )
+      : await frappeRequest<{ data?: Array<{ name?: string }> }>(connection, path);
+  const employeeName = employees.data?.[0]?.name?.trim();
+  if (!employeeName) {
+    throw AppError.validation(
+      `Frappe user ${authenticatedUser} must be linked to an Employee before synchronizing enquiries.`
+    );
+  }
+  return employeeName;
+}
+
+function frappeEnquiryPayload(
+  record: {
+    createdAt: string;
+    customer: string;
+    enquiryDate: string | null;
+    enquiryGroup: string;
+    messages: Array<{ comment: string }>;
+    mobile: string;
+    status: string;
+    subject: string;
+    title: string;
+    workspace: string;
+  },
+  userEmployeeName: string,
+  assignedEmployeeName: string
+) {
+  return {
+    ...(assignedEmployeeName ? { assigned_to_employee: assignedEmployeeName } : {}),
+    ...(record.customer ? { customer: record.customer } : {}),
+    date: record.enquiryDate ?? record.createdAt.slice(0, 10),
+    enquiry_details: record.subject.trim() || record.title,
+    enquiry_messages: record.messages.map(({ comment }) => ({ comment })),
+    group: record.enquiryGroup,
+    mobile: record.mobile,
+    status: toFrappeStatus(record.status),
+    status_details: record.workspace,
+    user_employee: userEmployeeName
+  };
+}
+
+function recordFrappeEnquiryAudit(
+  context: Parameters<FrappeEnquiryLifecycleFactory>[0],
+  action: "created" | "deleted" | "updated",
+  record: { id: number; title: string; uuid: string }
+) {
+  return recordTenantAccessAudit({
+    action: `frappe_${action}`,
+    actorEmail: context.actorEmail,
+    moduleKey: "frappe.enquiry-sync",
+    recordId: record.id,
+    recordLabel: record.title,
+    recordUuid: record.uuid,
+    tenantId: context.tenantId
+  });
+}
+
+export function frappeUserAuthenticationContract(database: FrappeContext["database"]) {
+  return {
+    async statusForLogin(userId: number) {
+      const connection = await new FrappeRepository(database).find();
+      if (!connection?.enabled) {
+        return {
+          authenticatedUser: null,
+          status: connection ? ("disabled" as const) : ("not_configured" as const)
+        };
+      }
+      const credentials = await tenantUserFrappeCredentialContract(database).find(userId);
+      if (!credentials) {
+        return { authenticatedUser: null, status: "not_configured" as const };
+      }
+      return {
+        authenticatedUser:
+          credentials.verificationStatus === "live" ? credentials.authenticatedUser : null,
+        status: credentials.verificationStatus
+      };
+    }
+  };
+}
+
 function publicSettings(record: StoredFrappeConnection): FrappeConnectionSettings {
   return {
-    apiKeyConfigured: Boolean(record.apiKeyCiphertext),
-    apiSecretConfigured: Boolean(record.apiSecretCiphertext),
+    appKeyConfigured: Boolean(record.appKeyCiphertext),
+    appSecretConfigured: Boolean(record.appSecretCiphertext),
     baseUrl: record.baseUrl,
     connectionName: record.connectionName,
     enabled: record.enabled,
@@ -352,6 +723,47 @@ function publicSettings(record: StoredFrappeConnection): FrappeConnectionSetting
     updatedAt: record.updatedAt,
     uuid: record.uuid,
     verificationStatus: record.verificationStatus
+  };
+}
+
+function appCredentialsForSave(
+  input: FrappeConnectionSavePayload,
+  current: StoredFrappeConnection | null
+) {
+  const appKey = input.appKey?.trim();
+  const appSecret = input.appSecret?.trim();
+  if (Boolean(appKey) !== Boolean(appSecret)) {
+    throw AppError.validation("Frappe app key and app secret must both be configured.");
+  }
+  return {
+    appKeyCiphertext: appKey
+      ? encryptIntegrationCredential(appKey, "frappe-app")
+      : (current?.appKeyCiphertext ?? null),
+    appSecretCiphertext: appSecret
+      ? encryptIntegrationCredential(appSecret, "frappe-app")
+      : (current?.appSecretCiphertext ?? null),
+    credentialsChanged: Boolean(appKey && appSecret)
+  };
+}
+
+function appCredentialsForVerification(
+  input: FrappeConnectionVerificationPayload,
+  current: StoredFrappeConnection | null
+) {
+  const appKey = input.appKey?.trim();
+  const appSecret = input.appSecret?.trim();
+  if (Boolean(appKey) !== Boolean(appSecret)) {
+    throw AppError.validation("Frappe app key and app secret must both be provided for testing.");
+  }
+  if (appKey && appSecret) return { appKey, appSecret };
+  if (!current?.appKeyCiphertext || !current.appSecretCiphertext) {
+    throw AppError.validation(
+      "Enter a Frappe app key and app secret, or save them before verifying."
+    );
+  }
+  return {
+    appKey: decryptIntegrationCredential(current.appKeyCiphertext, "frappe-app"),
+    appSecret: decryptIntegrationCredential(current.appSecretCiphertext, "frappe-app")
   };
 }
 
@@ -369,46 +781,6 @@ function normalizeBaseUrl(value: string) {
     throw AppError.validation("Frappe URL must not contain query parameters or a fragment.");
   }
   return url.toString().replace(/\/$/u, "");
-}
-
-function credentialKey() {
-  const operatorKey = env.TECHMEDIA_INTEGRATION_ENCRYPTION_KEY.trim() || env.JWT_SECRET;
-  return createHash("sha256").update(`techmedia:frappe:${operatorKey}`).digest();
-}
-
-function encryptCredential(value: string) {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", credentialKey(), iv);
-  const ciphertext = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  return [
-    encryptionVersion,
-    iv.toString("base64url"),
-    cipher.getAuthTag().toString("base64url"),
-    ciphertext.toString("base64url")
-  ].join(".");
-}
-
-function decryptCredential(value: string) {
-  const [version, iv, tag, ciphertext] = value.split(".");
-  if (version !== encryptionVersion || !iv || !tag || !ciphertext) {
-    throw AppError.conflict("Stored Frappe credentials use an unsupported encryption format.");
-  }
-  try {
-    const decipher = createDecipheriv("aes-256-gcm", credentialKey(), Buffer.from(iv, "base64url"));
-    decipher.setAuthTag(Buffer.from(tag, "base64url"));
-    return Buffer.concat([
-      decipher.update(Buffer.from(ciphertext, "base64url")),
-      decipher.final()
-    ]).toString("utf8");
-  } catch {
-    throw AppError.conflict(
-      "Stored Frappe credentials could not be decrypted with the configured integration key."
-    );
-  }
-}
-
-function decryptConfiguredCredential(value: string | undefined) {
-  return value ? decryptCredential(value) : "";
 }
 
 async function verifyFrappeHandshake(input: {
@@ -473,6 +845,39 @@ async function verifyFrappeHandshake(input: {
   };
 }
 
+async function verifyUserAgainstConnection(
+  database: FrappeContext["database"],
+  userId: number,
+  connection: StoredFrappeConnection
+) {
+  const credentialContract = tenantUserFrappeCredentialContract(database);
+  const credentials = await credentialContract.find(userId);
+  if (!credentials) throw missingUserCredentials();
+  try {
+    const result = await verifyFrappeHandshake({
+      apiKey: credentials.apiKey,
+      apiSecret: credentials.apiSecret,
+      baseUrl: connection.baseUrl
+    });
+    await credentialContract.recordVerification(
+      userId,
+      "live",
+      new Date(result.checkedAt),
+      result.authenticatedUser
+    );
+    return result;
+  } catch (error) {
+    await credentialContract.recordVerification(userId, "offline", new Date(), null);
+    throw error;
+  }
+}
+
+function missingUserCredentials() {
+  return AppError.validation(
+    "This user must have a Frappe API key and API secret configured before connecting."
+  );
+}
+
 async function readHandshakeBody(response: Response): Promise<{ message?: unknown }> {
   if (!response.body) {
     throw invalidHandshakeResponse();
@@ -505,10 +910,34 @@ function invalidHandshakeResponse() {
   });
 }
 
+async function frappeLifecycleRequest<T>(
+  database: FrappeContext["database"],
+  userId: number,
+  connection: FrappeConnectionCredentials,
+  path: string,
+  init: RequestInit = {},
+  acceptedStatuses: number[] = []
+) {
+  try {
+    return await frappeRequest<T>(connection, path, init, acceptedStatuses);
+  } catch (error) {
+    if (error instanceof AppError && error.code === "FRAPPE_AUTHENTICATION_FAILED") {
+      await tenantUserFrappeCredentialContract(database).recordVerification(
+        userId,
+        "offline",
+        new Date(),
+        null
+      );
+    }
+    throw error;
+  }
+}
+
 async function frappeRequest<T>(
   connection: FrappeConnectionCredentials,
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  acceptedStatuses: number[] = []
 ): Promise<T> {
   let response: Response;
   try {
@@ -526,18 +955,103 @@ async function frappeRequest<T>(
   } catch {
     throw new AppError({
       code: "FRAPPE_SYNC_UNAVAILABLE",
-      message: "TechMedia could not reach Frappe during enquiry sync.",
+      message: "TechMedia could not reach Frappe during synchronization.",
       statusCode: 502
     });
   }
-  if (!response.ok) {
+  const responseBody = await readFrappeResponseBody(response);
+  if (!response.ok && !acceptedStatuses.includes(response.status)) {
+    const upstreamMessage = frappeErrorMessage(responseBody);
+    if (response.status === 401 || response.status === 403) {
+      throw new AppError({
+        code: "FRAPPE_AUTHENTICATION_FAILED",
+        message:
+          "Frappe rejected this user's saved API key or secret. Update the credentials and verify them once.",
+        statusCode: 422
+      });
+    }
     throw new AppError({
-      code: "FRAPPE_SYNC_FAILED",
-      message: `Frappe enquiry sync failed with HTTP ${response.status}.`,
-      statusCode: 502
+      code: response.status === 417 ? "FRAPPE_VALIDATION_FAILED" : "FRAPPE_SYNC_FAILED",
+      message:
+        response.status === 417 && upstreamMessage
+          ? `Frappe rejected the enquiry: ${upstreamMessage}`
+          : `Frappe synchronization failed with HTTP ${response.status}.`,
+      statusCode: response.status === 417 ? 422 : 502
     });
   }
-  return (await response.json()) as T;
+  return responseBody as T;
+}
+
+async function readFrappeResponseBody(response: Response): Promise<unknown> {
+  const text = (await response.text()).slice(0, 64_000);
+  if (!text) return {};
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return {};
+  }
+}
+
+function frappeErrorMessage(body: unknown) {
+  if (!body || typeof body !== "object") return "";
+  const value = body as Record<string, unknown>;
+  const direct = safeFrappeMessage(value.message);
+  if (direct) return direct;
+  if (typeof value._server_messages !== "string") return "";
+  try {
+    const messages = JSON.parse(value._server_messages) as unknown;
+    if (!Array.isArray(messages)) return "";
+    for (const item of messages) {
+      if (typeof item !== "string") continue;
+      try {
+        const parsed = JSON.parse(item) as { message?: unknown };
+        const message = safeFrappeMessage(parsed.message);
+        if (message) return message;
+      } catch {
+        const message = safeFrappeMessage(item);
+        if (message) return message;
+      }
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+function safeFrappeMessage(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/<[^>]*>/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .slice(0, 500);
+}
+
+function frappeUserEmail(user: FrappeUserDocument) {
+  const candidate = (user.email || user.name).trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(candidate) ? candidate : "";
+}
+
+function toFrappeUserPreview(
+  user: FrappeUserDocument,
+  localByEmail: Map<
+    string,
+    { email: string; id: number; status: "active" | "inactive" | "suspended" }
+  >
+): FrappeUserPreview | null {
+  const email = frappeUserEmail(user);
+  if (!email) return null;
+  const local = localByEmail.get(email);
+  return {
+    email,
+    enabled: Boolean(user.enabled),
+    frappeUserId: user.name,
+    lastActiveAt: user.last_active?.trim() || null,
+    localStatus: local?.status ?? null,
+    localUserId: local?.id ?? null,
+    name: user.full_name?.trim() || user.username?.trim() || email,
+    userType: user.user_type?.trim() || "System User"
+  };
 }
 
 function fromFrappeStatus(value: string | undefined) {

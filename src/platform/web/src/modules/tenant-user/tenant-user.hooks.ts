@@ -5,7 +5,8 @@ import {
   deactivateTenantUser,
   forceDeleteTenantUser,
   listTenantUsers,
-  updateTenantUser
+  updateTenantUser,
+  verifyTenantUserFrappeCredentials
 } from "./tenant-user.services";
 import type { TenantUser, TenantUserSavePayload } from "./tenant-user.types";
 export const tenantUserQueryKey = ["tenant", "access", "users"] as const;
@@ -32,6 +33,10 @@ export function useTenantUserMutations() {
     update: useMutation({
       mutationFn: ({ id, payload }: { id: number; payload: TenantUserSavePayload }) =>
         updateTenantUser(id, payload),
+      onSuccess: done
+    }),
+    verifyFrappe: useMutation({
+      mutationFn: (record: TenantUser) => verifyTenantUserFrappeCredentials(record.id),
       onSuccess: done
     })
   };

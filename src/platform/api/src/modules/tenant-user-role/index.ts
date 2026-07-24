@@ -4,6 +4,7 @@ export {
   tenantUserRoleMigration
 } from "./tenant-user-role.migration.js";
 export { seedTenantUserRoleModule } from "./tenant-user-role.seed.js";
+export { tenantUserRoleStandardAccessContract } from "./tenant-user-role.service.js";
 export type {
   TenantUserRole,
   TenantUserRoleSavePayload,

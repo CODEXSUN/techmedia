@@ -2,16 +2,50 @@
 
 ## Version State
 
-Current version: 1.0.5
+Current version: 1.0.6
 
-Release tag: v-1.0.5
+Release tag: v-1.0.6
 
-Changelog label: v 1.0.5
+Changelog label: v 1.0.6
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.6
+
+### [v 1.0.6] 2026-07-24 10:34 am - Expand CRM workspace and harden Frappe synchronization
+
+#### Database Changes
+
+- Database update: Yes.
+- Added forward CRM migrations for enquiry subjects, creator-aware comments and replies, and
+  cascade-owned email, call, task, note, attachment, and activity child tables.
+- Added tenant-user migrations for encrypted per-user Frappe API credentials, authenticated-user
+  identity, verification state, and verification timestamps.
+- Extended Frappe connection persistence with separate encrypted application credentials and a
+  compatible migration of the earlier administrator connection credentials.
+
+#### App Codebase Changes
+
+- Expanded the CRM desk with assigned, created, and unassigned enquiry scopes; filters, configurable
+  columns, compact responsive tables, full enquiry upserts, and the full-width enquiry show
+  workspace with comments, replies, communication tabs, properties, schedules, and next-record
+  navigation.
+- Added persisted CRM conversation and activity operations with creator-aware edit/delete rules,
+  reply grouping, rich-text composition, due-date presentation, subject fallback, and per-enquiry
+  resynchronization controls.
+- Hardened Frappe integration with encrypted per-user authentication, one-time verification state,
+  application-key settings, Frappe user preview/import, directional enquiry sync, live lifecycle
+  create/update/delete, required Employee mapping, and clearer upstream validation errors.
+- Synchronized CRM as the tenant default landing app across Platform, Core Default Company, and
+  tenant app connections, while keeping the Application desk restricted to tenant administrators.
+- Refined the TechMedia public site, navigation, branding, authentication defaults, and application
+  menus for the computer hardware, wholesale, retail, and LogicX product direction.
+- Added focused CRM, Frappe, tenant-access, and landing-state E2E coverage plus updated architecture,
+  tenant isolation, migration, and project inventory documentation.
+- Bumped repository version to 1.0.6.
 
 ## v-1.0.5
 

@@ -4,7 +4,9 @@ import type { TenantDatabase } from "../../database/schema.js";
 export const frappeMigrations = [
   { key: "frappe.connection.foundation-v1" },
   { key: "frappe.connection.verification-status-v2" },
-  { key: "frappe.enquiry.sync-foundation-v3" }
+  { key: "frappe.enquiry.sync-foundation-v3" },
+  { key: "frappe.connection.per-user-credentials-v4" },
+  { key: "frappe.connection.app-credentials-v5" }
 ] as const;
 
 export async function migrateFrappeModule(database: Kysely<TenantDatabase>) {
@@ -16,8 +18,10 @@ export async function migrateFrappeModule(database: Kysely<TenantDatabase>) {
         connection_key VARCHAR(64) NOT NULL UNIQUE,
         connection_name VARCHAR(160) NOT NULL,
         base_url VARCHAR(500) NOT NULL,
-        api_key_ciphertext LONGTEXT NOT NULL,
-        api_secret_ciphertext LONGTEXT NOT NULL,
+        api_key_ciphertext LONGTEXT NULL,
+        api_secret_ciphertext LONGTEXT NULL,
+        app_key_ciphertext LONGTEXT NULL,
+        app_secret_ciphertext LONGTEXT NULL,
         enabled BOOLEAN NOT NULL DEFAULT FALSE,
         verification_status VARCHAR(24) NOT NULL DEFAULT 'unverified',
         last_checked_at DATETIME NULL,
@@ -42,6 +46,34 @@ export async function migrateFrappeModule(database: Kysely<TenantDatabase>) {
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    )
+    .execute(database);
+
+  await sql
+    .raw(
+      `ALTER TABLE frappe_connection_settings
+        MODIFY api_key_ciphertext LONGTEXT NULL,
+        MODIFY api_secret_ciphertext LONGTEXT NULL,
+        ADD COLUMN IF NOT EXISTS app_key_ciphertext LONGTEXT NULL AFTER api_secret_ciphertext,
+        ADD COLUMN IF NOT EXISTS app_secret_ciphertext LONGTEXT NULL AFTER app_key_ciphertext`
+    )
+    .execute(database);
+
+  await sql
+    .raw(
+      `UPDATE users AS tenant_user
+        JOIN frappe_connection_settings AS connection_settings
+          ON connection_settings.connection_key='default'
+        SET tenant_user.frappe_api_key_ciphertext=connection_settings.api_key_ciphertext,
+          tenant_user.frappe_api_secret_ciphertext=connection_settings.api_secret_ciphertext,
+          tenant_user.frappe_verification_status=connection_settings.verification_status,
+          tenant_user.frappe_last_checked_at=connection_settings.last_checked_at,
+          tenant_user.frappe_last_verified_at=connection_settings.last_verified_at
+        WHERE tenant_user.role='admin'
+          AND tenant_user.frappe_api_key_ciphertext IS NULL
+          AND tenant_user.frappe_api_secret_ciphertext IS NULL
+          AND connection_settings.api_key_ciphertext IS NOT NULL
+          AND connection_settings.api_secret_ciphertext IS NOT NULL`
     )
     .execute(database);
 

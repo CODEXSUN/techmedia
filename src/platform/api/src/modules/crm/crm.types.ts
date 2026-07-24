@@ -11,9 +11,73 @@ export type CrmEnquirySchedule = {
   scheduledOn: string;
 };
 
-export type CrmEnquiryMessage = {
+export type CrmStoredEnquiryMessage = {
   comment: string;
+  createdAt: string;
+  createdByUserId: number | null;
   id: number;
+  messageType: "comment" | "reply";
+};
+
+export type CrmEnquiryMessage = CrmStoredEnquiryMessage & {
+  canDelete: boolean;
+  canEdit: boolean;
+};
+
+export type CrmEnquiryEmail = {
+  body: string;
+  createdAt: string;
+  createdByUserId: number;
+  id: number;
+  recipient: string;
+  subject: string;
+  uuid: string;
+};
+
+export type CrmEnquiryCall = {
+  calledAt: string;
+  createdAt: string;
+  createdByUserId: number;
+  id: number;
+  phone: string;
+  summary: string;
+  uuid: string;
+};
+
+export type CrmEnquiryTask = {
+  createdAt: string;
+  createdByUserId: number;
+  dueOn: string | null;
+  id: number;
+  status: "completed" | "pending";
+  title: string;
+  uuid: string;
+};
+
+export type CrmEnquiryNote = {
+  createdAt: string;
+  createdByUserId: number;
+  id: number;
+  note: string;
+  uuid: string;
+};
+
+export type CrmEnquiryAttachment = {
+  createdAt: string;
+  createdByUserId: number;
+  fileName: string;
+  fileUrl: string;
+  id: number;
+  uuid: string;
+};
+
+export type CrmEnquiryActivity = {
+  action: string;
+  createdAt: string;
+  createdByUserId: number;
+  details: string;
+  id: number;
+  uuid: string;
 };
 
 export type CrmUserReference = {
@@ -24,25 +88,66 @@ export type CrmUserReference = {
 };
 
 export type CrmEnquiry = {
+  activities: CrmEnquiryActivity[];
   assignedTo: CrmUserReference | null;
   assignedToUserId: number | null;
+  attachments: CrmEnquiryAttachment[];
+  calls: CrmEnquiryCall[];
   createdAt: string;
   createdBy: CrmUserReference;
   createdByUserId: number;
   customer: string;
   enquiryDate: string | null;
   enquiryGroup: string;
+  emails: CrmEnquiryEmail[];
   id: number;
   lifecycleStatus: CrmEnquiryLifecycleStatus;
   messages: CrmEnquiryMessage[];
   mobile: string;
   priority: CrmEnquiryPriority;
+  notes: CrmEnquiryNote[];
   schedules: CrmEnquirySchedule[];
   status: CrmEnquiryStatus;
+  subject: string;
   title: string;
+  tasks: CrmEnquiryTask[];
   updatedAt: string;
   uuid: string;
   workspace: string;
+};
+
+export type CrmEnquiryMessageCreatePayload = {
+  comment: string;
+  messageType: "comment" | "reply";
+};
+
+export type CrmEnquiryMessageUpdatePayload = {
+  comment: string;
+};
+
+export type CrmEnquiryEmailCreatePayload = {
+  body: string;
+  recipient: string;
+  subject: string;
+};
+
+export type CrmEnquiryCallCreatePayload = {
+  calledAt: string;
+  phone: string;
+  summary: string;
+};
+
+export type CrmEnquiryTaskCreatePayload = {
+  dueOn: string | null;
+  status: "completed" | "pending";
+  title: string;
+};
+
+export type CrmEnquiryNoteCreatePayload = { note: string };
+
+export type CrmEnquiryAttachmentCreatePayload = {
+  fileName: string;
+  fileUrl: string;
 };
 
 export type CrmEnquirySavePayload = {
@@ -55,6 +160,7 @@ export type CrmEnquirySavePayload = {
   priority: CrmEnquiryPriority;
   schedules: Array<{ scheduledOn: string }>;
   status: CrmEnquiryStatus;
+  subject: string;
   title: string;
   workspace: string;
 };
@@ -92,6 +198,17 @@ export type CrmActor = {
   role: string;
   status: "active" | "inactive" | "suspended";
   uuid: string;
+};
+
+export type CrmEnquiryExternalLifecycle = {
+  delete: (enquiryId: number, userId: number) => Promise<unknown>;
+  resync: (enquiryId: number, userId: number) => Promise<CrmEnquiryResyncResult>;
+  upsert: (enquiryId: number, userId: number) => Promise<unknown>;
+};
+
+export type CrmEnquiryResyncResult = {
+  action: "created" | "updated";
+  frappeName: string;
 };
 
 export type CrmContext = {

@@ -1,6 +1,8 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import type { Kysely } from "kysely";
 import { AppError } from "@codexsun/framework/errors";
 import { recordTenantAccessAudit } from "../../database/tenant-access-audit.js";
+import type { TenantDatabase } from "../../database/schema.js";
 import { TenantUserRoleRepository } from "./tenant-user-role.repository.js";
 import type {
   TenantUserRole,
@@ -101,6 +103,43 @@ export class TenantUserRoleService {
   }
 }
 
+/**
+ * Public application-service contract for assigning the standard tenant-user
+ * role. Tenant User Role remains the only module that writes user-role rows.
+ */
+export function tenantUserRoleStandardAccessContract(context: {
+  actorEmail: string;
+  database: Kysely<TenantDatabase>;
+  tenantId: string;
+}) {
+  const repository = new TenantUserRoleRepository(context.database);
+  return {
+    async ensureForUser(userId: number) {
+      const current = await repository.findByUserAndRoleKey(userId, "user");
+      const assignment = await repository.ensureActiveByRoleKey(
+        userId,
+        "user",
+        stable(`user-role:${userId}:user`)
+      );
+      if (!assignment) {
+        throw AppError.validation("Active user and standard user role are required.");
+      }
+      if (!current || current.status !== "active") {
+        await recordTenantAccessAudit({
+          action: current ? "standard_role_restored" : "standard_role_assigned",
+          actorEmail: context.actorEmail,
+          moduleKey: "platform.tenant-user-role",
+          recordId: assignment.id,
+          recordLabel: `${assignment.userName} · ${assignment.roleLabel}`,
+          recordUuid: assignment.uuid,
+          tenantId: context.tenantId
+        });
+      }
+      return assignment;
+    }
+  };
+}
+
 function isReferenced(e: unknown) {
   return (
     typeof e === "object" &&
@@ -108,4 +147,8 @@ function isReferenced(e: unknown) {
     (("code" in e && (e as { code?: unknown }).code === "ER_ROW_IS_REFERENCED_2") ||
       ("errno" in e && (e as { errno?: unknown }).errno === 1451))
   );
+}
+
+function stable(value: string) {
+  return createHash("sha256").update(value).digest("hex").slice(0, 8);
 }

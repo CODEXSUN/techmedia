@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { defaultCompanyApplicationContract } from "@codexsun/core-api";
 import { sql, type Kysely } from "kysely";
 import { getPlatformDatabase } from "../../database/platform-database.js";
 import {
@@ -45,6 +46,7 @@ export async function provisionTenantDatabase(tenant: Tenant) {
     const migrated = await migrateSelectedTenantApps(database, tenant);
     await seedTenantRuntimeModule(database, tenant);
     const seeded = await seedSelectedTenantApps(database, tenant);
+    await defaultCompanyApplicationContract(tenant.dbName).syncLandingApp(tenant.defaultLandingApp);
     console.info(`[database] tenant database provisioned: "${tenant.dbName}"`);
     return { ...migrated, ...seeded };
   } finally {
@@ -179,7 +181,7 @@ function defaultTenant(): TenantSavePayload {
     dbSecretRef: "DB_PASSWORD",
     dbType: env.DB_DRIVER,
     dbUser: env.DB_USER,
-    defaultLandingApp: "application",
+    defaultLandingApp: "crm",
     enabledModuleKeys: [...defaultTenantModuleKeys],
     mobile: null,
     payloadSettings: {
@@ -187,7 +189,7 @@ function defaultTenant(): TenantSavePayload {
         enabled: [...defaultTenantModuleKeys]
       },
       landing: {
-        app: "application",
+        app: "crm",
         mode: "tenant"
       },
       seed: {
@@ -216,11 +218,14 @@ async function reconcileDefaultTenantModules(repository: TenantRepository, tenan
   const obsoleteModuleKeys = new Set(["platform.task-manager", "billing.sales", "mail"]);
   const enabledModuleKeys = tenant.enabledModuleKeys.filter((key) => !obsoleteModuleKeys.has(key));
   const configuredModuleKeys = configuredApps.filter((key) => !obsoleteModuleKeys.has(key));
+  const landing = isRecord(tenant.payloadSettings.landing) ? tenant.payloadSettings.landing : {};
   if (
     enabledModuleKeys.length === tenant.enabledModuleKeys.length &&
     configuredModuleKeys.length === configuredApps.length &&
     defaultTenantModuleKeys.every((key) => enabledModuleKeys.includes(key)) &&
-    defaultTenantModuleKeys.every((key) => configuredModuleKeys.includes(key))
+    defaultTenantModuleKeys.every((key) => configuredModuleKeys.includes(key)) &&
+    tenant.defaultLandingApp === "crm" &&
+    landing.app === "crm"
   ) {
     return tenant;
   }
@@ -228,6 +233,7 @@ async function reconcileDefaultTenantModules(repository: TenantRepository, tenan
   return (
     (await repository.update(String(tenant.id), {
       ...tenant,
+      defaultLandingApp: "crm",
       enabledModuleKeys: Array.from(
         new Set([...defaultTenantModuleKeys, ...enabledModuleKeys])
       ).sort(),
@@ -236,6 +242,11 @@ async function reconcileDefaultTenantModules(repository: TenantRepository, tenan
         apps: {
           ...apps,
           enabled: Array.from(new Set([...defaultTenantModuleKeys, ...configuredModuleKeys])).sort()
+        },
+        landing: {
+          ...landing,
+          app: "crm",
+          mode: "tenant"
         }
       }
     })) ?? tenant

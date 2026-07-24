@@ -1,5 +1,10 @@
 import { apiDelete, apiGet, apiPost, apiPut } from "../../shared/api/platform-api";
-import type { TenantUser, TenantUserListFilters, TenantUserSavePayload } from "./tenant-user.types";
+import type {
+  TenantUser,
+  TenantUserFrappeVerification,
+  TenantUserListFilters,
+  TenantUserSavePayload
+} from "./tenant-user.types";
 const path = "/tenant/access/users";
 export function listTenantUsers(filters: TenantUserListFilters = {}) {
   const query = new URLSearchParams();
@@ -24,7 +29,19 @@ export function suspendTenantUser(id: number) {
 export function forceDeleteTenantUser(id: number) {
   return apiDelete<TenantUser>(`${path}/${id}/force`, "tenant");
 }
+export function verifyTenantUserFrappeCredentials(id: number) {
+  return apiPost<TenantUserFrappeVerification>(
+    `/tenant/frappe/settings/users/${id}/verify`,
+    {},
+    "tenant"
+  );
+}
 function toApi(payload: TenantUserSavePayload) {
-  const { password, ...value } = payload;
-  return password ? { ...value, password } : value;
+  const { frappeApiKey, frappeApiSecret, password, ...value } = payload;
+  return {
+    ...value,
+    ...(frappeApiKey ? { frappeApiKey } : {}),
+    ...(frappeApiSecret ? { frappeApiSecret } : {}),
+    ...(password ? { password } : {})
+  };
 }

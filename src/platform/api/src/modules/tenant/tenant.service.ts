@@ -1,6 +1,9 @@
+import { defaultCompanyApplicationContract } from "@codexsun/core-api";
+import { AppError } from "@codexsun/framework/errors";
 import { TenantRepository } from "./tenant.repository.js";
 import type {
   Tenant,
+  TenantDefaultCompanySavePayload,
   TenantPortalContent,
   TenantPortalPost,
   TenantPortalTheme,
@@ -41,15 +44,64 @@ export class TenantService {
     const accessTenant = tenant ? await this.access.refreshTenantAccess(tenant.id) : null;
     const runtimeTenant = accessTenant ?? tenant;
     const enabledModuleKeys = runtimeTenant?.enabledModuleKeys ?? ["platform.application"];
-    const landingSettings = isRecord(runtimeTenant?.payloadSettings?.landing)
-      ? runtimeTenant?.payloadSettings.landing
-      : {};
-    const defaultLandingApp = resolveLandingApp(landingSettings?.app, enabledModuleKeys);
+    const defaultLandingApp = resolveLandingApp(
+      runtimeTenant?.defaultLandingApp,
+      enabledModuleKeys
+    );
+    if (runtimeTenant) {
+      await defaultCompanyApplicationContract(runtimeTenant.dbName).syncLandingApp(
+        defaultLandingApp
+      );
+    }
     return {
       apps: resolveEnabledApps(enabledModuleKeys),
       defaultLandingApp,
       tenant: runtimeTenant ?? null
     };
+  }
+
+  async updateTenantLandingApp(value: string, requestedLandingApp: Tenant["defaultLandingApp"]) {
+    const tenant = await this.requiredTenant(value);
+    const landingApp = this.validateLandingApp(tenant, requestedLandingApp);
+    const core = defaultCompanyApplicationContract(tenant.dbName);
+    const previousDefaultCompany = await core.get();
+    await core.syncLandingApp(landingApp);
+    try {
+      await this.repository.updateLandingApp(tenant, landingApp);
+    } catch (error) {
+      if (previousDefaultCompany) {
+        await core.save({
+          companyId: previousDefaultCompany.companyId,
+          financialYearId: previousDefaultCompany.financialYearId,
+          landingApp: previousDefaultCompany.landingApp,
+          status: previousDefaultCompany.status
+        });
+      }
+      throw error;
+    }
+    return { defaultLandingApp: landingApp };
+  }
+
+  async saveTenantDefaultCompany(value: string, input: TenantDefaultCompanySavePayload) {
+    const tenant = await this.requiredTenant(value);
+    const landingApp = this.validateLandingApp(tenant, input.landingApp);
+    const core = defaultCompanyApplicationContract(tenant.dbName);
+    const previousDefaultCompany = await core.get();
+    const record = await core.save({ ...input, landingApp });
+    try {
+      await this.repository.updateLandingApp(tenant, landingApp);
+    } catch (error) {
+      if (previousDefaultCompany) {
+        await core.save({
+          companyId: previousDefaultCompany.companyId,
+          financialYearId: previousDefaultCompany.financialYearId,
+          landingApp: previousDefaultCompany.landingApp,
+          status: previousDefaultCompany.status
+        });
+      }
+      throw error;
+    }
+    return { ...record, landingApp };
   }
 
   async getPublicPortal(value: string): Promise<TenantPublicPortal> {
@@ -149,6 +201,20 @@ export class TenantService {
       tenantCode,
       tenantName: input.tenantName.trim()
     };
+  }
+
+  private async requiredTenant(value: string) {
+    const tenant = await this.getTenant(value);
+    if (!tenant) throw AppError.notFound("Tenant was not found.");
+    return tenant;
+  }
+
+  private validateLandingApp(tenant: Tenant, value: Tenant["defaultLandingApp"]) {
+    const landingApp = resolveLandingApp(value, tenant.enabledModuleKeys);
+    if (landingApp !== value) {
+      throw AppError.validation("Select an enabled tenant app as the landing app.");
+    }
+    return landingApp;
   }
 }
 

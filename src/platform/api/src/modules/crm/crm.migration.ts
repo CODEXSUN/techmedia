@@ -5,7 +5,9 @@ export const crmMigrations = [
   { key: "crm.enquiry.foundation-v1" },
   { key: "crm.enquiry.frappe-fields-v2" },
   { key: "crm.enquiry.lifecycle-v3" },
-  { key: "crm.enquiry.unassigned-v4" }
+  { key: "crm.enquiry.unassigned-v4" },
+  { key: "crm.enquiry.workspace-children-v5" },
+  { key: "crm.enquiry.subject-v6" }
 ] as const;
 
 export async function migrateCrmModule(database: Kysely<TenantDatabase>) {
@@ -25,6 +27,7 @@ export async function migrateCrmModule(database: Kysely<TenantDatabase>) {
         enquiry_date DATE NULL,
         lifecycle_status VARCHAR(24) NOT NULL DEFAULT 'active',
         workspace LONGTEXT NOT NULL,
+        subject VARCHAR(220) NOT NULL DEFAULT '',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         KEY crm_enquiries_assigned_status_idx (assigned_to_user_id,status),
@@ -42,7 +45,8 @@ export async function migrateCrmModule(database: Kysely<TenantDatabase>) {
         ADD COLUMN IF NOT EXISTS customer VARCHAR(220) NOT NULL DEFAULT '',
         ADD COLUMN IF NOT EXISTS enquiry_group VARCHAR(80) NOT NULL DEFAULT '',
         ADD COLUMN IF NOT EXISTS enquiry_date DATE NULL,
-        ADD COLUMN IF NOT EXISTS lifecycle_status VARCHAR(24) NOT NULL DEFAULT 'active'`
+        ADD COLUMN IF NOT EXISTS lifecycle_status VARCHAR(24) NOT NULL DEFAULT 'active',
+        ADD COLUMN IF NOT EXISTS subject VARCHAR(220) NOT NULL DEFAULT ''`
     )
     .execute(database);
 
@@ -71,7 +75,9 @@ export async function migrateCrmModule(database: Kysely<TenantDatabase>) {
         id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         enquiry_id INT NOT NULL,
         position INT NOT NULL DEFAULT 0,
+        message_type VARCHAR(24) NOT NULL DEFAULT 'comment',
         comment TEXT NOT NULL,
+        created_by_user_id INT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         KEY crm_enquiry_messages_enquiry_idx (enquiry_id,position),
@@ -79,6 +85,87 @@ export async function migrateCrmModule(database: Kysely<TenantDatabase>) {
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
     )
     .execute(database);
+
+  await sql
+    .raw(
+      `ALTER TABLE crm_enquiry_messages
+        ADD COLUMN IF NOT EXISTS message_type VARCHAR(24) NOT NULL DEFAULT 'comment',
+        ADD COLUMN IF NOT EXISTS created_by_user_id INT NULL`
+    )
+    .execute(database);
+
+  for (const statement of [
+    `CREATE TABLE IF NOT EXISTS crm_enquiry_emails (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid VARCHAR(8) NOT NULL UNIQUE,
+      enquiry_id INT NOT NULL,
+      recipient VARCHAR(320) NOT NULL,
+      subject VARCHAR(220) NOT NULL,
+      body TEXT NOT NULL,
+      created_by_user_id INT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY crm_enquiry_emails_enquiry_idx (enquiry_id,created_at),
+      CONSTRAINT crm_enquiry_emails_enquiry_fk FOREIGN KEY (enquiry_id) REFERENCES crm_enquiries(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS crm_enquiry_calls (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid VARCHAR(8) NOT NULL UNIQUE,
+      enquiry_id INT NOT NULL,
+      phone VARCHAR(40) NOT NULL,
+      summary TEXT NOT NULL,
+      called_at DATETIME NOT NULL,
+      created_by_user_id INT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY crm_enquiry_calls_enquiry_idx (enquiry_id,called_at),
+      CONSTRAINT crm_enquiry_calls_enquiry_fk FOREIGN KEY (enquiry_id) REFERENCES crm_enquiries(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS crm_enquiry_tasks (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid VARCHAR(8) NOT NULL UNIQUE,
+      enquiry_id INT NOT NULL,
+      title VARCHAR(220) NOT NULL,
+      task_status VARCHAR(24) NOT NULL DEFAULT 'pending',
+      due_on DATE NULL,
+      created_by_user_id INT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY crm_enquiry_tasks_enquiry_idx (enquiry_id,task_status,due_on),
+      CONSTRAINT crm_enquiry_tasks_enquiry_fk FOREIGN KEY (enquiry_id) REFERENCES crm_enquiries(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS crm_enquiry_notes (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid VARCHAR(8) NOT NULL UNIQUE,
+      enquiry_id INT NOT NULL,
+      note TEXT NOT NULL,
+      created_by_user_id INT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY crm_enquiry_notes_enquiry_idx (enquiry_id,created_at),
+      CONSTRAINT crm_enquiry_notes_enquiry_fk FOREIGN KEY (enquiry_id) REFERENCES crm_enquiries(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS crm_enquiry_attachments (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid VARCHAR(8) NOT NULL UNIQUE,
+      enquiry_id INT NOT NULL,
+      file_name VARCHAR(255) NOT NULL,
+      file_url VARCHAR(2048) NOT NULL,
+      created_by_user_id INT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY crm_enquiry_attachments_enquiry_idx (enquiry_id,created_at),
+      CONSTRAINT crm_enquiry_attachments_enquiry_fk FOREIGN KEY (enquiry_id) REFERENCES crm_enquiries(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS crm_enquiry_activities (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      uuid VARCHAR(8) NOT NULL UNIQUE,
+      enquiry_id INT NOT NULL,
+      action VARCHAR(80) NOT NULL,
+      details TEXT NOT NULL,
+      created_by_user_id INT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY crm_enquiry_activities_enquiry_idx (enquiry_id,created_at),
+      CONSTRAINT crm_enquiry_activities_enquiry_fk FOREIGN KEY (enquiry_id) REFERENCES crm_enquiries(id) ON DELETE CASCADE
+    ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+  ]) {
+    await sql.raw(statement).execute(database);
+  }
 
   await database
     .insertInto("schema_migrations")

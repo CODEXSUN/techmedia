@@ -7,7 +7,7 @@ import {
   WorkspaceTableHeaderCell,
   WorkspaceTablePanel
 } from "@codexsun/ui/workspace/table";
-import type { CrmEnquiry } from "./crm.types";
+import type { CrmEnquiry, CrmEnquiryColumnVisibility } from "./crm.types";
 
 export function CrmList({
   onForceDelete,
@@ -15,7 +15,8 @@ export function CrmList({
   onSelect,
   onSuspend,
   onView,
-  records
+  records,
+  visibleColumns
 }: {
   onForceDelete?: (record: CrmEnquiry) => void;
   onRestore?: (record: CrmEnquiry) => void;
@@ -23,89 +24,149 @@ export function CrmList({
   onSuspend?: (record: CrmEnquiry) => void;
   onView: (record: CrmEnquiry) => void;
   records: CrmEnquiry[];
+  visibleColumns: CrmEnquiryColumnVisibility;
 }) {
   return (
     <WorkspaceTablePanel>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1450px] border-collapse text-sm">
+      <div className="overflow-x-auto [scrollbar-color:hsl(var(--muted-foreground)/0.35)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-0.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/35 [&::-webkit-scrollbar-track]:bg-transparent">
+        <table className="w-full table-fixed border-collapse text-sm">
           <thead className="bg-muted/50">
             <tr>
-              <WorkspaceTableHeaderCell>Enquiry ID</WorkspaceTableHeaderCell>
-              <WorkspaceTableHeaderCell>Mobile</WorkspaceTableHeaderCell>
-              <WorkspaceTableHeaderCell>Customer</WorkspaceTableHeaderCell>
-              <WorkspaceTableHeaderCell>Enquiry details</WorkspaceTableHeaderCell>
-              <WorkspaceTableHeaderCell>List in</WorkspaceTableHeaderCell>
-              <WorkspaceTableHeaderCell>Date</WorkspaceTableHeaderCell>
-              <WorkspaceTableHeaderCell>User</WorkspaceTableHeaderCell>
-              <WorkspaceTableHeaderCell>Assigned to</WorkspaceTableHeaderCell>
-              <WorkspaceTableHeaderCell>Status</WorkspaceTableHeaderCell>
-              <WorkspaceTableHeaderCell className="text-right">Action</WorkspaceTableHeaderCell>
+              {visibleColumns.id ? (
+                <WorkspaceTableHeaderCell className="w-[72px] min-w-[72px] max-w-[72px]">
+                  ID
+                </WorkspaceTableHeaderCell>
+              ) : null}
+              {visibleColumns.mobile ? (
+                <WorkspaceTableHeaderCell>Mobile</WorkspaceTableHeaderCell>
+              ) : null}
+              {visibleColumns.customer ? (
+                <WorkspaceTableHeaderCell>Customer</WorkspaceTableHeaderCell>
+              ) : null}
+              {visibleColumns.title ? (
+                <WorkspaceTableHeaderCell>Enquiry details</WorkspaceTableHeaderCell>
+              ) : null}
+              {visibleColumns.enquiryGroup ? (
+                <WorkspaceTableHeaderCell>List in</WorkspaceTableHeaderCell>
+              ) : null}
+              {visibleColumns.dueDate ? (
+                <WorkspaceTableHeaderCell>Due date</WorkspaceTableHeaderCell>
+              ) : null}
+              {visibleColumns.createdBy ? (
+                <WorkspaceTableHeaderCell>User</WorkspaceTableHeaderCell>
+              ) : null}
+              {visibleColumns.assignedTo ? (
+                <WorkspaceTableHeaderCell>Assigned to</WorkspaceTableHeaderCell>
+              ) : null}
+              {visibleColumns.status ? (
+                <WorkspaceTableHeaderCell className="w-28 min-w-28 max-w-28">
+                  Status
+                </WorkspaceTableHeaderCell>
+              ) : null}
+              <WorkspaceTableHeaderCell className="w-16 min-w-16 max-w-16 text-right">
+                Action
+              </WorkspaceTableHeaderCell>
             </tr>
           </thead>
           <tbody>
             {records.map((record) => (
               <tr className="border-b border-border/70 last:border-b-0" key={record.id}>
-                <td className="px-4 py-2.5 font-mono text-xs">#{record.id}</td>
-                <td className="whitespace-nowrap px-4 py-2.5">
-                  {onSelect && record.lifecycleStatus === "active" && record.mobile ? (
-                    <button
-                      className="cursor-pointer font-medium hover:underline"
-                      onClick={() => onSelect(record)}
-                      type="button"
-                    >
-                      {record.mobile}
-                    </button>
-                  ) : (
-                    record.mobile || "—"
-                  )}
-                </td>
-                <td className="max-w-52 truncate px-4 py-2.5" title={record.customer}>
-                  {onSelect && record.lifecycleStatus === "active" && record.customer ? (
-                    <button
-                      className="max-w-48 cursor-pointer truncate text-left font-medium hover:underline"
-                      onClick={() => onSelect(record)}
-                      type="button"
-                    >
-                      {record.customer}
-                    </button>
-                  ) : (
-                    record.customer || "—"
-                  )}
-                </td>
-                <td className="max-w-80 px-4 py-2.5">
-                  {onSelect && record.lifecycleStatus === "active" ? (
+                {visibleColumns.id ? (
+                  <td className="w-[72px] min-w-[72px] max-w-[72px] truncate px-4 py-2.5 font-mono text-xs tabular-nums">
+                    {onSelect && record.lifecycleStatus === "active" ? (
+                      <button
+                        className="cursor-pointer font-medium hover:underline"
+                        onClick={() => onSelect(record)}
+                        type="button"
+                      >
+                        #{record.id}
+                      </button>
+                    ) : (
+                      <>#{record.id}</>
+                    )}
+                  </td>
+                ) : null}
+                {visibleColumns.mobile ? (
+                  <td className="truncate whitespace-nowrap px-4 py-2.5">
+                    {record.mobile ? (
+                      <button
+                        className="cursor-pointer font-medium hover:underline"
+                        onClick={() => onView(record)}
+                        type="button"
+                      >
+                        {record.mobile}
+                      </button>
+                    ) : (
+                      record.mobile || "—"
+                    )}
+                  </td>
+                ) : null}
+                {visibleColumns.customer ? (
+                  <td className="max-w-52 truncate px-4 py-2.5" title={record.customer}>
+                    {record.customer ? (
+                      <button
+                        className="max-w-48 cursor-pointer truncate text-left font-medium hover:underline"
+                        onClick={() => onView(record)}
+                        type="button"
+                      >
+                        {record.customer}
+                      </button>
+                    ) : (
+                      record.customer || "—"
+                    )}
+                  </td>
+                ) : null}
+                {visibleColumns.title ? (
+                  <td className="max-w-80 px-4 py-2.5">
                     <button
                       className="line-clamp-2 cursor-pointer text-left font-medium hover:underline"
-                      onClick={() => onSelect(record)}
+                      onClick={() => onView(record)}
                       type="button"
                     >
-                      {record.title}
+                      {record.subject.trim() || record.title}
                     </button>
-                  ) : (
-                    <span className="line-clamp-2 font-medium">{record.title}</span>
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-4 py-2.5">{record.enquiryGroup || "—"}</td>
-                <td className="whitespace-nowrap px-4 py-2.5">
-                  {record.enquiryDate
-                    ? format(new Date(`${record.enquiryDate}T00:00:00`), "dd MMM yyyy")
-                    : "—"}
-                </td>
-                <td className="px-4 py-2.5">{record.createdBy.name}</td>
-                <td className="px-4 py-2.5">{record.assignedTo?.name ?? "Unassigned"}</td>
-                <td className="px-4 py-2.5">
-                  <WorkspaceStatusBadge
-                    label={
-                      record.lifecycleStatus === "suspended"
-                        ? "Suspended"
-                        : statusLabel(record.status)
-                    }
-                    tone={
-                      record.lifecycleStatus === "suspended" ? "danger" : statusTone(record.status)
-                    }
-                  />
-                </td>
-                <td className="px-4 py-1.5 text-right">
+                  </td>
+                ) : null}
+                {visibleColumns.enquiryGroup ? (
+                  <td className="truncate whitespace-nowrap px-4 py-2.5">
+                    {record.enquiryGroup || "—"}
+                  </td>
+                ) : null}
+                {visibleColumns.dueDate ? (
+                  <td className="truncate whitespace-nowrap px-4 py-2.5">
+                    {record.schedules[0]?.scheduledOn
+                      ? format(
+                          new Date(`${record.schedules[0].scheduledOn}T00:00:00`),
+                          "dd MMM yyyy"
+                        )
+                      : "—"}
+                  </td>
+                ) : null}
+                {visibleColumns.createdBy ? (
+                  <td className="truncate px-4 py-2.5">{record.createdBy.name}</td>
+                ) : null}
+                {visibleColumns.assignedTo ? (
+                  <td className="truncate px-4 py-2.5">
+                    {record.assignedTo?.name ?? "Unassigned"}
+                  </td>
+                ) : null}
+                {visibleColumns.status ? (
+                  <td className="w-28 min-w-28 max-w-28 px-4 py-2.5">
+                    <WorkspaceStatusBadge
+                      label={
+                        record.lifecycleStatus === "suspended"
+                          ? "Suspended"
+                          : statusLabel(record.status)
+                      }
+                      tone={
+                        record.lifecycleStatus === "suspended"
+                          ? "danger"
+                          : statusTone(record.status)
+                      }
+                    />
+                  </td>
+                ) : null}
+                <td className="w-16 min-w-16 max-w-16 px-2 py-1.5 text-right">
                   <div
                     className="flex justify-end"
                     onClick={(event) => event.stopPropagation()}

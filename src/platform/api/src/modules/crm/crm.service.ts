@@ -5,11 +5,19 @@ import { tenantUserReferenceContract } from "../tenant-user/index.js";
 import { CrmRepository } from "./crm.repository.js";
 import type {
   CrmContext,
+  CrmEnquiryExternalLifecycle,
+  CrmEnquiryAttachmentCreatePayload,
+  CrmEnquiryCallCreatePayload,
+  CrmEnquiryEmailCreatePayload,
   CrmEnquiry,
   CrmEnquiryListFilters,
+  CrmEnquiryMessageCreatePayload,
+  CrmEnquiryMessageUpdatePayload,
+  CrmEnquiryNoteCreatePayload,
   CrmEnquiryOverview,
   CrmEnquirySavePayload,
   CrmEnquirySyncInput,
+  CrmEnquiryTaskCreatePayload,
   CrmEnquiryView,
   CrmUserReference
 } from "./crm.types.js";
@@ -24,7 +32,10 @@ export class CrmService {
   private readonly repository: CrmRepository;
   private readonly users;
 
-  constructor(private readonly context: CrmContext) {
+  constructor(
+    private readonly context: CrmContext,
+    private readonly externalLifecycle: CrmEnquiryExternalLifecycle
+  ) {
     this.repository = new CrmRepository(context.database);
     this.users = tenantUserReferenceContract(context.database);
   }
@@ -79,6 +90,7 @@ export class CrmService {
     }
     const record = await this.repository.create(value, actor.id, randomBytes(4).toString("hex"));
     await this.audit("created", record);
+    await this.externalLifecycle.upsert(record.id, actor.id);
     return this.enrichOne(record);
   }
 
@@ -98,6 +110,7 @@ export class CrmService {
     }
     const record = (await this.repository.update(id, await this.normalize(input)))!;
     await this.audit("updated", record);
+    await this.externalLifecycle.upsert(record.id, (await this.actor()).id);
     return this.enrichOne(record);
   }
 
@@ -123,6 +136,18 @@ export class CrmService {
     return this.enrichOne(record);
   }
 
+  async resync(id: number) {
+    await this.context.authorize("crm.enquiry.update");
+    const actor = await this.actor();
+    const record = await this.repository.find(id);
+    if (!record) throw AppError.notFound("Enquiry was not found.");
+    await this.authorizeRecord(record);
+    if (record.lifecycleStatus === "suspended") {
+      throw AppError.conflict("Restore the enquiry before synchronizing it with Frappe.");
+    }
+    return this.externalLifecycle.resync(id, actor.id);
+  }
+
   async forceDelete(id: number) {
     await this.context.authorize("crm.enquiry.force-delete");
     const actor = await this.actor();
@@ -131,9 +156,142 @@ export class CrmService {
     }
     const current = await this.repository.find(id);
     if (!current) throw AppError.notFound("Enquiry was not found.");
+    await this.externalLifecycle.delete(id, actor.id);
     const record = (await this.repository.forceDelete(id))!;
     await this.audit("force-deleted", record);
     return this.enrichOne(record);
+  }
+
+  async addMessage(id: number, input: CrmEnquiryMessageCreatePayload) {
+    const { actor } = await this.childContext(id);
+    await this.repository.addMessage(
+      id,
+      { comment: input.comment.trim(), messageType: input.messageType },
+      actor.id
+    );
+    await this.repository.addActivity(
+      id,
+      input.messageType === "reply" ? "reply-added" : "comment-added",
+      input.comment.trim(),
+      actor.id,
+      this.uuid()
+    );
+    await this.externalLifecycle.upsert(id, actor.id);
+    return this.enrichOne((await this.repository.find(id))!);
+  }
+
+  async updateMessage(id: number, messageId: number, input: CrmEnquiryMessageUpdatePayload) {
+    const { actor, record } = await this.childContext(id);
+    const message = this.mutableMessage(record, messageId, actor.id);
+    const comment = input.comment.trim();
+    const updated = await this.repository.updateLatestMessage(id, messageId, actor.id, comment);
+    if (!updated) {
+      throw AppError.conflict("Only your latest conversation entry can be edited.");
+    }
+    await this.repository.addActivity(
+      id,
+      message.messageType === "reply" ? "reply-edited" : "comment-edited",
+      comment,
+      actor.id,
+      this.uuid()
+    );
+    await this.externalLifecycle.upsert(id, actor.id);
+    return this.enrichOne((await this.repository.find(id))!);
+  }
+
+  async deleteMessage(id: number, messageId: number) {
+    const { actor, record } = await this.childContext(id);
+    const message = this.mutableMessage(record, messageId, actor.id);
+    const deleted = await this.repository.deleteLatestMessage(id, messageId, actor.id);
+    if (!deleted) {
+      throw AppError.conflict("Only your latest conversation entry can be deleted.");
+    }
+    await this.repository.addActivity(
+      id,
+      message.messageType === "reply" ? "reply-deleted" : "comment-deleted",
+      message.comment,
+      actor.id,
+      this.uuid()
+    );
+    await this.externalLifecycle.upsert(id, actor.id);
+    return this.enrichOne((await this.repository.find(id))!);
+  }
+
+  async addEmail(id: number, input: CrmEnquiryEmailCreatePayload) {
+    const { actor } = await this.childContext(id);
+    await this.repository.addEmail(
+      id,
+      {
+        body: input.body.trim(),
+        recipient: input.recipient.trim().toLowerCase(),
+        subject: input.subject.trim()
+      },
+      actor.id,
+      this.uuid()
+    );
+    await this.repository.addActivity(
+      id,
+      "email-added",
+      input.subject.trim(),
+      actor.id,
+      this.uuid()
+    );
+    return this.enrichOne((await this.repository.find(id))!);
+  }
+
+  async addCall(id: number, input: CrmEnquiryCallCreatePayload) {
+    const { actor } = await this.childContext(id);
+    await this.repository.addCall(
+      id,
+      { calledAt: input.calledAt, phone: input.phone.trim(), summary: input.summary.trim() },
+      actor.id,
+      this.uuid()
+    );
+    await this.repository.addActivity(
+      id,
+      "call-added",
+      input.summary.trim(),
+      actor.id,
+      this.uuid()
+    );
+    return this.enrichOne((await this.repository.find(id))!);
+  }
+
+  async addTask(id: number, input: CrmEnquiryTaskCreatePayload) {
+    const { actor } = await this.childContext(id);
+    await this.repository.addTask(
+      id,
+      { dueOn: input.dueOn, status: input.status, title: input.title.trim() },
+      actor.id,
+      this.uuid()
+    );
+    await this.repository.addActivity(id, "task-added", input.title.trim(), actor.id, this.uuid());
+    return this.enrichOne((await this.repository.find(id))!);
+  }
+
+  async addNote(id: number, input: CrmEnquiryNoteCreatePayload) {
+    const { actor } = await this.childContext(id);
+    await this.repository.addNote(id, { note: input.note.trim() }, actor.id, this.uuid());
+    await this.repository.addActivity(id, "note-added", input.note.trim(), actor.id, this.uuid());
+    return this.enrichOne((await this.repository.find(id))!);
+  }
+
+  async addAttachment(id: number, input: CrmEnquiryAttachmentCreatePayload) {
+    const { actor } = await this.childContext(id);
+    await this.repository.addAttachment(
+      id,
+      { fileName: input.fileName.trim(), fileUrl: input.fileUrl.trim() },
+      actor.id,
+      this.uuid()
+    );
+    await this.repository.addActivity(
+      id,
+      "attachment-added",
+      input.fileName.trim(),
+      actor.id,
+      this.uuid()
+    );
+    return this.enrichOne((await this.repository.find(id))!);
   }
 
   async userReferences() {
@@ -150,6 +308,40 @@ export class CrmService {
     const actor = await this.context.actorUser();
     if (!actor) throw AppError.unauthorized("Active tenant user is required.");
     return actor;
+  }
+
+  private async childContext(id: number) {
+    await this.context.authorize("crm.enquiry.update");
+    const actor = await this.actor();
+    const record = await this.repository.find(id);
+    if (!record) throw AppError.notFound("Enquiry was not found.");
+    await this.authorizeRecord(record);
+    if (record.lifecycleStatus === "suspended") {
+      throw AppError.conflict("Restore the enquiry before adding workspace records.");
+    }
+    return { actor, record };
+  }
+
+  private mutableMessage(
+    record: Awaited<ReturnType<CrmRepository["find"]>> extends infer T ? Exclude<T, null> : never,
+    messageId: number,
+    actorId: number
+  ) {
+    const message = record.messages.find((item) => item.id === messageId);
+    if (!message) throw AppError.notFound("Conversation entry was not found.");
+    if (message.createdByUserId !== actorId) {
+      throw AppError.forbidden("Only the conversation entry creator can change it.");
+    }
+    if (record.messages.at(-1)?.id !== messageId) {
+      throw AppError.conflict(
+        "This conversation entry is locked because a newer comment or reply exists."
+      );
+    }
+    return message;
+  }
+
+  private uuid() {
+    return randomBytes(4).toString("hex");
   }
 
   private async authorizeRecord(record: {
@@ -204,6 +396,7 @@ export class CrmService {
         left.scheduledOn.localeCompare(right.scheduledOn)
       ),
       status: input.status,
+      subject: input.subject.trim(),
       title: input.title.trim(),
       workspace: input.workspace.trim()
     };
@@ -216,7 +409,8 @@ export class CrmService {
   private async enrichOne(
     record: Awaited<ReturnType<CrmRepository["find"]>> extends infer T ? Exclude<T, null> : never
   ): Promise<CrmEnquiry> {
-    const [assignedTo, createdBy] = await Promise.all([
+    const [actor, assignedTo, createdBy] = await Promise.all([
+      this.actor(),
       record.assignedToUserId === null
         ? Promise.resolve(null)
         : this.users.find(record.assignedToUserId),
@@ -228,7 +422,14 @@ export class CrmService {
     return {
       ...record,
       assignedTo,
-      createdBy: createdBy satisfies CrmUserReference
+      createdBy: createdBy satisfies CrmUserReference,
+      messages: record.messages.map((message, index) => {
+        const mutable =
+          record.lifecycleStatus === "active" &&
+          message.createdByUserId === actor.id &&
+          index === record.messages.length - 1;
+        return { ...message, canDelete: mutable, canEdit: mutable };
+      })
     };
   }
 
@@ -263,6 +464,7 @@ export function crmEnquirySyncContract(database: CrmContext["database"]) {
         priority: input.priority,
         schedules: input.schedules,
         status: input.status,
+        subject: input.subject.trim(),
         title: input.title.trim(),
         workspace: input.workspace.trim()
       };
@@ -271,7 +473,7 @@ export function crmEnquirySyncContract(database: CrmContext["database"]) {
         if (current?.lifecycleStatus === "suspended") {
           throw AppError.conflict("Suspended enquiries cannot be synchronized.");
         }
-        return repository.update(id, value);
+        return repository.update(id, value, true);
       }
       return repository.create(value, input.createdByUserId, randomBytes(4).toString("hex"));
     }

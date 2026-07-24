@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarPlus, Save, Trash2 } from "lucide-react";
+import { CalendarPlus, RefreshCw, Save, Trash2 } from "lucide-react";
 import { Button } from "@codexsun/ui/components/button";
 import { Input } from "@codexsun/ui/components/input";
 import { WorkspaceDatePicker } from "@codexsun/ui/workspace/date-picker";
@@ -26,6 +26,7 @@ const emptyEnquiry: CrmEnquirySavePayload = {
   priority: "normal",
   schedules: [],
   status: "open",
+  subject: "",
   title: "",
   workspace: ""
 };
@@ -35,18 +36,22 @@ export function CrmForm({
   error,
   loading,
   onCancel,
+  onResync,
   onSubmit,
   open,
   record,
+  resyncing,
   users
 }: {
   canAssign: boolean;
   error?: string;
   loading: boolean;
   onCancel: () => void;
+  onResync: () => void;
   onSubmit: (value: CrmEnquirySavePayload) => void;
   open: boolean;
   record: CrmEnquiry | null;
+  resyncing: boolean;
   users: CrmUserReference[];
 }) {
   return (
@@ -72,6 +77,7 @@ export function CrmForm({
                 priority: record.priority,
                 schedules: record.schedules.map(({ scheduledOn }) => ({ scheduledOn })),
                 status: record.status,
+                subject: record.subject,
                 title: record.title,
                 workspace: record.workspace || record.title
               }
@@ -79,8 +85,10 @@ export function CrmForm({
         }
         loading={loading}
         onCancel={onCancel}
+        onResync={onResync}
         onSubmit={onSubmit}
         record={record}
+        resyncing={resyncing}
         canAssign={canAssign}
         users={users}
       />
@@ -94,8 +102,10 @@ function CrmFormBody({
   initialValue,
   loading,
   onCancel,
+  onResync,
   onSubmit,
   record,
+  resyncing,
   users
 }: {
   canAssign: boolean;
@@ -103,8 +113,10 @@ function CrmFormBody({
   initialValue: CrmEnquirySavePayload;
   loading: boolean;
   onCancel: () => void;
+  onResync: () => void;
   onSubmit: (value: CrmEnquirySavePayload) => void;
   record: CrmEnquiry | null;
+  resyncing: boolean;
   users: CrmUserReference[];
 }) {
   const [value, setValue] = useState(initialValue);
@@ -181,6 +193,16 @@ function CrmFormBody({
                 content={value.workspace}
                 placeholder="Enter the customer enquiry..."
                 onChange={(workspace) => setValue((current) => ({ ...current, workspace }))}
+              />
+            </WorkspaceFormField>
+            <WorkspaceFormField label="Subject">
+              <Input
+                maxLength={220}
+                placeholder="Short note about this enquiry"
+                value={value.subject}
+                onChange={(event) =>
+                  setValue((current) => ({ ...current, subject: event.target.value }))
+                }
               />
             </WorkspaceFormField>
           </section>
@@ -333,7 +355,21 @@ function CrmFormBody({
             </>
           )
         }}
-      />
+      >
+        {record ? (
+          <Button
+            aria-label="Resync enquiry with Frappe"
+            disabled={loading || resyncing}
+            size="icon"
+            title="Resync with Frappe"
+            type="button"
+            variant="outline"
+            onClick={onResync}
+          >
+            <RefreshCw className={`size-4 ${resyncing ? "animate-spin" : ""}`} />
+          </Button>
+        ) : null}
+      </WorkspaceFormFooter>
     </form>
   );
 }

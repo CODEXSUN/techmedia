@@ -1,9 +1,17 @@
 import { apiDelete, apiGet, apiPost, apiPut } from "../../shared/api/platform-api";
 import type {
   CrmEnquiry,
+  CrmEnquiryAttachmentCreatePayload,
+  CrmEnquiryCallCreatePayload,
+  CrmEnquiryEmailCreatePayload,
+  CrmEnquiryMessageCreatePayload,
+  CrmEnquiryMessageUpdatePayload,
+  CrmEnquiryNoteCreatePayload,
   CrmEnquiryOverview,
   CrmEnquiryReference,
+  CrmEnquiryResyncResult,
   CrmEnquirySavePayload,
+  CrmEnquiryTaskCreatePayload,
   CrmEnquiryView,
   CrmUserReference
 } from "./crm.types";
@@ -41,8 +49,48 @@ export function restoreCrmEnquiry(id: number) {
   return apiPost<CrmEnquiry>(`${path}/${id}/restore`, {}, "tenant");
 }
 
+export function resyncCrmEnquiry(id: number) {
+  return apiPost<CrmEnquiryResyncResult>(`${path}/${id}/resync`, {}, "tenant");
+}
+
 export function forceDeleteCrmEnquiry(id: number) {
   return apiDelete<CrmEnquiry>(`${path}/${id}/force`, "tenant");
+}
+
+export function addCrmEnquiryMessage(id: number, payload: CrmEnquiryMessageCreatePayload) {
+  return apiPost<CrmEnquiry>(`${path}/${id}/messages`, payload, "tenant");
+}
+
+export function updateCrmEnquiryMessage(
+  id: number,
+  messageId: number,
+  payload: CrmEnquiryMessageUpdatePayload
+) {
+  return apiPut<CrmEnquiry>(`${path}/${id}/messages/${messageId}`, payload, "tenant");
+}
+
+export function deleteCrmEnquiryMessage(id: number, messageId: number) {
+  return apiDelete<CrmEnquiry>(`${path}/${id}/messages/${messageId}`, "tenant");
+}
+
+export function addCrmEnquiryEmail(id: number, payload: CrmEnquiryEmailCreatePayload) {
+  return apiPost<CrmEnquiry>(`${path}/${id}/emails`, payload, "tenant");
+}
+
+export function addCrmEnquiryCall(id: number, payload: CrmEnquiryCallCreatePayload) {
+  return apiPost<CrmEnquiry>(`${path}/${id}/calls`, payload, "tenant");
+}
+
+export function addCrmEnquiryTask(id: number, payload: CrmEnquiryTaskCreatePayload) {
+  return apiPost<CrmEnquiry>(`${path}/${id}/tasks`, payload, "tenant");
+}
+
+export function addCrmEnquiryNote(id: number, payload: CrmEnquiryNoteCreatePayload) {
+  return apiPost<CrmEnquiry>(`${path}/${id}/notes`, payload, "tenant");
+}
+
+export function addCrmEnquiryAttachment(id: number, payload: CrmEnquiryAttachmentCreatePayload) {
+  return apiPost<CrmEnquiry>(`${path}/${id}/attachments`, payload, "tenant");
 }
 
 export function listCrmUserReferences() {

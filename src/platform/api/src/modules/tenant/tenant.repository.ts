@@ -191,6 +191,31 @@ export class TenantRepository {
     };
   }
 
+  async updateLandingApp(tenant: Tenant, defaultLandingApp: Tenant["defaultLandingApp"]) {
+    const payloadSettings = {
+      ...tenant.payloadSettings,
+      landing: {
+        ...(isRecord(tenant.payloadSettings.landing) ? tenant.payloadSettings.landing : {}),
+        app: defaultLandingApp,
+        mode: "tenant"
+      }
+    };
+    await getPlatformDatabase()
+      .updateTable("tenants")
+      .set({
+        default_landing_app: defaultLandingApp,
+        payload_settings: JSON.stringify(payloadSettings)
+      })
+      .where("id", "=", tenant.id)
+      .execute();
+    await this.audit(tenant.id, "tenant.landing-app.updated");
+    return {
+      ...tenant,
+      defaultLandingApp,
+      payloadSettings
+    };
+  }
+
   async activity(id: string) {
     const tenant = await this.findByIdOrCode(id);
     if (!tenant) return [];
@@ -213,7 +238,17 @@ export class TenantRepository {
     const database = getTenantDatabase(tenant);
     const row = await database
       .selectFrom("users")
-      .select(["id", "uuid", "name", "email", "password_hash", "role", "status"])
+      .select([
+        "id",
+        "uuid",
+        "name",
+        "email",
+        "password_hash",
+        "role",
+        "status",
+        "frappe_api_key_ciphertext",
+        "frappe_api_secret_ciphertext"
+      ])
       .where(sql<string>`LOWER(email)`, "=", email.trim().toLowerCase())
       .executeTakeFirst();
     return row as TenantUserRow | undefined;
@@ -303,6 +338,8 @@ type TenantWriteRow = Omit<
 
 type TenantUserRow = {
   email: string;
+  frappe_api_key_ciphertext: string | null;
+  frappe_api_secret_ciphertext: string | null;
   id: number;
   name: string;
   password_hash: string;

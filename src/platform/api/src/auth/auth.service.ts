@@ -1,4 +1,6 @@
 import { env } from "../env.js";
+import { getTenantDatabase } from "../database/tenant-database.js";
+import { frappeUserAuthenticationContract } from "../modules/frappe/index.js";
 import { TenantRepository } from "../modules/tenant/tenant.repository.js";
 import type { Tenant } from "../modules/tenant/tenant.types.js";
 import { signAuthToken, type AuthUserType } from "./jwt.js";
@@ -38,6 +40,9 @@ export class AuthService {
       return null;
     }
     const permissions = await tenantRepository.findTenantUserPermissionKeys(tenant, user.id);
+    const frappeAuthentication = tenant.enabledModuleKeys.includes("frappe")
+      ? await frappeUserAuthenticationContract(getTenantDatabase(tenant)).statusForLogin(user.id)
+      : { authenticatedUser: null, status: "disabled" as const };
 
     return {
       accessToken: signAuthToken({
@@ -53,6 +58,9 @@ export class AuthService {
         userType: "tenant"
       }),
       email: user.email,
+      frappeAuthenticated: frappeAuthentication.status === "live",
+      frappeAuthenticatedUser: frappeAuthentication.authenticatedUser,
+      frappeConnectionStatus: frappeAuthentication.status,
       name: user.name,
       tenantCode: tenant.tenantCode,
       tenantDbName: tenant.dbName,

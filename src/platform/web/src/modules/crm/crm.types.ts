@@ -2,6 +2,17 @@ export type CrmEnquiryPriority = "low" | "normal" | "high" | "urgent";
 export type CrmEnquiryStatus = "escalation" | "follow" | "lost" | "open" | "won";
 export type CrmEnquiryLifecycleStatus = "active" | "suspended";
 export type CrmEnquiryView = "assigned" | "created" | "open";
+export type CrmEnquiryColumnId =
+  | "assignedTo"
+  | "createdBy"
+  | "customer"
+  | "dueDate"
+  | "enquiryGroup"
+  | "id"
+  | "mobile"
+  | "status"
+  | "title";
+export type CrmEnquiryColumnVisibility = Record<CrmEnquiryColumnId, boolean>;
 
 export type CrmUserReference = {
   email: string;
@@ -11,23 +22,89 @@ export type CrmUserReference = {
 };
 
 export type CrmEnquirySchedule = { id: number; scheduledOn: string };
+export type CrmEnquiryMessage = {
+  canDelete: boolean;
+  canEdit: boolean;
+  comment: string;
+  createdAt: string;
+  createdByUserId: number | null;
+  id: number;
+  messageType: "comment" | "reply";
+};
+export type CrmEnquiryEmail = {
+  body: string;
+  createdAt: string;
+  createdByUserId: number;
+  id: number;
+  recipient: string;
+  subject: string;
+  uuid: string;
+};
+export type CrmEnquiryCall = {
+  calledAt: string;
+  createdAt: string;
+  createdByUserId: number;
+  id: number;
+  phone: string;
+  summary: string;
+  uuid: string;
+};
+export type CrmEnquiryTask = {
+  createdAt: string;
+  createdByUserId: number;
+  dueOn: string | null;
+  id: number;
+  status: "completed" | "pending";
+  title: string;
+  uuid: string;
+};
+export type CrmEnquiryNote = {
+  createdAt: string;
+  createdByUserId: number;
+  id: number;
+  note: string;
+  uuid: string;
+};
+export type CrmEnquiryAttachment = {
+  createdAt: string;
+  createdByUserId: number;
+  fileName: string;
+  fileUrl: string;
+  id: number;
+  uuid: string;
+};
+export type CrmEnquiryActivity = {
+  action: string;
+  createdAt: string;
+  createdByUserId: number;
+  details: string;
+  id: number;
+  uuid: string;
+};
 
 export type CrmEnquiry = {
+  activities: CrmEnquiryActivity[];
   assignedTo: CrmUserReference | null;
   assignedToUserId: number | null;
+  attachments: CrmEnquiryAttachment[];
+  calls: CrmEnquiryCall[];
   createdAt: string;
   createdBy: CrmUserReference;
   createdByUserId: number;
   customer: string;
   enquiryDate: string | null;
   enquiryGroup: string;
+  emails: CrmEnquiryEmail[];
   id: number;
   lifecycleStatus: CrmEnquiryLifecycleStatus;
-  messages: Array<{ comment: string; id: number }>;
+  messages: CrmEnquiryMessage[];
   mobile: string;
+  notes: CrmEnquiryNote[];
   priority: CrmEnquiryPriority;
   schedules: CrmEnquirySchedule[];
   status: CrmEnquiryStatus;
+  subject: string;
+  tasks: CrmEnquiryTask[];
   title: string;
   updatedAt: string;
   uuid: string;
@@ -44,8 +121,42 @@ export type CrmEnquirySavePayload = {
   priority: CrmEnquiryPriority;
   schedules: Array<{ scheduledOn: string }>;
   status: CrmEnquiryStatus;
+  subject: string;
   title: string;
   workspace: string;
+};
+
+export type CrmEnquiryResyncResult = {
+  action: "created" | "updated";
+  frappeName: string;
+};
+
+export type CrmEnquiryMessageCreatePayload = {
+  comment: string;
+  messageType: "comment" | "reply";
+};
+export type CrmEnquiryMessageUpdatePayload = {
+  comment: string;
+};
+export type CrmEnquiryEmailCreatePayload = {
+  body: string;
+  recipient: string;
+  subject: string;
+};
+export type CrmEnquiryCallCreatePayload = {
+  calledAt: string;
+  phone: string;
+  summary: string;
+};
+export type CrmEnquiryTaskCreatePayload = {
+  dueOn: string | null;
+  status: "completed" | "pending";
+  title: string;
+};
+export type CrmEnquiryNoteCreatePayload = { note: string };
+export type CrmEnquiryAttachmentCreatePayload = {
+  fileName: string;
+  fileUrl: string;
 };
 
 export type CrmEnquiryReference = { id: number; title: string };

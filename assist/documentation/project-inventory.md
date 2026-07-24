@@ -21,13 +21,40 @@ The tenant application surface contains three registered apps:
   identity. Tenant staff, manager, and normal-user identities cannot expose it through role
   permission assignment.
 - `CRM` is the permission-aware business app. Its module-owned Enquiry aggregate lives under
-  `src/platform/api/src/modules/crm/` and `src/platform/web/src/modules/crm/`.
+  `src/platform/api/src/modules/crm/` and `src/platform/web/src/modules/crm/`. Enquiry responses
+  include persisted comment timestamps and creator-aware mutation capabilities. The CRM desk owns
+  the full-page enquiry workspace with persisted Reply/Comment, Email, Call, Task, Note,
+  Attachment, and Activity child tables, fixed write contracts, cascade ownership, sticky
+  composers, and the properties panel. Conversation entries display their exact stored time and
+  expose fixed update/delete contracts only for the creator's current latest entry; any newer
+  comment or reply locks the earlier entry in both the response capabilities and backend service.
 - `Frappe` is the admin-only integration app. Its encrypted tenant connection settings live under
   `src/platform/api/src/modules/frappe/` and `src/platform/web/src/modules/frappe/`. The owner also
   provides the fixed `POST /tenant/frappe/settings/verify` handshake, which validates current or
   stored credentials against Frappe without persisting verification-only form values. Saved
   connections retain module-owned `unverified`, `live`, or `offline` verification state and
-  last-check timestamps for the desk status badges.
+  last-check timestamps for the desk status badges. When outbound enquiry sync is enabled, CRM
+  lifecycle writes use the signed-in user's verified credentials to create, update, and permanently
+  delete the linked Frappe Enquiry while the Frappe owner retains the remote mapping and audit state.
+  Per-user verification is an explicit one-time handshake: login reuses the persisted result without
+  contacting Frappe. Changing that user's key or secret, or changing the shared Frappe URL, resets
+  the result to `unverified`. Each transaction remains the operational validation; only a remote
+  authentication rejection marks the saved user credentials `offline`, while network and Frappe
+  document-validation failures preserve the trusted credential state.
+  Existing enquiries expose a compact manual resync action on both their show page and edit popup;
+  it reuses the same verified per-user credentials and fixed Frappe lifecycle contract for only the
+  selected enquiry.
+  Outbound mapping always supplies Frappe's mandatory Enquiry date, using the explicit enquiry date
+  when present and the persisted TechMedia creation date otherwise. Frappe's mandatory
+  `user_employee` value is resolved from the verified API identity through `Employee.user_id`;
+  `assigned_to_employee` is resolved independently from the TechMedia assignee and remains optional.
+  A verified Frappe User therefore must be linked to an Employee before it can create enquiries.
+
+CRM is the default landing app for TechMedia tenants. The Platform tenant record owns that setting;
+Core Default Company mirrors it through the exported Default Company application contract. Tenant
+startup reconciles the mirror, while Landing Desk, Default Company, and Super Admin App
+Connections use coordinated Platform endpoints so changing any one surface is reflected by the
+others.
 
 The public web surface is a simple TechMedia company site owned by
 `src/platform/web/src/public/tenant-site/`. Its product position is computer hardware wholesale

@@ -1,9 +1,21 @@
 export { tenantUserModule } from "./tenant-user.module.js";
-export { migrateTenantUserModule, tenantUserMigration } from "./tenant-user.migration.js";
+export {
+  migrateTenantUserModule,
+  tenantUserMigration,
+  tenantUserMigrations
+} from "./tenant-user.migration.js";
 export { seedTenantUserModule } from "./tenant-user.seed.js";
-export { tenantUserReferenceContract } from "./tenant-user.service.js";
+export {
+  tenantUserFrappeCredentialContract,
+  tenantUserFrappeImportContract,
+  tenantUserReferenceContract
+} from "./tenant-user.service.js";
 export type {
   TenantUser,
+  TenantUserFrappeCredentials,
+  TenantUserFrappeImportPayload,
+  TenantUserFrappeImportResult,
+  TenantUserFrappeVerificationStatus,
   TenantUserReference,
   TenantUserSavePayload,
   TenantUserStatus

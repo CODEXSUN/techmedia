@@ -1,4 +1,8 @@
 import { apiGet, apiPost, apiPut } from "../../shared/api/platform-api";
+import type {
+  DefaultCompanyRecord,
+  DefaultCompanySavePayload
+} from "@codexsun/core-web/modules/organisation/default-company";
 import type { AuditEventDTO, Tenant, TenantRuntime, TenantSavePayload } from "./tenant.types";
 
 export function listTenants() {
@@ -62,6 +66,18 @@ export function listTenantActivity(id: number | string) {
 
 export function getTenantRuntime() {
   return apiGet<TenantRuntime>("/tenant/runtime", "tenant");
+}
+
+export function updateTenantLandingApp(defaultLandingApp: Tenant["defaultLandingApp"]) {
+  return apiPut<{ defaultLandingApp: Tenant["defaultLandingApp"] }>(
+    "/tenant/runtime/landing-app",
+    { landingApp: defaultLandingApp },
+    "tenant"
+  );
+}
+
+export function saveTenantDefaultCompany(payload: DefaultCompanySavePayload) {
+  return apiPut<DefaultCompanyRecord>("/tenant/runtime/default-company", payload, "tenant");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

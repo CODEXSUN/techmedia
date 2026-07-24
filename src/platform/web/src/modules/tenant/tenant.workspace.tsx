@@ -958,7 +958,9 @@ function TenantUpsertPage({
                       enabledModuleKeys: enabledKeys,
                       defaultLandingApp: enabledIds.includes(currentForm.defaultLandingApp)
                         ? currentForm.defaultLandingApp
-                        : "application"
+                        : enabledIds.includes("crm")
+                          ? "crm"
+                          : "application"
                     }));
                     return next;
                   })
@@ -1362,7 +1364,7 @@ function tenantAppAccessFromRegistry(apps: PlatformApp[] | undefined): TenantApp
       }));
 
   return source
-    .filter((app) => app.appId === "application")
+    .filter((app) => platformAppRegistry.some((registered) => registered.id === app.appId))
     .map((app) => {
       const local =
         platformAppRegistry.find(

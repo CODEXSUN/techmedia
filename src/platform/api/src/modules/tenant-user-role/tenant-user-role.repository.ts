@@ -35,6 +35,13 @@ export class TenantUserRoleRepository {
       );
     return r.rows[0] ? map(r.rows[0]) : null;
   }
+  async findByUserAndRoleKey(userId: number, roleKey: string) {
+    const r =
+      await sql<Row>`SELECT ur.id,ur.uuid,ur.user_id,ur.role_id,ur.status,ur.is_protected,u.name user_name,u.email user_email,r.label role_label,r.\`key\` role_key FROM user_roles ur INNER JOIN users u ON u.id=ur.user_id INNER JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=${userId} AND r.\`key\`=${roleKey} LIMIT 1`.execute(
+        this.database
+      );
+    return r.rows[0] ? map(r.rows[0]) : null;
+  }
   async parents(v: TenantUserRoleSavePayload) {
     const r = await sql<{
       role_count: number | string;
@@ -53,6 +60,20 @@ export class TenantUserRoleRepository {
         this.database
       );
     return (await this.find(Number(r.insertId)))!;
+  }
+  async ensureActiveByRoleKey(userId: number, roleKey: string, uuid: string) {
+    const parents = await sql<{
+      role_id: number | null;
+      user_count: number | string;
+    }>`SELECT (SELECT id FROM roles WHERE \`key\`=${roleKey} AND status='active' LIMIT 1) role_id,(SELECT COUNT(*) FROM users WHERE id=${userId} AND status='active') user_count`.execute(
+      this.database
+    );
+    const roleId = Number(parents.rows[0]?.role_id ?? 0);
+    if (!Number(parents.rows[0]?.user_count ?? 0) || !roleId) return null;
+    await sql`INSERT INTO user_roles (uuid,user_id,role_id,status,is_protected) VALUES (${uuid},${userId},${roleId},'active',FALSE) ON DUPLICATE KEY UPDATE status='active'`.execute(
+      this.database
+    );
+    return this.findByUserAndRoleKey(userId, roleKey);
   }
   async update(id: number, v: TenantUserRoleSavePayload) {
     await sql`UPDATE user_roles SET user_id=${v.userId},role_id=${v.roleId},status=${v.status} WHERE id=${id}`.execute(

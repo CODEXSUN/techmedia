@@ -20,11 +20,24 @@ import { buildShowingLabel } from "@codexsun/ui/workspace/utils";
 import { TenantUserForm } from "./tenant-user.form";
 import { useTenantUserMutations, useTenantUsersQuery } from "./tenant-user.hooks";
 import { TenantUserList } from "./tenant-user.list";
-import type { TenantUser, TenantUserSavePayload } from "./tenant-user.types";
+import {
+  useTenantUserRoleLookups,
+  useTenantUserRoleMutations,
+  useTenantUserRolesQuery
+} from "../tenant-user-role";
+import type {
+  TenantUser,
+  TenantUserAccessSelection,
+  TenantUserFrappeVerification,
+  TenantUserSavePayload
+} from "./tenant-user.types";
 type PendingAction = { record: TenantUser; type: "force-delete" | "restore" | "suspend" };
 export function TenantUserWorkspace() {
   const query = useTenantUsersQuery();
   const mutations = useTenantUserMutations();
+  const userRoleQuery = useTenantUserRolesQuery();
+  const userRoleLookups = useTenantUserRoleLookups();
+  const userRoleMutations = useTenantUserRoleMutations();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -48,14 +61,65 @@ export function TenantUserWorkspace() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
   const saveError = mutations.create.error ?? mutations.update.error;
-  async function save(value: TenantUserSavePayload) {
+  const selectedAccess = useMemo<TenantUserAccessSelection>(() => {
+    const assignedRole = editing
+      ? (userRoleQuery.data ?? []).find(
+          (assignment) => assignment.userId === editing.id && assignment.status === "active"
+        )
+      : undefined;
+    const defaultRole = userRoleLookups.data?.second.find(
+      (role) => role.key === "user" && role.status === "active"
+    );
+    return {
+      roleId: assignedRole?.roleId ?? defaultRole?.id ?? null
+    };
+  }, [editing, userRoleLookups.data, userRoleQuery.data]);
+  async function applyRole(userId: number, access: TenantUserAccessSelection) {
+    if (!access.roleId) return;
+    const currentUserRole = (userRoleQuery.data ?? []).find(
+      (assignment) => assignment.userId === userId && assignment.roleId === access.roleId
+    );
+    if (!currentUserRole) {
+      await userRoleMutations.create.mutateAsync({
+        roleId: access.roleId,
+        status: "active",
+        userId
+      });
+    } else if (currentUserRole.status !== "active") {
+      await userRoleMutations.activate.mutateAsync(currentUserRole);
+    }
+  }
+  async function save(value: TenantUserSavePayload, access: TenantUserAccessSelection) {
     try {
       const record = editing
         ? await mutations.update.mutateAsync({ id: editing.id, payload: value })
         : await mutations.create.mutateAsync(value);
+      await applyRole(record.id, access);
+      if (value.frappeApiKey || value.frappeApiSecret) {
+        try {
+          const verification = await mutations.verifyFrappe.mutateAsync(record);
+          toast.success("Frappe credentials verified", {
+            description: verification.authenticatedUser
+          });
+        } catch (error) {
+          toast.warning("User saved; Frappe verification is pending", {
+            description:
+              error instanceof Error ? error.message : "Check the Frappe connection and retry."
+          });
+        }
+      }
       toast.success(`User ${editing ? "updated" : "created"}`, { description: record.name });
       setEditing(undefined);
     } catch {}
+  }
+  async function verifyFrappe(value: TenantUserSavePayload): Promise<TenantUserFrappeVerification> {
+    if (!editing) throw new Error("Save the user before verifying Frappe credentials.");
+    const record = await mutations.update.mutateAsync({ id: editing.id, payload: value });
+    const verification = await mutations.verifyFrappe.mutateAsync(record);
+    toast.success("Frappe connection verified", {
+      description: `Connected as ${verification.authenticatedUser}`
+    });
+    return verification;
   }
   async function act(action: PendingAction) {
     try {
@@ -146,11 +210,22 @@ export function TenantUserWorkspace() {
       />
       <TenantUserForm
         {...(saveError instanceof Error ? { error: saveError.message } : {})}
-        loading={mutations.create.isPending || mutations.update.isPending}
+        loading={
+          mutations.create.isPending ||
+          mutations.update.isPending ||
+          userRoleMutations.create.isPending ||
+          userRoleMutations.activate.isPending
+        }
         onCancel={() => setEditing(undefined)}
-        onSubmit={(value) => void save(value)}
+        onSubmit={(value, access) => void save(value, access)}
+        onVerify={verifyFrappe}
         open={editing !== undefined}
         record={editing ?? null}
+        roleOptions={(userRoleLookups.data?.second ?? [])
+          .filter((role) => role.status === "active")
+          .map((role) => ({ id: role.id, key: role.key, label: role.label }))}
+        selectedAccess={selectedAccess}
+        verifying={mutations.verifyFrappe.isPending}
       />
       <UserActionDialog
         action={pendingAction}

@@ -35,6 +35,29 @@ export function TenantUserList({
     },
     { accessorKey: "email", header: "Email" },
     {
+      cell: ({ row }) => (
+        <WorkspaceStatusBadge
+          label={
+            row.original.frappeVerificationStatus === "live"
+              ? "Verified"
+              : row.original.frappeVerificationStatus === "offline"
+                ? "Offline"
+                : row.original.frappeApiKeyConfigured
+                  ? "Unverified"
+                  : "Not configured"
+          }
+          tone={
+            row.original.frappeVerificationStatus === "live"
+              ? "success"
+              : row.original.frappeVerificationStatus === "offline"
+                ? "danger"
+                : "neutral"
+          }
+        />
+      ),
+      header: "Frappe"
+    },
+    {
       accessorKey: "status",
       cell: ({ row }) => (
         <WorkspaceStatusBadge
@@ -83,9 +106,7 @@ function RecordName({
   onEdit: (record: TenantUser) => void;
   record: TenantUser;
 }) {
-  return record.isProtected ? (
-    <span className="font-medium">{record.name}</span>
-  ) : (
+  return (
     <button
       className="cursor-pointer font-medium text-foreground hover:underline"
       onClick={() => onEdit(record)}

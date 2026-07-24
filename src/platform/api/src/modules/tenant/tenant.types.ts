@@ -35,6 +35,13 @@ export type TenantSavePayload = Omit<
   uuid?: string;
 };
 
+export type TenantDefaultCompanySavePayload = {
+  companyId: number;
+  financialYearId: number;
+  landingApp: PlatformAppId;
+  status: "active" | "inactive";
+};
+
 export type TenantAuditEvent = {
   actor_email: string;
   created_at: string;

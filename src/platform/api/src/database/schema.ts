@@ -30,8 +30,14 @@ export type PlatformDatabase = {
 
 export type TenantDatabase = {
   crm_enquiries: CrmEnquiriesTable;
+  crm_enquiry_activities: CrmEnquiryActivitiesTable;
+  crm_enquiry_attachments: CrmEnquiryAttachmentsTable;
+  crm_enquiry_calls: CrmEnquiryCallsTable;
+  crm_enquiry_emails: CrmEnquiryEmailsTable;
   crm_enquiry_messages: CrmEnquiryMessagesTable;
+  crm_enquiry_notes: CrmEnquiryNotesTable;
   crm_enquiry_schedules: CrmEnquirySchedulesTable;
+  crm_enquiry_tasks: CrmEnquiryTasksTable;
   frappe_connection_settings: FrappeConnectionSettingsTable;
   frappe_enquiry_links: FrappeEnquiryLinksTable;
   frappe_sync_settings: FrappeSyncSettingsTable;
@@ -47,6 +53,8 @@ export type TenantDatabase = {
 export type FrappeConnectionSettingsTable = {
   api_key_ciphertext: string;
   api_secret_ciphertext: string;
+  app_key_ciphertext: Generated<string | null>;
+  app_secret_ciphertext: Generated<string | null>;
   base_url: string;
   connection_key: string;
   connection_name: string;
@@ -72,6 +80,7 @@ export type CrmEnquiriesTable = {
   mobile: string;
   priority: "low" | "normal" | "high" | "urgent";
   status: "open" | "follow" | "escalation" | "won" | "lost";
+  subject: string;
   title: string;
   updated_at: TimestampColumn;
   uuid: string;
@@ -81,10 +90,52 @@ export type CrmEnquiriesTable = {
 export type CrmEnquiryMessagesTable = {
   comment: string;
   created_at: TimestampColumn;
+  created_by_user_id: number | null;
   enquiry_id: number;
   id: Generated<number>;
+  message_type: "comment" | "reply";
   position: number;
   updated_at: TimestampColumn;
+};
+
+type CrmEnquiryChildTable = {
+  created_at: TimestampColumn;
+  created_by_user_id: number;
+  enquiry_id: number;
+  id: Generated<number>;
+  uuid: string;
+};
+
+export type CrmEnquiryEmailsTable = CrmEnquiryChildTable & {
+  body: string;
+  recipient: string;
+  subject: string;
+};
+
+export type CrmEnquiryCallsTable = CrmEnquiryChildTable & {
+  called_at: TimestampColumn;
+  phone: string;
+  summary: string;
+};
+
+export type CrmEnquiryTasksTable = CrmEnquiryChildTable & {
+  due_on: string | null;
+  task_status: "completed" | "pending";
+  title: string;
+};
+
+export type CrmEnquiryNotesTable = CrmEnquiryChildTable & {
+  note: string;
+};
+
+export type CrmEnquiryAttachmentsTable = CrmEnquiryChildTable & {
+  file_name: string;
+  file_url: string;
+};
+
+export type CrmEnquiryActivitiesTable = CrmEnquiryChildTable & {
+  action: string;
+  details: string;
 };
 
 export type CrmEnquirySchedulesTable = {
@@ -367,6 +418,20 @@ export type TenantModuleSettingsTable = {
 export type TenantUsersTable = {
   created_at: TimestampColumn;
   email: string;
+  frappe_api_key_ciphertext: Generated<string | null>;
+  frappe_api_secret_ciphertext: Generated<string | null>;
+  frappe_authenticated_user: Generated<string | null>;
+  frappe_last_checked_at: ColumnType<
+    Date | null,
+    Date | string | null | undefined,
+    Date | string | null | undefined
+  >;
+  frappe_last_verified_at: ColumnType<
+    Date | null,
+    Date | string | null | undefined,
+    Date | string | null | undefined
+  >;
+  frappe_verification_status: Generated<"live" | "offline" | "unverified">;
   id: Generated<number>;
   is_protected: boolean | number;
   name: string;

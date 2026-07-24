@@ -19,8 +19,8 @@ import type {
 } from "./frappe.types";
 
 type FormValue = {
-  apiKey: string;
-  apiSecret: string;
+  appKey: string;
+  appSecret: string;
   baseUrl: string;
   connectionName: string;
   enabled: boolean;
@@ -61,12 +61,6 @@ export function FrappeForm({
         if (field && !nextErrors[field]) nextErrors[field] = issue.message;
       }
     }
-    if (!settings?.apiKeyConfigured && !value.apiKey.trim()) {
-      nextErrors.apiKey = "API key is required for the first connection.";
-    }
-    if (!settings?.apiSecretConfigured && !value.apiSecret.trim()) {
-      nextErrors.apiSecret = "API secret is required for the first connection.";
-    }
     if (!parsed.success || Object.keys(nextErrors).length) {
       setFieldErrors(nextErrors);
       setValidationError(Object.values(nextErrors)[0] ?? "Check the connection details.");
@@ -76,18 +70,18 @@ export function FrappeForm({
     setFieldErrors({});
     setValidationError("");
     onSubmit({
+      ...(parsed.data.appKey ? { appKey: parsed.data.appKey } : {}),
+      ...(parsed.data.appSecret ? { appSecret: parsed.data.appSecret } : {}),
       baseUrl: parsed.data.baseUrl,
       connectionName: parsed.data.connectionName,
-      enabled: parsed.data.enabled,
-      ...(parsed.data.apiKey ? { apiKey: parsed.data.apiKey } : {}),
-      ...(parsed.data.apiSecret ? { apiSecret: parsed.data.apiSecret } : {})
+      enabled: parsed.data.enabled
     });
   }
 
   function verify() {
     const parsed = frappeConnectionVerificationSchema.safeParse({
-      apiKey: value.apiKey,
-      apiSecret: value.apiSecret,
+      appKey: value.appKey,
+      appSecret: value.appSecret,
       baseUrl: value.baseUrl
     });
     const nextErrors: Record<string, string> = {};
@@ -96,12 +90,6 @@ export function FrappeForm({
         const field = String(issue.path[0] ?? "");
         if (field && !nextErrors[field]) nextErrors[field] = issue.message;
       }
-    }
-    if (!settings?.apiKeyConfigured && !value.apiKey.trim()) {
-      nextErrors.apiKey = "API key is required to verify this connection.";
-    }
-    if (!settings?.apiSecretConfigured && !value.apiSecret.trim()) {
-      nextErrors.apiSecret = "API secret is required to verify this connection.";
     }
     if (!parsed.success || Object.keys(nextErrors).length) {
       setFieldErrors(nextErrors);
@@ -112,9 +100,9 @@ export function FrappeForm({
     setFieldErrors({});
     setValidationError("");
     onVerify({
-      baseUrl: parsed.data.baseUrl,
-      ...(parsed.data.apiKey ? { apiKey: parsed.data.apiKey } : {}),
-      ...(parsed.data.apiSecret ? { apiSecret: parsed.data.apiSecret } : {})
+      ...(parsed.data.appKey ? { appKey: parsed.data.appKey } : {}),
+      ...(parsed.data.appSecret ? { appSecret: parsed.data.appSecret } : {}),
+      baseUrl: parsed.data.baseUrl
     });
   }
 
@@ -142,10 +130,10 @@ export function FrappeForm({
               <KeyRoundIcon className="size-5" />
             </span>
             <div>
-              <p className="text-sm font-medium">Encrypted credentials</p>
+              <p className="text-sm font-medium">Tenant app authentication</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                API credentials are encrypted before database storage and are never returned to this
-                page.
+                Save an encrypted app key and secret for connection testing. Individual user
+                credentials remain configured from the Users page.
               </p>
             </div>
           </div>
@@ -179,45 +167,51 @@ export function FrappeForm({
               />
               <FieldError message={fieldErrors.baseUrl} />
             </WorkspaceFormField>
-            <WorkspaceFormField label="API key" required={!settings?.apiKeyConfigured}>
+            <WorkspaceFormField
+              label="Frappe app key"
+              required={!settings?.appKeyConfigured && Boolean(value.appSecret)}
+            >
               <Input
-                aria-invalid={Boolean(fieldErrors.apiKey)}
+                aria-invalid={Boolean(fieldErrors.appKey)}
                 autoComplete="off"
-                className={fieldErrors.apiKey ? "border-destructive" : undefined}
+                className={fieldErrors.appKey ? "border-destructive" : undefined}
                 disabled={!canUpdate || loading || verifying}
                 maxLength={2_000}
                 placeholder={
-                  settings?.apiKeyConfigured
+                  settings?.appKeyConfigured
                     ? "Configured — leave blank to keep"
-                    : "Enter Frappe API key"
+                    : "Enter the Frappe app key"
                 }
                 type="password"
-                value={value.apiKey}
+                value={value.appKey}
                 onChange={(event) =>
-                  setValue((current) => ({ ...current, apiKey: event.target.value }))
+                  setValue((current) => ({ ...current, appKey: event.target.value }))
                 }
               />
-              <FieldError message={fieldErrors.apiKey} />
+              <FieldError message={fieldErrors.appKey} />
             </WorkspaceFormField>
-            <WorkspaceFormField label="API secret" required={!settings?.apiSecretConfigured}>
+            <WorkspaceFormField
+              label="Frappe app secret"
+              required={!settings?.appSecretConfigured && Boolean(value.appKey)}
+            >
               <Input
-                aria-invalid={Boolean(fieldErrors.apiSecret)}
+                aria-invalid={Boolean(fieldErrors.appSecret)}
                 autoComplete="new-password"
-                className={fieldErrors.apiSecret ? "border-destructive" : undefined}
+                className={fieldErrors.appSecret ? "border-destructive" : undefined}
                 disabled={!canUpdate || loading || verifying}
                 maxLength={2_000}
                 placeholder={
-                  settings?.apiSecretConfigured
+                  settings?.appSecretConfigured
                     ? "Configured — leave blank to keep"
-                    : "Enter Frappe API secret"
+                    : "Enter the Frappe app secret"
                 }
                 type="password"
-                value={value.apiSecret}
+                value={value.appSecret}
                 onChange={(event) =>
-                  setValue((current) => ({ ...current, apiSecret: event.target.value }))
+                  setValue((current) => ({ ...current, appSecret: event.target.value }))
                 }
               />
-              <FieldError message={fieldErrors.apiSecret} />
+              <FieldError message={fieldErrors.appSecret} />
             </WorkspaceFormField>
             <WorkspaceSwitchCard
               activeLabel="Connection enabled"
@@ -256,8 +250,8 @@ export function FrappeForm({
 
 function valueFor(settings: FrappeConnectionSettings | null): FormValue {
   return {
-    apiKey: "",
-    apiSecret: "",
+    appKey: "",
+    appSecret: "",
     baseUrl: settings?.baseUrl ?? "",
     connectionName: settings?.connectionName ?? "",
     enabled: settings?.enabled ?? false

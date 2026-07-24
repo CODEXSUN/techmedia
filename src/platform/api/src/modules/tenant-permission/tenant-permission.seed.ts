@@ -24,7 +24,9 @@ const seeds = [
   "role-permission.view",
   "role-permission.assign",
   "role-permission.update",
-  "role-permission.remove"
+  "role-permission.remove",
+  "settings.view",
+  "settings.update"
 ].map((key) => ({
   key: `platform.application.${key}`,
   label: key

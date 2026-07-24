@@ -47,15 +47,27 @@ Ownership:
 - CRM tenant business data: `src/platform/api/src/modules/crm/`
 - Frappe tenant integration settings: `src/platform/api/src/modules/frappe/`
 
-The Frappe owner includes the forward `frappe.connection.verification-status-v2` migration. It
-adds verification status and last-check timestamps to existing tenant connection tables using
-idempotent column additions; run the normal tenant migration lifecycle before deploying the badge
-behavior.
+The tenant-user and Frappe owners include the forward
+`platform.tenant-user.frappe-credentials-v2` and
+`frappe.connection.per-user-credentials-v4` migrations. They add encrypted per-user Frappe
+credentials and verification metadata, then move an existing tenant-level credential pair to the
+protected administrator when that user does not already have credentials. Run the normal tenant
+migration lifecycle before deploying per-user authentication. The earlier
+`frappe.connection.verification-status-v2` migration remains in the ordered history.
+
+The forward `frappe.connection.app-credentials-v5` migration adds dedicated encrypted tenant app
+key and app secret columns to Frappe settings. These credentials are used only by the settings-page
+connection test; user login and CRM operations continue to use each user's encrypted credentials.
 
 The CRM owner includes the forward `crm.enquiry.unassigned-v4` migration. It makes
 `crm_enquiries.assigned_to_user_id` nullable so unassigned active enquiries can be owned by the
 Open Enquiry queue. Run the normal tenant migration lifecycle before deploying the strict assigned,
 created, and unassigned list rules.
+
+The forward `crm.enquiry.workspace-children-v5` migration adds concrete enquiry-owned Email, Call,
+Task, Note, Attachment, and Activity tables, plus Reply/Comment metadata on enquiry messages. Every
+child table references `crm_enquiries.id` with `ON DELETE CASCADE`. Run the normal tenant migration
+lifecycle before deploying the working enquiry workspace tabs.
 
 Composition roots only order public module-owned lifecycle functions. They must not copy SQL, seed
 arrays, repositories, or private services across repository boundaries.

@@ -6,7 +6,9 @@ import type {
   FrappeConnectionVerificationResult,
   FrappeSyncResult,
   FrappeSyncSettings,
-  FrappeSyncSettingsSavePayload
+  FrappeSyncSettingsSavePayload,
+  FrappeUserImportResult,
+  FrappeUserPreview
 } from "./frappe.types";
 
 const path = "/tenant/frappe/settings";
@@ -35,4 +37,14 @@ export function saveFrappeSyncSettings(payload: FrappeSyncSettingsSavePayload) {
 
 export function runFrappeEnquirySync(direction: "pull" | "push") {
   return apiPost<FrappeSyncResult>(`${syncPath}/${direction}`, {}, "tenant");
+}
+
+const userSyncPath = "/tenant/frappe/user-sync";
+
+export function previewFrappeUsers() {
+  return apiGet<FrappeUserPreview[]>(`${userSyncPath}/preview`, "tenant");
+}
+
+export function importFrappeUser(frappeUserId: string) {
+  return apiPost<FrappeUserImportResult>(`${userSyncPath}/import`, { frappeUserId }, "tenant");
 }

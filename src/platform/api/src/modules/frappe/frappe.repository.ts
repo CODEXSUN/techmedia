@@ -3,8 +3,8 @@ import type { TenantDatabase } from "../../database/schema.js";
 import type { FrappeSyncSettingsSavePayload } from "./frappe.types.js";
 
 type FrappeConnectionRow = {
-  api_key_ciphertext: string;
-  api_secret_ciphertext: string;
+  app_key_ciphertext: string | null;
+  app_secret_ciphertext: string | null;
   base_url: string;
   connection_name: string;
   enabled: boolean | number;
@@ -17,8 +17,8 @@ type FrappeConnectionRow = {
 };
 
 export type StoredFrappeConnection = {
-  apiKeyCiphertext: string;
-  apiSecretCiphertext: string;
+  appKeyCiphertext: string | null;
+  appSecretCiphertext: string | null;
   baseUrl: string;
   connectionName: string;
   enabled: boolean;
@@ -35,7 +35,7 @@ export class FrappeRepository {
 
   async find() {
     const result = await sql<FrappeConnectionRow>`SELECT
-      id,uuid,connection_name,base_url,api_key_ciphertext,api_secret_ciphertext,enabled,
+      id,uuid,connection_name,base_url,app_key_ciphertext,app_secret_ciphertext,enabled,
       verification_status,last_checked_at,last_verified_at,updated_at
       FROM frappe_connection_settings WHERE connection_key='default' LIMIT 1`.execute(
       this.database
@@ -44,8 +44,8 @@ export class FrappeRepository {
   }
 
   async save(input: {
-    apiKeyCiphertext: string;
-    apiSecretCiphertext: string;
+    appKeyCiphertext: string | null;
+    appSecretCiphertext: string | null;
     baseUrl: string;
     connectionName: string;
     enabled: boolean;
@@ -55,16 +55,16 @@ export class FrappeRepository {
     verificationStatus: "live" | "offline" | "unverified";
   }) {
     await sql`INSERT INTO frappe_connection_settings
-      (uuid,connection_key,connection_name,base_url,api_key_ciphertext,api_secret_ciphertext,enabled,
+      (uuid,connection_key,connection_name,base_url,app_key_ciphertext,app_secret_ciphertext,enabled,
         verification_status,last_checked_at,last_verified_at)
       VALUES (${input.uuid},'default',${input.connectionName},${input.baseUrl},
-        ${input.apiKeyCiphertext},${input.apiSecretCiphertext},${input.enabled},
+        ${input.appKeyCiphertext},${input.appSecretCiphertext},${input.enabled},
         ${input.verificationStatus},${input.lastCheckedAt},${input.lastVerifiedAt})
       ON DUPLICATE KEY UPDATE
         connection_name=VALUES(connection_name),
         base_url=VALUES(base_url),
-        api_key_ciphertext=VALUES(api_key_ciphertext),
-        api_secret_ciphertext=VALUES(api_secret_ciphertext),
+        app_key_ciphertext=VALUES(app_key_ciphertext),
+        app_secret_ciphertext=VALUES(app_secret_ciphertext),
         enabled=VALUES(enabled),
         verification_status=VALUES(verification_status),
         last_checked_at=VALUES(last_checked_at),
@@ -154,14 +154,16 @@ export class FrappeRepository {
         ${input.frappeModifiedAt},'synced',CURRENT_TIMESTAMP)
       ON DUPLICATE KEY UPDATE crm_enquiry_id=VALUES(crm_enquiry_id),
         frappe_name=VALUES(frappe_name),frappe_modified_at=VALUES(frappe_modified_at),
-        sync_status='synced',last_error=NULL,last_synced_at=CURRENT_TIMESTAMP`.execute(this.database);
+        sync_status='synced',last_error=NULL,last_synced_at=CURRENT_TIMESTAMP`.execute(
+      this.database
+    );
   }
 }
 
 function mapConnection(row: FrappeConnectionRow): StoredFrappeConnection {
   return {
-    apiKeyCiphertext: row.api_key_ciphertext,
-    apiSecretCiphertext: row.api_secret_ciphertext,
+    appKeyCiphertext: row.app_key_ciphertext,
+    appSecretCiphertext: row.app_secret_ciphertext,
     baseUrl: row.base_url,
     connectionName: row.connection_name,
     enabled: Boolean(row.enabled),

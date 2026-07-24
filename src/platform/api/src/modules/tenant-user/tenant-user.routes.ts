@@ -9,6 +9,12 @@ const path = "/tenant/access/users";
 const status = z.enum(["active", "inactive", "suspended"]);
 const record = z.object({
   email: z.string(),
+  frappeApiKeyConfigured: z.boolean(),
+  frappeApiSecretConfigured: z.boolean(),
+  frappeAuthenticatedUser: z.string().nullable(),
+  frappeLastCheckedAt: z.iso.datetime().nullable(),
+  frappeLastVerifiedAt: z.iso.datetime().nullable(),
+  frappeVerificationStatus: z.enum(["live", "offline", "unverified"]),
   id: z.number().int().positive(),
   isProtected: z.boolean(),
   name: z.string(),
@@ -17,6 +23,8 @@ const record = z.object({
 });
 const payload = z.object({
   email: z.string().email(),
+  frappeApiKey: z.string().trim().max(2_000).optional(),
+  frappeApiSecret: z.string().trim().max(2_000).optional(),
   name: z.string().trim().min(2).max(180),
   password: z.string().min(8).max(128).optional(),
   status

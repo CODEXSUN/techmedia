@@ -2,6 +2,7 @@ import { sql, type Kysely } from "kysely";
 import type { TenantDatabase } from "../../database/schema.js";
 import type {
   TenantUser,
+  TenantUserFrappeVerificationStatus,
   TenantUserListFilters,
   TenantUserSavePayload,
   TenantUserStatus
@@ -9,6 +10,12 @@ import type {
 
 type Row = {
   email: string;
+  frappe_api_key_ciphertext: string | null;
+  frappe_api_secret_ciphertext: string | null;
+  frappe_authenticated_user: string | null;
+  frappe_last_checked_at: Date | string | null;
+  frappe_last_verified_at: Date | string | null;
+  frappe_verification_status: TenantUserFrappeVerificationStatus;
   id: number;
   is_protected: number | boolean;
   name: string;
@@ -20,17 +27,26 @@ export class TenantUserRepository {
   constructor(private readonly database: Kysely<TenantDatabase>) {}
   async list(filters: TenantUserListFilters = {}) {
     const term = `%${(filters.search ?? "").trim().toLowerCase()}%`;
-    const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected FROM users
+    const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected,
+      frappe_api_key_ciphertext,frappe_api_secret_ciphertext,frappe_verification_status,
+      frappe_authenticated_user,frappe_last_checked_at,frappe_last_verified_at FROM users
       WHERE (${filters.search ?? ""}='' OR LOWER(name) LIKE ${term} OR LOWER(email) LIKE ${term}) ORDER BY name`.execute(
       this.database
     );
     return result.rows.map(mapRow);
   }
   async find(id: string | number) {
-    const result =
-      await sql<Row>`SELECT id,uuid,name,email,status,is_protected FROM users WHERE id=${Number(id)} LIMIT 1`.execute(
-        this.database
-      );
+    const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected,
+      frappe_api_key_ciphertext,frappe_api_secret_ciphertext,frappe_verification_status,
+      frappe_authenticated_user,frappe_last_checked_at,frappe_last_verified_at
+      FROM users WHERE id=${Number(id)} LIMIT 1`.execute(this.database);
+    return result.rows[0] ? mapRow(result.rows[0]) : null;
+  }
+  async findByEmail(email: string) {
+    const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected,
+      frappe_api_key_ciphertext,frappe_api_secret_ciphertext,frappe_verification_status,
+      frappe_authenticated_user,frappe_last_checked_at,frappe_last_verified_at
+      FROM users WHERE LOWER(email)=LOWER(${email.trim()}) LIMIT 1`.execute(this.database);
     return result.rows[0] ? mapRow(result.rows[0]) : null;
   }
   async listActiveReferences() {
@@ -51,12 +67,18 @@ export class TenantUserRepository {
       .executeTakeFirst();
     return row ? { ...row, id: Number(row.id) } : null;
   }
-  async create(input: TenantUserSavePayload, uuid: string, passwordHash: string) {
-    const result =
-      await sql`INSERT INTO users (uuid,name,email,password_hash,role,status,is_protected)
-      VALUES (${uuid},${input.name},${input.email},${passwordHash},'user',${input.status},FALSE)`.execute(
-        this.database
-      );
+  async create(
+    input: TenantUserSavePayload,
+    uuid: string,
+    passwordHash: string,
+    credentials: FrappeCredentialWrite
+  ) {
+    const result = await sql`INSERT INTO users
+      (uuid,name,email,password_hash,role,status,is_protected,frappe_api_key_ciphertext,
+        frappe_api_secret_ciphertext,frappe_verification_status)
+      VALUES (${uuid},${input.name},${input.email},${passwordHash},'user',${input.status},FALSE,
+        ${credentials.apiKeyCiphertext},${credentials.apiSecretCiphertext},
+        ${credentials.verificationStatus})`.execute(this.database);
     return (await this.find(Number(result.insertId)))!;
   }
   async update(id: number, input: TenantUserSavePayload, passwordHash?: string) {
@@ -69,6 +91,64 @@ export class TenantUserRepository {
         this.database
       );
     return this.find(id);
+  }
+  async updateFrappeCredentials(id: number, credentials: FrappeCredentialWrite) {
+    await sql`UPDATE users SET
+      frappe_api_key_ciphertext=${credentials.apiKeyCiphertext},
+      frappe_api_secret_ciphertext=${credentials.apiSecretCiphertext},
+      frappe_verification_status=${credentials.verificationStatus},
+      frappe_authenticated_user=NULL,
+      frappe_last_checked_at=NULL,
+      frappe_last_verified_at=NULL
+      WHERE id=${id}`.execute(this.database);
+    return this.find(id);
+  }
+  async findFrappeCredentials(id: number) {
+    const row = await this.database
+      .selectFrom("users")
+      .select([
+        "frappe_api_key_ciphertext",
+        "frappe_api_secret_ciphertext",
+        "frappe_authenticated_user",
+        "frappe_last_checked_at",
+        "frappe_last_verified_at",
+        "frappe_verification_status"
+      ])
+      .where("id", "=", id)
+      .executeTakeFirst();
+    return row
+      ? {
+          apiKeyCiphertext: row.frappe_api_key_ciphertext,
+          apiSecretCiphertext: row.frappe_api_secret_ciphertext,
+          authenticatedUser: row.frappe_authenticated_user,
+          lastCheckedAt: nullableTimestamp(row.frappe_last_checked_at),
+          lastVerifiedAt: nullableTimestamp(row.frappe_last_verified_at),
+          verificationStatus: row.frappe_verification_status
+        }
+      : null;
+  }
+  async recordFrappeVerification(
+    id: number,
+    status: "live" | "offline",
+    checkedAt: Date,
+    authenticatedUser: string | null
+  ) {
+    await sql`UPDATE users SET
+      frappe_verification_status=${status},
+      frappe_authenticated_user=${authenticatedUser},
+      frappe_last_checked_at=${checkedAt},
+      frappe_last_verified_at=CASE WHEN ${status}='live' THEN ${checkedAt} ELSE frappe_last_verified_at END
+      WHERE id=${id}`.execute(this.database);
+  }
+  async resetFrappeVerification() {
+    await sql`UPDATE users SET
+      frappe_verification_status='unverified',
+      frappe_authenticated_user=NULL,
+      frappe_last_checked_at=NULL,
+      frappe_last_verified_at=NULL
+      WHERE frappe_api_key_ciphertext IS NOT NULL OR frappe_api_secret_ciphertext IS NOT NULL`.execute(
+      this.database
+    );
   }
   async setStatus(id: number, status: TenantUserStatus) {
     await sql`UPDATE users SET status=${status} WHERE id=${id}`.execute(this.database);
@@ -90,10 +170,27 @@ export class TenantUserRepository {
 function mapRow(row: Row): TenantUser {
   return {
     email: row.email,
+    frappeApiKeyConfigured: Boolean(row.frappe_api_key_ciphertext),
+    frappeApiSecretConfigured: Boolean(row.frappe_api_secret_ciphertext),
+    frappeAuthenticatedUser: row.frappe_authenticated_user,
+    frappeLastCheckedAt: nullableTimestamp(row.frappe_last_checked_at),
+    frappeLastVerifiedAt: nullableTimestamp(row.frappe_last_verified_at),
+    frappeVerificationStatus: row.frappe_verification_status,
     id: Number(row.id),
     isProtected: Boolean(row.is_protected),
     name: row.name,
     status: row.status,
     uuid: row.uuid
   };
+}
+
+type FrappeCredentialWrite = {
+  apiKeyCiphertext: string | null;
+  apiSecretCiphertext: string | null;
+  verificationStatus: TenantUserFrappeVerificationStatus;
+};
+
+function nullableTimestamp(value: Date | string | null) {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }

@@ -1,6 +1,6 @@
 {
   "name": "techmedia",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "packageManager": "npm@12.0.1",
   "description": "techmedia orchestrator",
@@ -37,6 +37,7 @@
     "test:e2e:organisation": "tsx ../core/api/src/modules/organisation/organisation.e2e.ts",
     "test:e2e:composed-runtime": "tsx tools/e2e/composed-platform-runtime.e2e.ts",
     "test:e2e:tenant-access": "tsx tools/e2e/tenant-access.e2e.ts",
+    "test:e2e:tenant-landing": "tsx src/platform/api/src/modules/tenant/tenant.landing.e2e.ts",
     "test:e2e:crm": "tsx src/platform/api/src/modules/crm/crm.e2e.ts",
     "test:e2e:frappe": "tsx src/platform/api/src/modules/frappe/frappe.e2e.ts",
     "db:migrate": "tsx src/platform/api/src/database/db-cli.ts migrate",

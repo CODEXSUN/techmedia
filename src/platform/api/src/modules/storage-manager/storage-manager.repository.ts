@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname, join, resolve } from "node:path";
 import { sql } from "kysely";
 import { getPlatformDatabase } from "../../database/platform-database.js";
 import { TenantRepository } from "../tenant/tenant.repository.js";
@@ -15,7 +15,8 @@ import {
   storageBase,
   tenantPrivateStorageRoot,
   tenantPublicStorageRoot,
-  tenantStorageRoot
+  tenantStorageRoot,
+  workspaceRoot
 } from "./storage-manager.paths.js";
 import type {
   CompanyLogoUploadPayload,
@@ -173,9 +174,23 @@ export class StorageManagerRepository {
 
     const tenantKey = tenant.slug || tenant.tenantCode;
     const fileName = variant === "logo-dark" ? "logo-dark.svg" : "logo.svg";
-    const filePath = resolveInsideStorage(tenantPublicStorageRoot(tenantKey), `logo/${fileName}`);
-    const info = await stat(filePath);
-    if (!info.isFile()) throw new Error("Company logo was not found.");
+    const tenantFilePath = resolveInsideStorage(
+      tenantPublicStorageRoot(tenantKey),
+      `logo/${fileName}`
+    );
+    const publicFilePath = resolve(
+      workspaceRoot(),
+      "src",
+      "platform",
+      "web",
+      "public",
+      "logo",
+      fileName
+    );
+    const tenantInfo = await fileInfo(tenantFilePath);
+    const filePath = tenantInfo?.isFile() ? tenantFilePath : publicFilePath;
+    const info = tenantInfo?.isFile() ? tenantInfo : await stat(filePath);
+    if (!info.isFile()) throw new Error("Company logo fallback was not found.");
     return {
       buffer: await readFile(filePath),
       fileName,
@@ -283,6 +298,22 @@ export class StorageManagerRepository {
         updated_at: sql`CURRENT_TIMESTAMP`
       })
       .execute();
+  }
+}
+
+async function fileInfo(filePath: string) {
+  try {
+    return await stat(filePath);
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "ENOENT"
+    ) {
+      return null;
+    }
+    throw error;
   }
 }
 

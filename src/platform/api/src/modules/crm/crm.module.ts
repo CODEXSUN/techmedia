@@ -6,5 +6,5 @@ import { registerCrmRoutes } from "./crm.routes.js";
 export const crmModule = defineModule<PlatformModuleDependencies>({
   key: "crm.enquiry",
   label: "CRM Enquiries",
-  register: ({ app }) => registerCrmRoutes(app)
+  register: ({ app, frappeEnquiryLifecycle }) => registerCrmRoutes(app, frappeEnquiryLifecycle)
 });

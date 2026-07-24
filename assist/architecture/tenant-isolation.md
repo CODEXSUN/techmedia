@@ -94,6 +94,12 @@ Tenant customization should be stored as structured configuration:
 
 Customizations must be versioned when they affect data shape, billing logic, accounting, or compliance output.
 
+The tenant Platform record is the authoritative landing-app setting. TechMedia defaults this value
+to `crm`. Tenant startup reconciles Core's Default Company landing value through Core's public
+Default Company application contract. Landing Desk, Default Company, and Super Admin tenant app
+connections all update the same Platform value and the Core mirror; browser storage is not a
+landing-app source of truth.
+
 ## Backup And Restore
 
 Each tenant should have a planned backup and restore strategy:
@@ -110,5 +116,15 @@ Each tenant should have a planned backup and restore strategy:
 - Tenant database credentials should not be exposed to clients.
 - API tokens must be tenant-scoped.
 - External integration credentials must be encrypted.
+- Frappe credentials belong to an individual tenant user, are encrypted at rest, and must never be
+  returned by tenant-user or connection-setting APIs. The tenant Frappe endpoint remains shared,
+  while each server-side Frappe request resolves the signed-in user's API key and secret.
+- TechMedia login reads the saved per-user Frappe verification state and never performs a remote
+  handshake. An administrator verifies a user's encrypted API key and secret once; that trusted
+  state is reused until the user's credentials or the shared Frappe endpoint changes. Frappe
+  availability must not bypass or replace TechMedia session authentication.
+- Frappe transactions use the signed-in TechMedia user's saved Frappe API identity. A remote
+  authentication rejection marks that identity offline and requires one explicit re-verification;
+  transient network and business-validation failures do not discard a valid verification.
 - Support access must be audited.
 - Cross-tenant admin actions need elevated permission and logging.

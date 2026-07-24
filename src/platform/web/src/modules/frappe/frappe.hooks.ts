@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getFrappeConnectionSettings,
   getFrappeSyncSettings,
+  importFrappeUser,
+  previewFrappeUsers,
   runFrappeEnquirySync,
   saveFrappeConnectionSettings,
   saveFrappeSyncSettings,
@@ -10,6 +12,7 @@ import {
 
 export const frappeConnectionQueryKey = ["tenant", "frappe", "connection"] as const;
 export const frappeSyncQueryKey = ["tenant", "frappe", "enquiry-sync"] as const;
+export const frappeUserPreviewQueryKey = ["tenant", "frappe", "user-sync", "preview"] as const;
 
 export function useFrappeConnectionQuery() {
   return useQuery({
@@ -54,5 +57,23 @@ export function useFrappeConnectionVerificationMutation() {
   return useMutation({
     mutationFn: verifyFrappeConnection,
     onSettled: () => client.invalidateQueries({ queryKey: frappeConnectionQueryKey })
+  });
+}
+
+export function useFrappeUserPreviewQuery() {
+  return useQuery({
+    queryFn: previewFrappeUsers,
+    queryKey: frappeUserPreviewQueryKey
+  });
+}
+
+export function useFrappeUserImportMutation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: importFrappeUser,
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: frappeUserPreviewQueryKey });
+      void client.invalidateQueries({ queryKey: ["tenant", "access", "users"] });
+    }
   });
 }

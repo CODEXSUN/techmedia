@@ -3,11 +3,27 @@ import { z } from "zod";
 import { ok, registerContractRoute } from "@codexsun/framework/http";
 import { TenantService } from "./tenant.service.js";
 import type { TenantSavePayload } from "./tenant.types.js";
+import { tenantAccessContext } from "../../auth/tenant-access-context.js";
 
 const portalContentSchema = z.object({
   description: z.string(),
   label: z.string(),
   title: z.string()
+});
+const landingAppSchema = z.enum(["application", "crm", "frappe"]);
+const defaultCompanyRecordSchema = z.object({
+  id: z.number().int().positive(),
+  companyId: z.number().int().positive(),
+  companyCode: z.string(),
+  companyName: z.string(),
+  financialYearId: z.number().int().positive(),
+  financialYearName: z.string(),
+  financialYearStartDate: z.string(),
+  financialYearEndDate: z.string(),
+  landingApp: landingAppSchema,
+  status: z.enum(["active", "inactive"]),
+  createdAt: z.string(),
+  updatedAt: z.string()
 });
 
 function notFound(requestId: string) {
@@ -95,5 +111,40 @@ export async function registerTenantRoutes(app: FastifyInstance) {
       requestId: request.id,
       ...(tenantId ? { tenantId } : {})
     });
+  });
+
+  registerContractRoute(app, {
+    method: "PUT",
+    url: "/tenant/runtime/landing-app",
+    schemas: {
+      body: z.object({ landingApp: landingAppSchema }).strict(),
+      response: z.object({ defaultLandingApp: landingAppSchema })
+    },
+    handler: async ({ body, request }) => {
+      const context = tenantAccessContext(request);
+      await context.authorize("platform.application.settings.update");
+      return tenantService.updateTenantLandingApp(context.tenantId, body.landingApp);
+    }
+  });
+
+  registerContractRoute(app, {
+    method: "PUT",
+    url: "/tenant/runtime/default-company",
+    schemas: {
+      body: z
+        .object({
+          companyId: z.number().int().positive(),
+          financialYearId: z.number().int().positive(),
+          landingApp: landingAppSchema,
+          status: z.enum(["active", "inactive"]).default("active")
+        })
+        .strict(),
+      response: defaultCompanyRecordSchema
+    },
+    handler: async ({ body, request }) => {
+      const context = tenantAccessContext(request);
+      await context.authorize("platform.application.settings.update");
+      return tenantService.saveTenantDefaultCompany(context.tenantId, body);
+    }
   });
 }

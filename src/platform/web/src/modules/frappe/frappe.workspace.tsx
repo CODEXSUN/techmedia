@@ -71,7 +71,7 @@ export function FrappeWorkspace({ canUpdate }: { canUpdate: boolean }) {
           </Button>
         </div>
       }
-      description="Store the tenant Frappe CRM endpoint and encrypted API credentials."
+      description="Manage the tenant Frappe CRM endpoint and encrypted app credentials."
       technicalName="page.frappe.settings"
       title="Frappe settings"
     >

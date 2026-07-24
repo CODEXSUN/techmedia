@@ -18,7 +18,7 @@ import {
 } from "../tenant-user-role/tenant-user-role.migration.js";
 import {
   migrateTenantUserModule,
-  tenantUserMigration
+  tenantUserMigrations
 } from "../tenant-user/tenant-user.migration.js";
 
 export const tenantMigration = {
@@ -40,11 +40,11 @@ export const tenantRuntimeMigrations = [
     name: "002_runtime_table_names",
     statements: ["CREATE TABLE IF NOT EXISTS module_settings (...)"]
   },
-  {
-    description: "Tenant users and authentication identities.",
-    name: tenantUserMigration.key,
+  ...tenantUserMigrations.map((migration) => ({
+    description: "Tenant users, authentication identities, and owned integration credentials.",
+    name: migration.key,
     statements: ["RUN platform.tenant-user migration"]
-  },
+  })),
   {
     description: "Tenant roles and lifecycle state.",
     name: tenantRoleMigration.key,

@@ -1,6 +1,6 @@
 export type FrappeConnectionSettings = {
-  apiKeyConfigured: boolean;
-  apiSecretConfigured: boolean;
+  appKeyConfigured: boolean;
+  appSecretConfigured: boolean;
   baseUrl: string;
   connectionName: string;
   enabled: boolean;
@@ -15,16 +15,16 @@ export type FrappeConnectionSettings = {
 export type FrappeConnectionVerificationStatus = "live" | "offline" | "unverified";
 
 export type FrappeConnectionSavePayload = {
-  apiKey?: string;
-  apiSecret?: string;
+  appKey?: string;
+  appSecret?: string;
   baseUrl: string;
   connectionName: string;
   enabled: boolean;
 };
 
 export type FrappeConnectionVerificationPayload = {
-  apiKey?: string;
-  apiSecret?: string;
+  appKey?: string;
+  appSecret?: string;
   baseUrl: string;
 };
 
@@ -56,4 +56,27 @@ export type FrappeSyncResult = {
   failed: number;
   processed: number;
   updated: number;
+};
+
+export type FrappeUserPreview = {
+  email: string;
+  enabled: boolean;
+  frappeUserId: string;
+  lastActiveAt: string | null;
+  localStatus: "active" | "inactive" | "suspended" | null;
+  localUserId: number | null;
+  name: string;
+  userType: string;
+};
+
+export type FrappeUserImportResult = {
+  created: boolean;
+  temporaryPassword: string | null;
+  user: {
+    email: string;
+    id: number;
+    name: string;
+    status: "active" | "inactive" | "suspended";
+    uuid: string;
+  };
 };
