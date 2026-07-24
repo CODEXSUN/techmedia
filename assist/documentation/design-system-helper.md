@@ -366,7 +366,7 @@ Before marking a module complete, check all items:
 
 - [ ] Backend folder follows its applicable full or Core Common reduced contract from `assist/architecture/module-boundaries.md`.
 - [ ] Frontend folder contains `workspace`, `list`, `form`, `services`, `hooks`, `types`, `schema`, `spec`, and `index` files.
-- [ ] No role file is an alias-only wrapper, empty scaffold, metadata-only placeholder, or â€œreserved for futureâ€ declaration.
+- [ ] No role file is an alias-only wrapper, empty scaffold, metadata-only placeholder, or "reserved for future" declaration.
 - [ ] Module migrations, seeds, events, workers, sync behavior, UI controls, and API calls remain inside the owning module boundary.
 - [ ] Uses only shared design-system/workspace components.
 - [ ] Uses DB/API-backed list data.

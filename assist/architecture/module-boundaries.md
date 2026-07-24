@@ -92,7 +92,7 @@ roles exist only when the module owns that behavior.
 Reference location order:
 
 ```text
-Country â†’ State â†’ District â†’ City â†’ Pincode
+Country -> State -> District -> City -> Pincode
 ```
 
 ## Database Ownership

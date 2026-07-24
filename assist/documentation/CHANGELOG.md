@@ -2,16 +2,35 @@
 
 ## Version State
 
-Current version: 1.0.7
+Current version: 1.0.8
 
-Release tag: v-1.0.7
+Release tag: v-1.0.8
 
-Changelog label: v 1.0.7
+Changelog label: v 1.0.8
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.8
+
+### [v 1.0.8] 2026-07-24 5:47 pm - Prevent repository text encoding corruption
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Added a repository-local text encoding gate that scans source, configuration, documentation, and
+  environment files for invalid UTF-8 and common mojibake sequences.
+- Required environment comments to remain ASCII and environment files to remain BOM-free so
+  decorative separators cannot be silently corrupted by Windows encoding conversions.
+- Repaired legacy mojibake in the module-boundary, design-system, and governance documentation.
+- Wired the encoding gate into the normal TechMedia repository check while retaining a focused
+  environment check alias for maintenance workflows.
+- Bumped the repository, Platform API, Platform Web, and lockfile versions to 1.0.8.
 
 ## v-1.0.7
 
