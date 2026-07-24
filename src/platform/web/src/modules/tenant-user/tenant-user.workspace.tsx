@@ -32,7 +32,7 @@ import type {
   TenantUserSavePayload
 } from "./tenant-user.types";
 type PendingAction = { record: TenantUser; type: "force-delete" | "restore" | "suspend" };
-export function TenantUserWorkspace() {
+export function TenantUserWorkspace({ actorEmail }: { actorEmail: string }) {
   const query = useTenantUsersQuery();
   const mutations = useTenantUserMutations();
   const userRoleQuery = useTenantUserRolesQuery();
@@ -94,12 +94,12 @@ export function TenantUserWorkspace() {
       const record = editing
         ? await mutations.update.mutateAsync({ id: editing.id, payload: value })
         : await mutations.create.mutateAsync(value);
-      await applyRole(record.id, access);
+      if (!record.isProtected) await applyRole(record.id, access);
       if (value.frappeApiKey || value.frappeApiSecret) {
         try {
           const verification = await mutations.verifyFrappe.mutateAsync(record);
           toast.success("Frappe credentials verified", {
-            description: verification.authenticatedUser
+            description: `${verification.authenticatedUser} · ${verification.employeeCode}`
           });
         } catch (error) {
           toast.warning("User saved; Frappe verification is pending", {
@@ -117,7 +117,7 @@ export function TenantUserWorkspace() {
     const record = await mutations.update.mutateAsync({ id: editing.id, payload: value });
     const verification = await mutations.verifyFrappe.mutateAsync(record);
     toast.success("Frappe connection verified", {
-      description: `Connected as ${verification.authenticatedUser}`
+      description: `Connected as ${verification.authenticatedUser} · ${verification.employeeCode}`
     });
     return verification;
   }
@@ -186,6 +186,7 @@ export function TenantUserWorkspace() {
         searchValue={search}
       />
       <TenantUserList
+        actorEmail={actorEmail}
         loading={query.isFetching && !query.data}
         onEdit={setEditing}
         onForceDelete={(record) => setPendingAction({ record, type: "force-delete" })}

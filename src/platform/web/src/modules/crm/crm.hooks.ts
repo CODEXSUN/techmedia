@@ -13,9 +13,6 @@ import {
   listCrmEnquiries,
   listCrmEnquiryReferences,
   listCrmUserReferences,
-  resyncCrmEnquiry,
-  restoreCrmEnquiry,
-  suspendCrmEnquiry,
   updateCrmEnquiryMessage,
   updateCrmEnquiry
 } from "./crm.services";
@@ -31,7 +28,7 @@ export function useCrmOverviewQuery() {
 }
 
 export function useCrmEnquiriesQuery(input: {
-  enquiryId?: number;
+  enquiryId?: string;
   search?: string;
   view: CrmEnquiryView;
 }) {
@@ -61,23 +58,11 @@ export function useCrmEnquiryMutations() {
   return {
     create: useMutation({ mutationFn: createCrmEnquiry, onSuccess: done }),
     forceDelete: useMutation({
-      mutationFn: (record: CrmEnquiry) => forceDeleteCrmEnquiry(record.id),
-      onSuccess: done
-    }),
-    restore: useMutation({
-      mutationFn: (record: CrmEnquiry) => restoreCrmEnquiry(record.id),
-      onSuccess: done
-    }),
-    resync: useMutation({
-      mutationFn: (record: CrmEnquiry) => resyncCrmEnquiry(record.id),
-      onSuccess: done
-    }),
-    suspend: useMutation({
-      mutationFn: (record: CrmEnquiry) => suspendCrmEnquiry(record.id),
+      mutationFn: (record: CrmEnquiry) => forceDeleteCrmEnquiry(record.frappeName),
       onSuccess: done
     }),
     update: useMutation({
-      mutationFn: ({ id, payload }: { id: number; payload: CrmEnquirySavePayload }) =>
+      mutationFn: ({ id, payload }: { id: string; payload: CrmEnquirySavePayload }) =>
         updateCrmEnquiry(id, payload),
       onSuccess: done
     })

@@ -2,9 +2,9 @@ import { defineModule } from "@codexsun/framework/modules";
 import type { PlatformModuleDependencies } from "../../module-dependencies.js";
 import { registerCrmRoutes } from "./crm.routes.js";
 
-/** CRM Enquiry owns its workflow status, lifecycle state, and guarded permanent deletion. */
+/** CRM owns the Enquiry UI contract; Frappe is the live record source of truth. */
 export const crmModule = defineModule<PlatformModuleDependencies>({
   key: "crm.enquiry",
   label: "CRM Enquiries",
-  register: ({ app, frappeEnquiryLifecycle }) => registerCrmRoutes(app, frappeEnquiryLifecycle)
+  register: ({ app, frappeLiveEnquiryGateway }) => registerCrmRoutes(app, frappeLiveEnquiryGateway)
 });

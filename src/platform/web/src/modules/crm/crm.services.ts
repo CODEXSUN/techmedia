@@ -9,7 +9,6 @@ import type {
   CrmEnquiryNoteCreatePayload,
   CrmEnquiryOverview,
   CrmEnquiryReference,
-  CrmEnquiryResyncResult,
   CrmEnquirySavePayload,
   CrmEnquiryTaskCreatePayload,
   CrmEnquiryView,
@@ -19,7 +18,7 @@ import type {
 const path = "/tenant/crm/enquiries";
 
 export function listCrmEnquiries(input: {
-  enquiryId?: number;
+  enquiryId?: string;
   search?: string;
   view: CrmEnquiryView;
 }) {
@@ -33,63 +32,63 @@ export function getCrmEnquiryOverview() {
   return apiGet<CrmEnquiryOverview>(`${path}/overview`, "tenant");
 }
 
+export function getCrmEnquiry(name: string) {
+  return apiGet<CrmEnquiry>(`${path}/${encodeURIComponent(name)}`, "tenant");
+}
+
 export function createCrmEnquiry(payload: CrmEnquirySavePayload) {
   return apiPost<CrmEnquiry>(path, payload, "tenant");
 }
 
-export function updateCrmEnquiry(id: number, payload: CrmEnquirySavePayload) {
+export function updateCrmEnquiry(id: string, payload: CrmEnquirySavePayload) {
   return apiPut<CrmEnquiry>(`${path}/${id}`, payload, "tenant");
 }
 
-export function suspendCrmEnquiry(id: number) {
+export function suspendCrmEnquiry(id: string) {
   return apiPost<CrmEnquiry>(`${path}/${id}/suspend`, {}, "tenant");
 }
 
-export function restoreCrmEnquiry(id: number) {
+export function restoreCrmEnquiry(id: string) {
   return apiPost<CrmEnquiry>(`${path}/${id}/restore`, {}, "tenant");
 }
 
-export function resyncCrmEnquiry(id: number) {
-  return apiPost<CrmEnquiryResyncResult>(`${path}/${id}/resync`, {}, "tenant");
-}
-
-export function forceDeleteCrmEnquiry(id: number) {
+export function forceDeleteCrmEnquiry(id: string) {
   return apiDelete<CrmEnquiry>(`${path}/${id}/force`, "tenant");
 }
 
-export function addCrmEnquiryMessage(id: number, payload: CrmEnquiryMessageCreatePayload) {
+export function addCrmEnquiryMessage(id: string, payload: CrmEnquiryMessageCreatePayload) {
   return apiPost<CrmEnquiry>(`${path}/${id}/messages`, payload, "tenant");
 }
 
 export function updateCrmEnquiryMessage(
-  id: number,
-  messageId: number,
+  id: string,
+  messageId: string,
   payload: CrmEnquiryMessageUpdatePayload
 ) {
   return apiPut<CrmEnquiry>(`${path}/${id}/messages/${messageId}`, payload, "tenant");
 }
 
-export function deleteCrmEnquiryMessage(id: number, messageId: number) {
+export function deleteCrmEnquiryMessage(id: string, messageId: string) {
   return apiDelete<CrmEnquiry>(`${path}/${id}/messages/${messageId}`, "tenant");
 }
 
-export function addCrmEnquiryEmail(id: number, payload: CrmEnquiryEmailCreatePayload) {
+export function addCrmEnquiryEmail(id: string, payload: CrmEnquiryEmailCreatePayload) {
   return apiPost<CrmEnquiry>(`${path}/${id}/emails`, payload, "tenant");
 }
 
-export function addCrmEnquiryCall(id: number, payload: CrmEnquiryCallCreatePayload) {
+export function addCrmEnquiryCall(id: string, payload: CrmEnquiryCallCreatePayload) {
   return apiPost<CrmEnquiry>(`${path}/${id}/calls`, payload, "tenant");
 }
 
-export function addCrmEnquiryTask(id: number, payload: CrmEnquiryTaskCreatePayload) {
+export function addCrmEnquiryTask(id: string, payload: CrmEnquiryTaskCreatePayload) {
   return apiPost<CrmEnquiry>(`${path}/${id}/tasks`, payload, "tenant");
 }
 
-export function addCrmEnquiryNote(id: number, payload: CrmEnquiryNoteCreatePayload) {
+export function addCrmEnquiryNote(id: string, payload: CrmEnquiryNoteCreatePayload) {
   return apiPost<CrmEnquiry>(`${path}/${id}/notes`, payload, "tenant");
 }
 
-export function addCrmEnquiryAttachment(id: number, payload: CrmEnquiryAttachmentCreatePayload) {
+export function addCrmEnquiryAttachment(id: string, payload: CrmEnquiryAttachmentCreatePayload) {
   return apiPost<CrmEnquiry>(`${path}/${id}/attachments`, payload, "tenant");
 }
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarPlus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { CalendarPlus, Save, Trash2 } from "lucide-react";
 import { Button } from "@codexsun/ui/components/button";
 import { Input } from "@codexsun/ui/components/input";
 import { WorkspaceDatePicker } from "@codexsun/ui/workspace/date-picker";
@@ -36,22 +36,18 @@ export function CrmForm({
   error,
   loading,
   onCancel,
-  onResync,
   onSubmit,
   open,
   record,
-  resyncing,
   users
 }: {
   canAssign: boolean;
   error?: string;
   loading: boolean;
   onCancel: () => void;
-  onResync: () => void;
   onSubmit: (value: CrmEnquirySavePayload) => void;
   open: boolean;
   record: CrmEnquiry | null;
-  resyncing: boolean;
   users: CrmUserReference[];
 }) {
   return (
@@ -85,10 +81,8 @@ export function CrmForm({
         }
         loading={loading}
         onCancel={onCancel}
-        onResync={onResync}
         onSubmit={onSubmit}
         record={record}
-        resyncing={resyncing}
         canAssign={canAssign}
         users={users}
       />
@@ -102,10 +96,8 @@ function CrmFormBody({
   initialValue,
   loading,
   onCancel,
-  onResync,
   onSubmit,
   record,
-  resyncing,
   users
 }: {
   canAssign: boolean;
@@ -113,10 +105,8 @@ function CrmFormBody({
   initialValue: CrmEnquirySavePayload;
   loading: boolean;
   onCancel: () => void;
-  onResync: () => void;
   onSubmit: (value: CrmEnquirySavePayload) => void;
   record: CrmEnquiry | null;
-  resyncing: boolean;
   users: CrmUserReference[];
 }) {
   const [value, setValue] = useState(initialValue);
@@ -247,7 +237,7 @@ function CrmFormBody({
                   onValueChange={(userId) =>
                     setValue((current) => ({
                       ...current,
-                      assignedToUserId: userId ? Number(userId) : null
+                      assignedToUserId: userId || null
                     }))
                   }
                 />
@@ -355,21 +345,7 @@ function CrmFormBody({
             </>
           )
         }}
-      >
-        {record ? (
-          <Button
-            aria-label="Resync enquiry with Frappe"
-            disabled={loading || resyncing}
-            size="icon"
-            title="Resync with Frappe"
-            type="button"
-            variant="outline"
-            onClick={onResync}
-          >
-            <RefreshCw className={`size-4 ${resyncing ? "animate-spin" : ""}`} />
-          </Button>
-        ) : null}
-      </WorkspaceFormFooter>
+      ></WorkspaceFormFooter>
     </form>
   );
 }

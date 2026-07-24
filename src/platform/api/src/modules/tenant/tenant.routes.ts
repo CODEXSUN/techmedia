@@ -4,6 +4,7 @@ import { ok, registerContractRoute } from "@codexsun/framework/http";
 import { TenantService } from "./tenant.service.js";
 import type { TenantSavePayload } from "./tenant.types.js";
 import { tenantAccessContext } from "../../auth/tenant-access-context.js";
+import { requireSuperAdmin } from "../../auth/super-admin.guard.js";
 
 const portalContentSchema = z.object({
   description: z.string(),
@@ -24,6 +25,12 @@ const defaultCompanyRecordSchema = z.object({
   status: z.enum(["active", "inactive"]),
   createdAt: z.string(),
   updatedAt: z.string()
+});
+const tenantOptionSchema = z.object({
+  id: z.number().int().positive(),
+  status: z.string(),
+  tenantCode: z.string(),
+  tenantName: z.string()
 });
 
 function notFound(requestId: string) {
@@ -72,6 +79,20 @@ export async function registerTenantRoutes(app: FastifyInstance) {
   app.get("/admin/tenants", async (request) =>
     ok(await tenantService.listTenants(), { requestId: request.id })
   );
+
+  registerContractRoute(app, {
+    method: "GET",
+    preHandler: requireSuperAdmin,
+    url: "/admin/tenants/options",
+    schemas: { response: z.array(tenantOptionSchema) },
+    handler: async () =>
+      (await tenantService.listTenants()).map((tenant) => ({
+        id: tenant.id,
+        status: tenant.status,
+        tenantCode: tenant.tenantCode,
+        tenantName: tenant.tenantName
+      }))
+  });
 
   app.post("/admin/tenants", async (request) =>
     ok(await tenantService.createTenant(request.body as TenantSavePayload), {

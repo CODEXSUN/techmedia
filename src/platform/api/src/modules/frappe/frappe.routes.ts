@@ -6,7 +6,6 @@ import { FrappeService } from "./frappe.service.js";
 
 const path = "/tenant/frappe/settings";
 const verificationPath = `${path}/verify`;
-const syncPath = "/tenant/frappe/enquiry-sync";
 const userSyncPath = "/tenant/frappe/user-sync";
 const payload = z
   .object({
@@ -44,27 +43,7 @@ const verificationResult = z.object({
   connected: z.literal(true),
   latencyMs: z.number().int().nonnegative()
 });
-const syncSettings = z.object({
-  enquiryDoctype: z.literal("Enquiry"),
-  lastPullAt: z.iso.datetime().nullable(),
-  lastPushAt: z.iso.datetime().nullable(),
-  pullEnquiriesEnabled: z.boolean(),
-  pushEnquiriesEnabled: z.boolean(),
-  updatedAt: z.iso.datetime()
-});
-const syncSettingsPayload = z
-  .object({
-    pullEnquiriesEnabled: z.boolean(),
-    pushEnquiriesEnabled: z.boolean()
-  })
-  .strict();
-const syncResult = z.object({
-  created: z.number().int().nonnegative(),
-  direction: z.enum(["pull", "push"]),
-  failed: z.number().int().nonnegative(),
-  processed: z.number().int().nonnegative(),
-  updated: z.number().int().nonnegative()
-});
+const userVerificationResult = verificationResult.extend({ employeeCode: z.string().min(1) });
 const userPreview = z.object({
   email: z.string().email(),
   enabled: z.boolean(),
@@ -124,35 +103,10 @@ export async function registerFrappeRoutes(app: FastifyInstance) {
     url: `${path}/users/:id/verify`,
     schemas: {
       params: z.object({ id: z.coerce.number().int().positive() }),
-      response: verificationResult
+      response: userVerificationResult
     },
     handler: ({ params, request }) =>
       new FrappeService(tenantAccessContext(request)).verifyUser(params.id)
-  });
-  registerContractRoute(app, {
-    method: "GET",
-    url: syncPath,
-    schemas: { response: syncSettings.nullable() },
-    handler: ({ request }) => new FrappeService(tenantAccessContext(request)).getSyncSettings()
-  });
-  registerContractRoute(app, {
-    method: "PUT",
-    url: syncPath,
-    schemas: { body: syncSettingsPayload, response: syncSettings },
-    handler: ({ body, request }) =>
-      new FrappeService(tenantAccessContext(request)).saveSyncSettings(body)
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${syncPath}/pull`,
-    schemas: { response: syncResult },
-    handler: ({ request }) => new FrappeService(tenantAccessContext(request)).sync("pull")
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${syncPath}/push`,
-    schemas: { response: syncResult },
-    handler: ({ request }) => new FrappeService(tenantAccessContext(request)).sync("push")
   });
   registerContractRoute(app, {
     method: "GET",

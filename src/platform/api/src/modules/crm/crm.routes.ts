@@ -1,110 +1,59 @@
-import type { FastifyInstance } from "fastify";
-import type { PlatformModuleDependencies } from "../../module-dependencies.js";
-import { z } from "zod";
 import { registerContractRoute } from "@codexsun/framework/http";
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { tenantAccessContext } from "../../auth/tenant-access-context.js";
+import type { PlatformModuleDependencies } from "../../module-dependencies.js";
 import { CrmService } from "./crm.service.js";
 
 const path = "/tenant/crm/enquiries";
 const priority = z.enum(["low", "normal", "high", "urgent"]);
 const status = z.enum(["open", "follow", "escalation", "won", "lost"]);
-const lifecycleStatus = z.enum(["active", "suspended"]);
+const userReference = z.object({
+  email: z.string(),
+  id: z.string().min(1),
+  name: z.string(),
+  uuid: z.string().min(1)
+});
 const message = z.object({
   canDelete: z.boolean(),
   canEdit: z.boolean(),
   comment: z.string(),
   createdAt: z.iso.datetime(),
-  createdByUserId: z.number().int().positive().nullable(),
-  id: z.number().int().positive(),
+  createdByUserId: z.string().nullable(),
+  id: z.string().min(1),
   messageType: z.enum(["comment", "reply"])
 });
-const email = z.object({
-  body: z.string(),
-  createdAt: z.iso.datetime(),
-  createdByUserId: z.number().int().positive(),
-  id: z.number().int().positive(),
-  recipient: z.string(),
-  subject: z.string(),
-  uuid: z.string().length(8)
-});
-const call = z.object({
-  calledAt: z.iso.datetime(),
-  createdAt: z.iso.datetime(),
-  createdByUserId: z.number().int().positive(),
-  id: z.number().int().positive(),
-  phone: z.string(),
-  summary: z.string(),
-  uuid: z.string().length(8)
-});
-const task = z.object({
-  createdAt: z.iso.datetime(),
-  createdByUserId: z.number().int().positive(),
-  dueOn: z.iso.date().nullable(),
-  id: z.number().int().positive(),
-  status: z.enum(["completed", "pending"]),
-  title: z.string(),
-  uuid: z.string().length(8)
-});
-const note = z.object({
-  createdAt: z.iso.datetime(),
-  createdByUserId: z.number().int().positive(),
-  id: z.number().int().positive(),
-  note: z.string(),
-  uuid: z.string().length(8)
-});
-const attachment = z.object({
-  createdAt: z.iso.datetime(),
-  createdByUserId: z.number().int().positive(),
-  fileName: z.string(),
-  fileUrl: z.string(),
-  id: z.number().int().positive(),
-  uuid: z.string().length(8)
-});
-const activity = z.object({
-  action: z.string(),
-  createdAt: z.iso.datetime(),
-  createdByUserId: z.number().int().positive(),
-  details: z.string(),
-  id: z.number().int().positive(),
-  uuid: z.string().length(8)
-});
-const userReference = z.object({
-  email: z.string().email(),
-  id: z.number().int().positive(),
-  name: z.string(),
-  uuid: z.string().length(8)
-});
-const schedule = z.object({ id: z.number().int().positive(), scheduledOn: z.iso.date() });
 const record = z.object({
-  activities: z.array(activity),
+  activities: z.array(z.unknown()),
   assignedTo: userReference.nullable(),
-  assignedToUserId: z.number().int().positive().nullable(),
-  attachments: z.array(attachment),
-  calls: z.array(call),
+  assignedToUserId: z.string().nullable(),
+  attachments: z.array(z.unknown()),
+  calls: z.array(z.unknown()),
   createdAt: z.iso.datetime(),
   createdBy: userReference,
-  createdByUserId: z.number().int().positive(),
+  createdByUserId: z.string(),
   customer: z.string(),
   enquiryDate: z.iso.date().nullable(),
   enquiryGroup: z.string(),
-  emails: z.array(email),
+  emails: z.array(z.unknown()),
+  frappeName: z.string().min(1),
   id: z.number().int().positive(),
-  lifecycleStatus,
+  lifecycleStatus: z.literal("active"),
   messages: z.array(message),
   mobile: z.string(),
-  notes: z.array(note),
+  notes: z.array(z.unknown()),
   priority,
-  schedules: z.array(schedule),
+  schedules: z.array(z.object({ id: z.string(), scheduledOn: z.iso.date() })),
   status,
   subject: z.string(),
+  tasks: z.array(z.unknown()),
   title: z.string(),
-  tasks: z.array(task),
   updatedAt: z.iso.datetime(),
-  uuid: z.string().length(8),
+  uuid: z.string().min(1),
   workspace: z.string()
 });
 const payload = z.object({
-  assignedToUserId: z.number().int().positive().nullable(),
+  assignedToUserId: z.string().trim().min(1).nullable(),
   customer: z.string().trim().max(220),
   enquiryDate: z.iso.date().nullable(),
   enquiryGroup: z.string().trim().max(80),
@@ -117,37 +66,15 @@ const payload = z.object({
   title: z.string().trim().min(2).max(220),
   workspace: z.string().trim().max(100_000)
 });
-const params = z.object({ id: z.coerce.number().int().positive() });
-const messageParams = params.extend({ messageId: z.coerce.number().int().positive() });
+const params = z.object({ id: z.string().trim().min(1).max(140) });
+const messageParams = params.extend({ messageId: z.string().trim().min(1).max(240) });
 const messagePayload = z.object({
   comment: z.string().trim().min(1).max(10_000),
   messageType: z.enum(["comment", "reply"])
 });
-const messageUpdatePayload = z.object({
-  comment: z.string().trim().min(1).max(10_000)
-});
-const emailPayload = z.object({
-  body: z.string().trim().min(1).max(100_000),
-  recipient: z.string().trim().email().max(320),
-  subject: z.string().trim().min(1).max(220)
-});
-const callPayload = z.object({
-  calledAt: z.iso.datetime(),
-  phone: z.string().trim().min(5).max(40),
-  summary: z.string().trim().min(1).max(10_000)
-});
-const taskPayload = z.object({
-  dueOn: z.iso.date().nullable(),
-  status: z.enum(["completed", "pending"]),
-  title: z.string().trim().min(1).max(220)
-});
-const notePayload = z.object({ note: z.string().trim().min(1).max(100_000) });
-const attachmentPayload = z.object({
-  fileName: z.string().trim().min(1).max(255),
-  fileUrl: z.string().trim().url().max(2048)
-});
+const messageUpdatePayload = z.object({ comment: z.string().trim().min(1).max(10_000) });
 const query = z.object({
-  enquiryId: z.coerce.number().int().positive().optional(),
+  enquiryId: z.string().trim().min(1).max(140).optional(),
   search: z.string().trim().max(220).optional(),
   view: z.enum(["assigned", "created", "open"])
 });
@@ -168,21 +95,17 @@ const overview = z.object({
     total: z.number().int().nonnegative()
   })
 });
-const resyncResult = z.object({
-  action: z.enum(["created", "updated"]),
-  frappeName: z.string().min(1)
-});
 
 export async function registerCrmRoutes(
   app: FastifyInstance,
-  frappeEnquiryLifecycle: PlatformModuleDependencies["frappeEnquiryLifecycle"]
+  frappeLiveEnquiryGateway: PlatformModuleDependencies["frappeLiveEnquiryGateway"]
 ) {
   registerContractRoute(app, {
     method: "GET",
     url: path,
     schemas: { querystring: query, response: z.array(record) },
-    handler: ({ query, request }) =>
-      service(request).list({
+    handler: async ({ query, request }) =>
+      (await service(request)).list({
         view: query.view,
         ...(query.enquiryId ? { enquiryId: query.enquiryId } : {}),
         ...(query.search ? { search: query.search } : {})
@@ -192,122 +115,76 @@ export async function registerCrmRoutes(
     method: "GET",
     url: `${path}/overview`,
     schemas: { response: overview },
-    handler: ({ request }) => service(request).overview()
+    handler: async ({ request }) => (await service(request)).overview()
   });
   registerContractRoute(app, {
     method: "GET",
     url: `${path}/references`,
-    schemas: {
-      response: z.array(z.object({ id: z.number().int().positive(), title: z.string() }))
-    },
-    handler: ({ request }) => service(request).enquiryReferences()
+    schemas: { response: z.array(z.object({ id: z.string(), title: z.string() })) },
+    handler: async ({ request }) => (await service(request)).enquiryReferences()
   });
   registerContractRoute(app, {
     method: "GET",
     url: `${path}/user-references`,
     schemas: { response: z.array(userReference) },
-    handler: ({ request }) => service(request).userReferences()
+    handler: async ({ request }) => (await service(request)).userReferences()
   });
   registerContractRoute(app, {
     method: "GET",
     url: `${path}/:id`,
     schemas: { params, response: record },
-    handler: ({ params, request }) => service(request).get(params.id)
+    handler: async ({ params, request }) => (await service(request)).get(params.id)
   });
   registerContractRoute(app, {
     method: "POST",
     url: path,
     schemas: { body: payload, response: record },
-    handler: ({ body, request }) => service(request).create(body)
+    handler: async ({ body, request }) => (await service(request)).create(body)
   });
   registerContractRoute(app, {
     method: "PUT",
     url: `${path}/:id`,
     schemas: { body: payload, params, response: record },
-    handler: ({ body, params, request }) => service(request).update(params.id, body)
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${path}/:id/suspend`,
-    schemas: { params, response: record },
-    handler: ({ params, request }) => service(request).suspend(params.id)
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${path}/:id/restore`,
-    schemas: { params, response: record },
-    handler: ({ params, request }) => service(request).restore(params.id)
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${path}/:id/resync`,
-    schemas: { params, response: resyncResult },
-    handler: ({ params, request }) => service(request).resync(params.id)
+    handler: async ({ body, params, request }) => (await service(request)).update(params.id, body)
   });
   registerContractRoute(app, {
     method: "POST",
     url: `${path}/:id/messages`,
     schemas: { body: messagePayload, params, response: record },
-    handler: ({ body, params, request }) => service(request).addMessage(params.id, body)
+    handler: async ({ body, params, request }) =>
+      (await service(request)).addMessage(params.id, body)
   });
   registerContractRoute(app, {
     method: "PUT",
     url: `${path}/:id/messages/:messageId`,
     schemas: { body: messageUpdatePayload, params: messageParams, response: record },
-    handler: ({ body, params, request }) =>
-      service(request).updateMessage(params.id, params.messageId, body)
+    handler: async ({ body, params, request }) =>
+      (await service(request)).updateMessage(params.id, params.messageId, body)
   });
   registerContractRoute(app, {
     method: "DELETE",
     url: `${path}/:id/messages/:messageId`,
     schemas: { params: messageParams, response: record },
-    handler: ({ params, request }) => service(request).deleteMessage(params.id, params.messageId)
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${path}/:id/emails`,
-    schemas: { body: emailPayload, params, response: record },
-    handler: ({ body, params, request }) => service(request).addEmail(params.id, body)
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${path}/:id/calls`,
-    schemas: { body: callPayload, params, response: record },
-    handler: ({ body, params, request }) => service(request).addCall(params.id, body)
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${path}/:id/tasks`,
-    schemas: { body: taskPayload, params, response: record },
-    handler: ({ body, params, request }) => service(request).addTask(params.id, body)
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${path}/:id/notes`,
-    schemas: { body: notePayload, params, response: record },
-    handler: ({ body, params, request }) => service(request).addNote(params.id, body)
-  });
-  registerContractRoute(app, {
-    method: "POST",
-    url: `${path}/:id/attachments`,
-    schemas: { body: attachmentPayload, params, response: record },
-    handler: ({ body, params, request }) => service(request).addAttachment(params.id, body)
+    handler: async ({ params, request }) =>
+      (await service(request)).deleteMessage(params.id, params.messageId)
   });
   registerContractRoute(app, {
     method: "DELETE",
     url: `${path}/:id/force`,
     schemas: { params, response: record },
-    handler: ({ params, request }) => service(request).forceDelete(params.id)
+    handler: async ({ params, request }) => (await service(request)).forceDelete(params.id)
   });
 
-  function service(request: Parameters<typeof tenantAccessContext>[0]) {
+  async function service(request: Parameters<typeof tenantAccessContext>[0]) {
     const context = tenantAccessContext(request);
+    const actor = await context.actorUser();
+    if (!actor) throw new Error("Active tenant user is required.");
     return new CrmService(
       context,
-      frappeEnquiryLifecycle({
-        actorEmail: context.actorEmail,
+      frappeLiveEnquiryGateway({
         database: context.database,
-        tenantId: context.tenantId
+        employee: context.frappeEmployeeCode,
+        userId: actor.id
       })
     );
   }

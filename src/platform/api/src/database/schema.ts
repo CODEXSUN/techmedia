@@ -421,6 +421,7 @@ export type TenantUsersTable = {
   frappe_api_key_ciphertext: Generated<string | null>;
   frappe_api_secret_ciphertext: Generated<string | null>;
   frappe_authenticated_user: Generated<string | null>;
+  frappe_employee_code: Generated<string | null>;
   frappe_last_checked_at: ColumnType<
     Date | null,
     Date | string | null | undefined,

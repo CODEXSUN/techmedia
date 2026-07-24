@@ -13,6 +13,7 @@ type Row = {
   frappe_api_key_ciphertext: string | null;
   frappe_api_secret_ciphertext: string | null;
   frappe_authenticated_user: string | null;
+  frappe_employee_code: string | null;
   frappe_last_checked_at: Date | string | null;
   frappe_last_verified_at: Date | string | null;
   frappe_verification_status: TenantUserFrappeVerificationStatus;
@@ -29,7 +30,7 @@ export class TenantUserRepository {
     const term = `%${(filters.search ?? "").trim().toLowerCase()}%`;
     const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected,
       frappe_api_key_ciphertext,frappe_api_secret_ciphertext,frappe_verification_status,
-      frappe_authenticated_user,frappe_last_checked_at,frappe_last_verified_at FROM users
+      frappe_authenticated_user,frappe_employee_code,frappe_last_checked_at,frappe_last_verified_at FROM users
       WHERE (${filters.search ?? ""}='' OR LOWER(name) LIKE ${term} OR LOWER(email) LIKE ${term}) ORDER BY name`.execute(
       this.database
     );
@@ -38,14 +39,14 @@ export class TenantUserRepository {
   async find(id: string | number) {
     const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected,
       frappe_api_key_ciphertext,frappe_api_secret_ciphertext,frappe_verification_status,
-      frappe_authenticated_user,frappe_last_checked_at,frappe_last_verified_at
+      frappe_authenticated_user,frappe_employee_code,frappe_last_checked_at,frappe_last_verified_at
       FROM users WHERE id=${Number(id)} LIMIT 1`.execute(this.database);
     return result.rows[0] ? mapRow(result.rows[0]) : null;
   }
   async findByEmail(email: string) {
     const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected,
       frappe_api_key_ciphertext,frappe_api_secret_ciphertext,frappe_verification_status,
-      frappe_authenticated_user,frappe_last_checked_at,frappe_last_verified_at
+      frappe_authenticated_user,frappe_employee_code,frappe_last_checked_at,frappe_last_verified_at
       FROM users WHERE LOWER(email)=LOWER(${email.trim()}) LIMIT 1`.execute(this.database);
     return result.rows[0] ? mapRow(result.rows[0]) : null;
   }
@@ -75,10 +76,12 @@ export class TenantUserRepository {
   ) {
     const result = await sql`INSERT INTO users
       (uuid,name,email,password_hash,role,status,is_protected,frappe_api_key_ciphertext,
-        frappe_api_secret_ciphertext,frappe_verification_status)
+        frappe_api_secret_ciphertext,frappe_verification_status,frappe_employee_code)
       VALUES (${uuid},${input.name},${input.email},${passwordHash},'user',${input.status},FALSE,
         ${credentials.apiKeyCiphertext},${credentials.apiSecretCiphertext},
-        ${credentials.verificationStatus})`.execute(this.database);
+        ${credentials.verificationStatus},${input.frappeEmployeeCode?.trim() || null})`.execute(
+      this.database
+    );
     return (await this.find(Number(result.insertId)))!;
   }
   async update(id: number, input: TenantUserSavePayload, passwordHash?: string) {
@@ -98,9 +101,16 @@ export class TenantUserRepository {
       frappe_api_secret_ciphertext=${credentials.apiSecretCiphertext},
       frappe_verification_status=${credentials.verificationStatus},
       frappe_authenticated_user=NULL,
+      frappe_employee_code=NULL,
       frappe_last_checked_at=NULL,
       frappe_last_verified_at=NULL
       WHERE id=${id}`.execute(this.database);
+    return this.find(id);
+  }
+  async updateFrappeEmployeeCode(id: number, employeeCode: string | null) {
+    await sql`UPDATE users SET frappe_employee_code=${employeeCode} WHERE id=${id}`.execute(
+      this.database
+    );
     return this.find(id);
   }
   async findFrappeCredentials(id: number) {
@@ -110,6 +120,7 @@ export class TenantUserRepository {
         "frappe_api_key_ciphertext",
         "frappe_api_secret_ciphertext",
         "frappe_authenticated_user",
+        "frappe_employee_code",
         "frappe_last_checked_at",
         "frappe_last_verified_at",
         "frappe_verification_status"
@@ -121,6 +132,7 @@ export class TenantUserRepository {
           apiKeyCiphertext: row.frappe_api_key_ciphertext,
           apiSecretCiphertext: row.frappe_api_secret_ciphertext,
           authenticatedUser: row.frappe_authenticated_user,
+          employeeCode: row.frappe_employee_code,
           lastCheckedAt: nullableTimestamp(row.frappe_last_checked_at),
           lastVerifiedAt: nullableTimestamp(row.frappe_last_verified_at),
           verificationStatus: row.frappe_verification_status
@@ -131,11 +143,13 @@ export class TenantUserRepository {
     id: number,
     status: "live" | "offline",
     checkedAt: Date,
-    authenticatedUser: string | null
+    authenticatedUser: string | null,
+    employeeCode?: string | null
   ) {
     await sql`UPDATE users SET
       frappe_verification_status=${status},
       frappe_authenticated_user=${authenticatedUser},
+      frappe_employee_code=CASE WHEN ${status}='live' THEN ${employeeCode ?? null} ELSE frappe_employee_code END,
       frappe_last_checked_at=${checkedAt},
       frappe_last_verified_at=CASE WHEN ${status}='live' THEN ${checkedAt} ELSE frappe_last_verified_at END
       WHERE id=${id}`.execute(this.database);
@@ -144,6 +158,7 @@ export class TenantUserRepository {
     await sql`UPDATE users SET
       frappe_verification_status='unverified',
       frappe_authenticated_user=NULL,
+      frappe_employee_code=NULL,
       frappe_last_checked_at=NULL,
       frappe_last_verified_at=NULL
       WHERE frappe_api_key_ciphertext IS NOT NULL OR frappe_api_secret_ciphertext IS NOT NULL`.execute(
@@ -173,6 +188,7 @@ function mapRow(row: Row): TenantUser {
     frappeApiKeyConfigured: Boolean(row.frappe_api_key_ciphertext),
     frappeApiSecretConfigured: Boolean(row.frappe_api_secret_ciphertext),
     frappeAuthenticatedUser: row.frappe_authenticated_user,
+    frappeEmployeeCode: row.frappe_employee_code,
     frappeLastCheckedAt: nullableTimestamp(row.frappe_last_checked_at),
     frappeLastVerifiedAt: nullableTimestamp(row.frappe_last_verified_at),
     frappeVerificationStatus: row.frappe_verification_status,

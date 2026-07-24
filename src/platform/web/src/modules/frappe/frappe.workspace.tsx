@@ -16,7 +16,6 @@ import type {
   FrappeConnectionSavePayload,
   FrappeConnectionVerificationPayload
 } from "./frappe.types";
-import { FrappeSyncPanel } from "./frappe.sync";
 
 export function FrappeWorkspace({ canUpdate }: { canUpdate: boolean }) {
   const query = useFrappeConnectionQuery();
@@ -90,21 +89,18 @@ export function FrappeWorkspace({ canUpdate }: { canUpdate: boolean }) {
           {query.error instanceof Error ? query.error.message : "Please try again."}
         </WorkspaceFormBanner>
       ) : (
-        <>
-          <FrappeForm
-            canUpdate={canUpdate}
-            {...(mutation.error instanceof Error ? { error: mutation.error.message } : {})}
-            loading={mutation.isPending}
-            onSubmit={(value) => void save(value)}
-            onVerify={(value) => void verify(value)}
-            settings={query.data ?? null}
-            {...(verification.error instanceof Error
-              ? { verificationError: verification.error.message }
-              : {})}
-            verifying={verification.isPending}
-          />
-          <FrappeSyncPanel canUpdate={canUpdate} />
-        </>
+        <FrappeForm
+          canUpdate={canUpdate}
+          {...(mutation.error instanceof Error ? { error: mutation.error.message } : {})}
+          loading={mutation.isPending}
+          onSubmit={(value) => void save(value)}
+          onVerify={(value) => void verify(value)}
+          settings={query.data ?? null}
+          {...(verification.error instanceof Error
+            ? { verificationError: verification.error.message }
+            : {})}
+          verifying={verification.isPending}
+        />
       )}
     </WorkspacePage>
   );

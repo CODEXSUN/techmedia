@@ -3,7 +3,8 @@ import type { TenantDatabase } from "../../database/schema.js";
 
 export const tenantUserMigrations = [
   { key: "platform.tenant-user.foundation-v1" },
-  { key: "platform.tenant-user.frappe-credentials-v2" }
+  { key: "platform.tenant-user.frappe-credentials-v2" },
+  { key: "platform.tenant-user.frappe-employee-code-v3" }
 ] as const;
 export const tenantUserMigration = tenantUserMigrations[0];
 
@@ -23,6 +24,7 @@ export async function migrateTenantUserModule(database: Kysely<TenantDatabase>) 
     frappe_api_secret_ciphertext LONGTEXT NULL,
     frappe_verification_status VARCHAR(24) NOT NULL DEFAULT 'unverified',
     frappe_authenticated_user VARCHAR(180) NULL,
+    frappe_employee_code VARCHAR(180) NULL,
     frappe_last_checked_at DATETIME NULL,
     frappe_last_verified_at DATETIME NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -42,6 +44,7 @@ export async function migrateTenantUserModule(database: Kysely<TenantDatabase>) 
         ADD COLUMN IF NOT EXISTS frappe_api_secret_ciphertext LONGTEXT NULL,
         ADD COLUMN IF NOT EXISTS frappe_verification_status VARCHAR(24) NOT NULL DEFAULT 'unverified',
         ADD COLUMN IF NOT EXISTS frappe_authenticated_user VARCHAR(180) NULL,
+        ADD COLUMN IF NOT EXISTS frappe_employee_code VARCHAR(180) NULL,
         ADD COLUMN IF NOT EXISTS frappe_last_checked_at DATETIME NULL,
         ADD COLUMN IF NOT EXISTS frappe_last_verified_at DATETIME NULL`
     )

@@ -28,6 +28,7 @@ const emptyUser: TenantUserFormValue = {
   email: "",
   frappeApiKey: "",
   frappeApiSecret: "",
+  frappeEmployeeCode: "",
   name: "",
   password: "",
   status: "active"
@@ -74,6 +75,7 @@ export function TenantUserForm({
                 confirmPassword: "",
                 frappeApiKey: "",
                 frappeApiSecret: "",
+                frappeEmployeeCode: record.frappeEmployeeCode ?? "",
                 name: record.name,
                 password: "",
                 status: record.status
@@ -202,7 +204,6 @@ function TenantUserFormBody({
             </WorkspaceFormField>
             <WorkspaceFormField label="Email" required>
               <Input
-                disabled={Boolean(record?.isProtected)}
                 maxLength={180}
                 required
                 type="email"
@@ -215,7 +216,6 @@ function TenantUserFormBody({
             <WorkspaceFormField label={record ? "New password" : "Password"} required={!record}>
               <Input
                 minLength={8}
-                disabled={Boolean(record?.isProtected)}
                 required={!record}
                 type="password"
                 value={value.password ?? ""}
@@ -236,7 +236,6 @@ function TenantUserFormBody({
                     ? "border-destructive"
                     : undefined
                 }
-                disabled={Boolean(record?.isProtected)}
                 minLength={8}
                 required={!record || Boolean(value.password)}
                 type="password"
@@ -262,6 +261,7 @@ function TenantUserFormBody({
             <WorkspaceFormField label="Role">
               <WorkspaceLookup
                 allowTextValue={false}
+                disabled={Boolean(record?.isProtected)}
                 options={lookupRoles}
                 placeholder="Search roles"
                 showAllOptionsOnFocus
@@ -354,6 +354,22 @@ function TenantUserFormBody({
                 }
               />
             </WorkspaceFormField>
+            <WorkspaceFormField label="Employee code">
+              <Input
+                maxLength={180}
+                placeholder="Auto-filled after Frappe verification"
+                value={value.frappeEmployeeCode ?? ""}
+                onChange={(event) =>
+                  setValue((current) => ({
+                    ...current,
+                    frappeEmployeeCode: event.target.value
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Verification resolves the Employee linked to the authenticated Frappe user.
+              </p>
+            </WorkspaceFormField>
             <div className="flex flex-wrap items-center gap-3">
               <Button
                 disabled={!record || verifying || loading}
@@ -364,6 +380,10 @@ function TenantUserFormBody({
                   void onVerify(payload)
                     .then((result) => {
                       setVerification(result);
+                      setValue((current) => ({
+                        ...current,
+                        frappeEmployeeCode: result.employeeCode
+                      }));
                       setVerificationError("");
                     })
                     .catch((verifyError: unknown) =>
@@ -386,7 +406,7 @@ function TenantUserFormBody({
                 </span>
               ) : verification ? (
                 <span className="text-xs text-emerald-700">
-                  Connected as {verification.authenticatedUser}
+                  Connected as {verification.authenticatedUser} · {verification.employeeCode}
                 </span>
               ) : null}
             </div>

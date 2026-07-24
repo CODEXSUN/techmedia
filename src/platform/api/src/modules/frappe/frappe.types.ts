@@ -48,6 +48,10 @@ export type FrappeConnectionVerificationResult = {
   latencyMs: number;
 };
 
+export type FrappeUserVerificationResult = FrappeConnectionVerificationResult & {
+  employeeCode: string;
+};
+
 export type FrappeSyncSettings = {
   enquiryDoctype: string;
   lastPullAt: string | null;
@@ -91,6 +95,88 @@ export type FrappeEnquiryLifecycleFactory = (context: {
   database: Kysely<TenantDatabase>;
   tenantId: string;
 }) => FrappeEnquiryLifecycleContract;
+
+export type FrappeLiveEnquiryView = "assigned" | "created" | "open";
+
+export type FrappeLiveEmployee = {
+  email: string;
+  name: string;
+  title: string;
+};
+
+export type FrappeLiveEnquiryMessage = {
+  comment: string;
+  createdAt: string | null;
+  createdBy: string | null;
+  name: string;
+};
+
+export type FrappeLiveEnquiryActivity = {
+  action: "added" | "changed" | "edited" | "removed" | "viewed";
+  createdAt: string;
+  createdBy: string;
+  details: string;
+  name: string;
+};
+
+export type FrappeLiveEnquiry = {
+  activities: FrappeLiveEnquiryActivity[];
+  assignedToEmployee: string | null;
+  createdAt: string;
+  customer: string;
+  enquiryDate: string | null;
+  enquiryGroup: string;
+  enquiryMessage: string;
+  messages: FrappeLiveEnquiryMessage[];
+  mobile: string;
+  modifiedAt: string;
+  name: string;
+  status: string;
+  statusDetails: string;
+  subject: string;
+  userEmployee: string;
+};
+
+export type FrappeLiveEnquirySavePayload = {
+  assignedToEmployee: string | null;
+  customer: string;
+  enquiryDate: string | null;
+  enquiryGroup: string;
+  enquiryMessage: string;
+  messages: Array<{ comment: string }>;
+  mobile: string;
+  status: string;
+  statusDetails: string;
+  subject: string;
+};
+
+export type FrappeLiveEnquiryMessageSavePayload = {
+  comment: string;
+  name?: string;
+};
+
+export type FrappeLiveEnquiryGateway = {
+  create: (input: FrappeLiveEnquirySavePayload) => Promise<FrappeLiveEnquiry>;
+  delete: (name: string) => Promise<void>;
+  employees: () => Promise<FrappeLiveEmployee[]>;
+  get: (name: string) => Promise<FrappeLiveEnquiry>;
+  list: (input: {
+    employee: string;
+    search?: string;
+    view: FrappeLiveEnquiryView;
+  }) => Promise<FrappeLiveEnquiry[]>;
+  update: (name: string, input: FrappeLiveEnquirySavePayload) => Promise<FrappeLiveEnquiry>;
+  updateMessages: (
+    name: string,
+    messages: FrappeLiveEnquiryMessageSavePayload[]
+  ) => Promise<FrappeLiveEnquiry>;
+};
+
+export type FrappeLiveEnquiryGatewayFactory = (context: {
+  database: Kysely<TenantDatabase>;
+  employee: string | null;
+  userId: number;
+}) => FrappeLiveEnquiryGateway;
 
 export type FrappeUserPreview = {
   email: string;

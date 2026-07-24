@@ -3,6 +3,7 @@ export type TenantUser = {
   frappeApiKeyConfigured: boolean;
   frappeApiSecretConfigured: boolean;
   frappeAuthenticatedUser: string | null;
+  frappeEmployeeCode: string | null;
   frappeLastCheckedAt: string | null;
   frappeLastVerifiedAt: string | null;
   frappeVerificationStatus: "live" | "offline" | "unverified";
@@ -18,6 +19,7 @@ export type TenantUserSavePayload = {
   email: string;
   frappeApiKey?: string;
   frappeApiSecret?: string;
+  frappeEmployeeCode?: string | undefined;
   name: string;
   password?: string;
   status: TenantUserStatus;
@@ -37,5 +39,12 @@ export type TenantUserFrappeVerification = {
   baseUrl: string;
   checkedAt: string;
   connected: true;
+  employeeCode: string;
   latencyMs: number;
+};
+export type TenantUserTenantOption = {
+  id: number;
+  label: string;
+  status: string;
+  tenantCode: string;
 };

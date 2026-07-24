@@ -8,6 +8,7 @@ export type TenantUser = {
   frappeApiKeyConfigured: boolean;
   frappeApiSecretConfigured: boolean;
   frappeAuthenticatedUser: string | null;
+  frappeEmployeeCode: string | null;
   frappeLastCheckedAt: string | null;
   frappeLastVerifiedAt: string | null;
   frappeVerificationStatus: TenantUserFrappeVerificationStatus;
@@ -21,6 +22,7 @@ export type TenantUserSavePayload = {
   email: string;
   frappeApiKey?: string | undefined;
   frappeApiSecret?: string | undefined;
+  frappeEmployeeCode?: string | undefined;
   name: string;
   password?: string | undefined;
   status: TenantUserStatus;
@@ -31,6 +33,7 @@ export type TenantUserFrappeCredentials = {
   apiKey: string;
   apiSecret: string;
   authenticatedUser: string | null;
+  employeeCode: string | null;
   lastCheckedAt: string | null;
   lastVerifiedAt: string | null;
   verificationStatus: TenantUserFrappeVerificationStatus;

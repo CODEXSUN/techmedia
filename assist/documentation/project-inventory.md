@@ -20,35 +20,23 @@ The tenant application surface contains three registered apps:
 - `Application` is the administration desk and is visible only to the protected tenant admin
   identity. Tenant staff, manager, and normal-user identities cannot expose it through role
   permission assignment.
-- `CRM` is the permission-aware business app. Its module-owned Enquiry aggregate lives under
-  `src/platform/api/src/modules/crm/` and `src/platform/web/src/modules/crm/`. Enquiry responses
-  include persisted comment timestamps and creator-aware mutation capabilities. The CRM desk owns
-  the full-page enquiry workspace with persisted Reply/Comment, Email, Call, Task, Note,
-  Attachment, and Activity child tables, fixed write contracts, cascade ownership, sticky
-  composers, and the properties panel. Conversation entries display their exact stored time and
-  expose fixed update/delete contracts only for the creator's current latest entry; any newer
-  comment or reply locks the earlier entry in both the response capabilities and backend service.
+- `CRM` is the permission-aware frontend contract for the customer's Frappe Enquiry doctype. Its
+  UI, validation, routes, scopes, and response mapping live under `src/platform/api/src/modules/crm/`
+  and `src/platform/web/src/modules/crm/`, but Frappe is the only active source of enquiry data.
+  Lists, details, creates, updates, deletes, and Enquiry Message changes are executed against the
+  live Frappe resource API in the same request. Former local CRM tables are transition archives and
+  are not read or written by the active service.
 - `Frappe` is the admin-only integration app. Its encrypted tenant connection settings live under
   `src/platform/api/src/modules/frappe/` and `src/platform/web/src/modules/frappe/`. The owner also
   provides the fixed `POST /tenant/frappe/settings/verify` handshake, which validates current or
   stored credentials against Frappe without persisting verification-only form values. Saved
   connections retain module-owned `unverified`, `live`, or `offline` verification state and
-  last-check timestamps for the desk status badges. When outbound enquiry sync is enabled, CRM
-  lifecycle writes use the signed-in user's verified credentials to create, update, and permanently
-  delete the linked Frappe Enquiry while the Frappe owner retains the remote mapping and audit state.
-  Per-user verification is an explicit one-time handshake: login reuses the persisted result without
-  contacting Frappe. Changing that user's key or secret, or changing the shared Frappe URL, resets
-  the result to `unverified`. Each transaction remains the operational validation; only a remote
-  authentication rejection marks the saved user credentials `offline`, while network and Frappe
-  document-validation failures preserve the trusted credential state.
-  Existing enquiries expose a compact manual resync action on both their show page and edit popup;
-  it reuses the same verified per-user credentials and fixed Frappe lifecycle contract for only the
-  selected enquiry.
-  Outbound mapping always supplies Frappe's mandatory Enquiry date, using the explicit enquiry date
-  when present and the persisted TechMedia creation date otherwise. Frappe's mandatory
-  `user_employee` value is resolved from the verified API identity through `Employee.user_id`;
-  `assigned_to_employee` is resolved independently from the TechMedia assignee and remains optional.
-  A verified Frappe User therefore must be linked to an Employee before it can create enquiries.
+  last-check timestamps for the desk status badges. Explicit per-user verification resolves and
+  persists `Employee.user_id`; later logins place that trusted authenticated Frappe user and Employee
+  code into the signed TechMedia session without another handshake. CRM transactions reuse the
+  encrypted token and session Employee directly; they do not run a settings verification before
+  each request. Changing the user's credentials or shared URL resets verification. Pull/push
+  settings, mapping rows, and manual resync actions are not part of the active runtime.
 
 CRM is the default landing app for TechMedia tenants. The Platform tenant record owns that setting;
 Core Default Company mirrors it through the exported Default Company application contract. Tenant
@@ -113,8 +101,8 @@ source imports and cross-repository table writes are prohibited.
 1. TechMedia Platform owns master and tenant-runtime tables under
    `src/platform/api/src/modules/`.
 2. Core owns tenant common, organisation, and master tables under `core/api/src/modules/`.
-3. TechMedia CRM owns tenant enquiry and enquiry-schedule tables under
-   `src/platform/api/src/modules/crm/`.
+3. Frappe owns live Enquiry and child records; TechMedia's former CRM tables are read-only transition
+   archives pending a separately approved retirement migration.
 4. TechMedia Frappe owns encrypted tenant connection settings under
    `src/platform/api/src/modules/frappe/`.
 5. No sibling application participates in TechMedia database lifecycle.

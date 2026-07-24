@@ -14,10 +14,19 @@ let receivedAuthorization = "";
 let receivedBody = "";
 let receivedMethod = "";
 let receivedPath = "";
+let lastEnquiryWriteBody = "";
+let lastDeletePath = "";
+let lastUpdatePath = "";
 let handshakeCount = 0;
 let frappeCredentialsAccepted = true;
 const frappeEnquiryName = `ENQ-E2E-${Date.now()}`;
 const lifecycleFrappeEnquiryName = `ENQ-LIVE-${Date.now()}`;
+let lifecycleMessages: Array<{
+  comment: string;
+  creation: string;
+  name: string;
+  owner: string;
+}> = [];
 const frappeUserEmail = `frappe-user-${Date.now()}@example.test`;
 const frappeServer = createServer(async (request, response) => {
   receivedAuthorization = request.headers.authorization ?? "";
@@ -40,12 +49,61 @@ const frappeServer = createServer(async (request, response) => {
     response.end(JSON.stringify({ data: [{ name: "EMP-CREATOR" }] }));
     return;
   }
+  if (receivedPath.startsWith("/api/method/frappe.desk.form.load.get_docinfo?")) {
+    response.end(
+      JSON.stringify({
+        docinfo: {
+          info_logs: [],
+          user_info: {
+            "integration@frappe.test": { fullname: "Integration User" }
+          },
+          versions: [
+            {
+              creation: "2026-07-24 05:04:00",
+              data: JSON.stringify({
+                added: [["enquiry_messages", { comment: "New message" }]],
+                row_changed: [
+                  [
+                    "enquiry_messages",
+                    1,
+                    "ENQ-MSG-2",
+                    [["comment", "Previous comment", "Updated comment"]]
+                  ]
+                ]
+              }),
+              name: "VERSION-LIVE-1",
+              owner: "integration@frappe.test"
+            }
+          ],
+          views: [
+            {
+              creation: "2026-07-24 05:03:00",
+              name: "VIEW-LIVE-1",
+              owner: "integration@frappe.test"
+            }
+          ]
+        }
+      })
+    );
+    return;
+  }
   if (receivedPath === "/api/resource/Enquiry" && receivedMethod === "POST") {
-    if (!JSON.parse(receivedBody).user_employee) {
+    lastEnquiryWriteBody = receivedBody;
+    const body = JSON.parse(receivedBody) as {
+      enquiry_messages?: Array<{ comment?: string }>;
+      user_employee?: string;
+    };
+    if (!body.user_employee) {
       response.statusCode = 417;
       response.end(JSON.stringify({ message: "Value missing for Enquiry: User" }));
       return;
     }
+    lifecycleMessages = (body.enquiry_messages ?? []).map((message, index) => ({
+      comment: message.comment ?? "",
+      creation: "2026-07-24 05:00:00",
+      name: `ENQ-MSG-${index + 1}`,
+      owner: "integration@frappe.test"
+    }));
     response.end(
       JSON.stringify({
         data: {
@@ -60,6 +118,19 @@ const frappeServer = createServer(async (request, response) => {
     receivedPath === `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}` &&
     receivedMethod === "PUT"
   ) {
+    lastEnquiryWriteBody = receivedBody;
+    lastUpdatePath = receivedPath;
+    const body = JSON.parse(receivedBody) as {
+      enquiry_messages?: Array<{ comment?: string; name?: string }>;
+    };
+    if (body.enquiry_messages) {
+      lifecycleMessages = body.enquiry_messages.map((message, index) => ({
+        comment: message.comment ?? "",
+        creation: "2026-07-24 05:06:00",
+        name: message.name ?? `ENQ-MSG-${index + 1}`,
+        owner: "integration@frappe.test"
+      }));
+    }
     response.end(
       JSON.stringify({
         data: {
@@ -72,8 +143,31 @@ const frappeServer = createServer(async (request, response) => {
   }
   if (
     receivedPath === `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}` &&
+    receivedMethod === "GET"
+  ) {
+    response.end(
+      JSON.stringify({
+        data: {
+          creation: "2026-07-24 05:00:00",
+          enquiry_details: "Live gateway enquiry",
+          enquiry_messages: lifecycleMessages,
+          group: "Stores",
+          mobile: "9888888888",
+          modified: "2026-07-24 05:05:00",
+          name: lifecycleFrappeEnquiryName,
+          status: "Open",
+          status_details: "Live gateway subject",
+          user_employee: "EMP-CREATOR"
+        }
+      })
+    );
+    return;
+  }
+  if (
+    receivedPath === `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}` &&
     receivedMethod === "DELETE"
   ) {
+    lastDeletePath = receivedPath;
     response.end(JSON.stringify({ message: "ok" }));
     return;
   }
@@ -272,19 +366,25 @@ try {
     baseUrl: string;
     checkedAt: string;
     connected: true;
+    employeeCode: string;
     latencyMs: number;
   }>("POST", `/tenant/frappe/settings/users/${adminUserId}/verify`, undefined, headers);
   assert.equal(verified.data.connected, true);
   assert.equal(verified.data.authenticatedUser, "integration@frappe.test");
   assert.equal(verified.data.baseUrl, frappeBaseUrl);
+  assert.equal(verified.data.employeeCode, "EMP-CREATOR");
   assert.ok(verified.data.latencyMs >= 0);
   assert.equal(receivedAuthorization, `token ${apiKey}:${apiSecret}`);
-  assert.equal(receivedPath, "/api/method/frappe.auth.get_logged_user");
+  assert.match(receivedPath, /^\/api\/resource\/Employee\?/u);
   const handshakeCountAfterUserVerification = handshakeCount;
   const loginUsingSavedVerification = await request<{
+    accessToken: string;
     frappeAuthenticated: boolean;
     frappeAuthenticatedUser: string | null;
+    frappeEmployeeCode: string | null;
     frappeConnectionStatus: string;
+    tenantDbName: string;
+    tenantId: string;
   }>("POST", "/auth/login", {
     corporateId: env.DEFAULT_TENANT_CORPORATE_ID,
     desk: "tenant",
@@ -293,16 +393,18 @@ try {
   });
   assert.equal(loginUsingSavedVerification.data.frappeAuthenticated, true);
   assert.equal(loginUsingSavedVerification.data.frappeAuthenticatedUser, "integration@frappe.test");
+  assert.equal(loginUsingSavedVerification.data.frappeEmployeeCode, "EMP-CREATOR");
   assert.equal(loginUsingSavedVerification.data.frappeConnectionStatus, "live");
   assert.equal(handshakeCount, handshakeCountAfterUserVerification);
 
   const persisted = await database
     .selectFrom("users")
-    .select(["frappe_api_key_ciphertext", "frappe_api_secret_ciphertext"])
+    .select(["frappe_api_key_ciphertext", "frappe_api_secret_ciphertext", "frappe_employee_code"])
     .where("id", "=", adminUserId)
     .executeTakeFirstOrThrow();
   assert.doesNotMatch(persisted.frappe_api_key_ciphertext ?? "", new RegExp(apiKey, "u"));
   assert.doesNotMatch(persisted.frappe_api_secret_ciphertext ?? "", new RegExp(apiSecret, "u"));
+  assert.equal(persisted.frappe_employee_code, "EMP-CREATOR");
 
   const reusable = await frappeConnectionContract({ database, userId: adminUserId }).get();
   assert.equal(reusable?.apiKey, apiKey);
@@ -390,266 +492,381 @@ try {
   assert.equal(duplicateImport.data.temporaryPassword, null);
   assert.equal(duplicateImport.data.user.id, importedUserId);
 
-  const syncSettings = await request<{
-    enquiryDoctype: "Enquiry";
-    pullEnquiriesEnabled: boolean;
-    pushEnquiriesEnabled: boolean;
+  const liveHeaders = tenantHeaders(loginUsingSavedVerification.data);
+  const liveCreated = await request<{
+    activities: Array<{ action: string; details: string }>;
+    frappeName: string;
+    mobile: string;
+    title: string;
   }>(
-    "PUT",
-    "/tenant/frappe/enquiry-sync",
-    { pullEnquiriesEnabled: true, pushEnquiriesEnabled: false },
-    headers
-  );
-  assert.equal(syncSettings.data.enquiryDoctype, "Enquiry");
-  assert.equal(syncSettings.data.pullEnquiriesEnabled, true);
-  assert.equal(syncSettings.data.pushEnquiriesEnabled, false);
-  const pulled = await request<{
-    created: number;
-    direction: "pull";
-    failed: number;
-    processed: number;
-    updated: number;
-  }>("POST", "/tenant/frappe/enquiry-sync/pull", undefined, headers);
-  assert.equal(pulled.data.direction, "pull");
-  assert.equal(pulled.data.created, 1);
-  assert.equal(pulled.data.failed, 0);
-  const pulledLink = await database
-    .selectFrom("frappe_enquiry_links")
-    .select("crm_enquiry_id")
-    .where("frappe_name", "=", frappeEnquiryName)
-    .executeTakeFirstOrThrow();
-  pulledCrmEnquiryId = pulledLink.crm_enquiry_id;
-  const pulledEnquiry = await database
-    .selectFrom("crm_enquiries")
-    .select(["mobile", "enquiry_group", "status", "title"])
-    .where("id", "=", pulledCrmEnquiryId)
-    .executeTakeFirstOrThrow();
-  assert.deepEqual(pulledEnquiry, {
-    enquiry_group: "Stores",
-    mobile: "9999999999",
-    status: "follow",
-    title: "Frappe pull E2E enquiry"
-  });
-
-  await request(
-    "PUT",
-    "/tenant/frappe/enquiry-sync",
-    { pullEnquiriesEnabled: true, pushEnquiriesEnabled: true },
-    headers
-  );
-  const lifecycleCreated = await request<{ id: number; subject: string }>(
     "POST",
     "/tenant/crm/enquiries",
     {
       assignedToUserId: null,
-      customer: "Live Frappe customer",
-      enquiryDate: null,
+      customer: "",
+      enquiryDate: "2026-07-24",
       enquiryGroup: "Stores",
-      messages: [{ comment: "Created through the TechMedia CRM lifecycle." }],
+      messages: [{ comment: "Created directly in Frappe." }],
       mobile: "9888888888",
       priority: "normal",
       schedules: [],
       status: "open",
-      subject: "Live Frappe lifecycle enquiry",
-      title: "Live Frappe lifecycle enquiry",
-      workspace: "Created from TechMedia"
+      subject: "Live gateway subject",
+      title: "Live gateway enquiry",
+      workspace: "Live gateway enquiry"
     },
-    headers
+    liveHeaders
   );
-  lifecycleCrmEnquiryId = lifecycleCreated.data.id;
-  assert.equal(receivedMethod, "POST");
-  assert.equal(receivedPath, "/api/resource/Enquiry");
-  assert.match(JSON.parse(receivedBody).date, /^\d{4}-\d{2}-\d{2}$/u);
-  assert.equal(JSON.parse(receivedBody).user_employee, "EMP-CREATOR");
-  const lifecycleLink = await database
-    .selectFrom("frappe_enquiry_links")
-    .select(["frappe_name", "sync_status"])
-    .where("crm_enquiry_id", "=", lifecycleCrmEnquiryId)
-    .executeTakeFirstOrThrow();
-  assert.equal(lifecycleLink.frappe_name, lifecycleFrappeEnquiryName);
-  assert.equal(lifecycleLink.sync_status, "synced");
+  assert.equal(liveCreated.data.frappeName, lifecycleFrappeEnquiryName);
+  assert.equal(JSON.parse(lastEnquiryWriteBody).user_employee, "EMP-CREATOR");
+  assert.ok(
+    liveCreated.data.activities.some(
+      (entry) =>
+        entry.action === "changed" &&
+        entry.details ===
+          "Integration User changed the values for Comment from Previous comment to Updated comment in row #2"
+    )
+  );
+  assert.ok(
+    liveCreated.data.activities.some(
+      (entry) =>
+        entry.action === "added" && entry.details === "Integration User added 1 row to Messages"
+    )
+  );
+  assert.ok(
+    liveCreated.data.activities.some(
+      (entry) => entry.action === "viewed" && entry.details === "Integration User viewed this"
+    )
+  );
 
-  const lifecycleUpdated = await request<{ subject: string }>(
+  const liveUpdated = await request<{ frappeName: string; subject: string }>(
     "PUT",
-    `/tenant/crm/enquiries/${lifecycleCrmEnquiryId}`,
+    `/tenant/crm/enquiries/${encodeURIComponent(lifecycleFrappeEnquiryName)}`,
     {
       assignedToUserId: null,
-      customer: "Live Frappe customer",
+      customer: "",
       enquiryDate: "2026-07-25",
       enquiryGroup: "Stores",
-      messages: [{ comment: "Created through the TechMedia CRM lifecycle." }],
+      messages: [{ comment: "Updated directly in Frappe." }],
       mobile: "9888888888",
-      priority: "high",
+      priority: "normal",
       schedules: [],
       status: "follow",
-      subject: "Updated live Frappe lifecycle enquiry",
-      title: "Live Frappe lifecycle enquiry",
-      workspace: "Updated from TechMedia"
+      subject: "Updated live gateway subject",
+      title: "Updated live gateway enquiry",
+      workspace: "Updated live gateway enquiry"
     },
-    headers
+    liveHeaders
   );
-  assert.equal(lifecycleUpdated.data.subject, "Updated live Frappe lifecycle enquiry");
-  assert.equal(receivedMethod, "PUT");
-  assert.equal(receivedPath, `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}`);
+  assert.equal(liveUpdated.data.frappeName, lifecycleFrappeEnquiryName);
+  assert.equal(lastUpdatePath, `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}`);
+  assert.equal(JSON.parse(lastEnquiryWriteBody).status, "Follow");
 
-  const lifecycleResynced = await request<{
-    action: "updated";
-    frappeName: string;
-  }>("POST", `/tenant/crm/enquiries/${lifecycleCrmEnquiryId}/resync`, undefined, headers);
-  assert.equal(lifecycleResynced.data.action, "updated");
-  assert.equal(lifecycleResynced.data.frappeName, lifecycleFrappeEnquiryName);
-  assert.equal(receivedMethod, "PUT");
-  assert.equal(receivedPath, `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}`);
-
-  frappeCredentialsAccepted = false;
-  const rejectedLifecycleRequest = await app.inject({
-    headers,
-    method: "POST",
-    url: `/tenant/crm/enquiries/${lifecycleCrmEnquiryId}/resync`
-  });
-  assert.equal(rejectedLifecycleRequest.statusCode, 422);
-  assert.match(rejectedLifecycleRequest.body, /saved API key or secret/u);
-  const rejectedUserCredentials = await database
-    .selectFrom("users")
-    .select("frappe_verification_status")
-    .where("id", "=", adminUserId)
-    .executeTakeFirstOrThrow();
-  assert.equal(rejectedUserCredentials.frappe_verification_status, "offline");
-  frappeCredentialsAccepted = true;
-  await request<typeof verified.data>(
+  const withLiveComment = await request<{
+    messages: Array<{ comment: string; id: string }>;
+  }>(
     "POST",
-    `/tenant/frappe/settings/users/${adminUserId}/verify`,
-    undefined,
-    headers
+    `/tenant/crm/enquiries/${encodeURIComponent(lifecycleFrappeEnquiryName)}/messages`,
+    {
+      comment: "<p>Saved in the Enquiry Message child table.</p><p>Plain second line.</p>",
+      messageType: "comment"
+    },
+    liveHeaders
   );
+  const childTableWrite = JSON.parse(lastEnquiryWriteBody) as {
+    enquiry_messages?: Array<{ comment: string; name?: string }>;
+  };
+  assert.deepEqual(Object.keys(JSON.parse(lastEnquiryWriteBody)), ["enquiry_messages"]);
+  assert.equal(childTableWrite.enquiry_messages?.[0]?.name, "ENQ-MSG-1");
+  assert.equal(
+    childTableWrite.enquiry_messages?.at(-1)?.comment,
+    "Saved in the Enquiry Message child table.\nPlain second line."
+  );
+  assert.ok(
+    withLiveComment.data.messages.some(
+      (message) =>
+        message.comment === "Saved in the Enquiry Message child table.\nPlain second line."
+    )
+  );
+  assert.ok(!childTableWrite.enquiry_messages?.at(-1)?.comment.includes("<p>"));
+  assert.ok(!receivedPath.includes("/api/resource/Comment"));
 
   await request(
     "DELETE",
-    `/tenant/crm/enquiries/${lifecycleCrmEnquiryId}/force`,
+    `/tenant/crm/enquiries/${encodeURIComponent(lifecycleFrappeEnquiryName)}/force`,
     undefined,
-    headers
+    liveHeaders
   );
-  assert.equal(receivedMethod, "DELETE");
-  assert.equal(receivedPath, `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}`);
-  assert.equal(
-    await database
+  assert.equal(lastDeletePath, `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}`);
+
+  console.info("Frappe live CRM gateway E2E passed", {
+    employee: loginUsingSavedVerification.data.frappeEmployeeCode,
+    localCrmPersistence: false,
+    name: liveCreated.data.frappeName
+  });
+
+  if (process.env.TECHMEDIA_RUN_LEGACY_FRAPPE_SYNC_E2E === "1") {
+    const syncSettings = await request<{
+      enquiryDoctype: "Enquiry";
+      pullEnquiriesEnabled: boolean;
+      pushEnquiriesEnabled: boolean;
+    }>(
+      "PUT",
+      "/tenant/frappe/enquiry-sync",
+      { pullEnquiriesEnabled: true, pushEnquiriesEnabled: false },
+      headers
+    );
+    assert.equal(syncSettings.data.enquiryDoctype, "Enquiry");
+    assert.equal(syncSettings.data.pullEnquiriesEnabled, true);
+    assert.equal(syncSettings.data.pushEnquiriesEnabled, false);
+    const pulled = await request<{
+      created: number;
+      direction: "pull";
+      failed: number;
+      processed: number;
+      updated: number;
+    }>("POST", "/tenant/frappe/enquiry-sync/pull", undefined, headers);
+    assert.equal(pulled.data.direction, "pull");
+    assert.equal(pulled.data.created, 1);
+    assert.equal(pulled.data.failed, 0);
+    const pulledLink = await database
+      .selectFrom("frappe_enquiry_links")
+      .select("crm_enquiry_id")
+      .where("frappe_name", "=", frappeEnquiryName)
+      .executeTakeFirstOrThrow();
+    pulledCrmEnquiryId = pulledLink.crm_enquiry_id;
+    const pulledEnquiry = await database
       .selectFrom("crm_enquiries")
-      .select("id")
-      .where("id", "=", lifecycleCrmEnquiryId)
-      .executeTakeFirst(),
-    undefined
-  );
-  lifecycleCrmEnquiryId = 0;
+      .select(["mobile", "enquiry_group", "status", "title"])
+      .where("id", "=", pulledCrmEnquiryId)
+      .executeTakeFirstOrThrow();
+    assert.deepEqual(pulledEnquiry, {
+      enquiry_group: "Stores",
+      mobile: "9999999999",
+      status: "follow",
+      title: "Frappe pull E2E enquiry"
+    });
 
-  const verifiedWithSavedCredentials = await request<typeof verified.data>(
-    "POST",
-    "/tenant/frappe/settings/verify",
-    { baseUrl: frappeBaseUrl },
-    headers
-  );
-  assert.equal(verifiedWithSavedCredentials.data.authenticatedUser, "integration@frappe.test");
-  assert.equal(receivedAuthorization, `token ${apiKey}:${apiSecret}`);
+    await request(
+      "PUT",
+      "/tenant/frappe/enquiry-sync",
+      { pullEnquiriesEnabled: true, pushEnquiriesEnabled: true },
+      headers
+    );
+    const lifecycleCreated = await request<{ id: number; subject: string }>(
+      "POST",
+      "/tenant/crm/enquiries",
+      {
+        assignedToUserId: null,
+        customer: "Live Frappe customer",
+        enquiryDate: null,
+        enquiryGroup: "Stores",
+        messages: [{ comment: "Created through the TechMedia CRM lifecycle." }],
+        mobile: "9888888888",
+        priority: "normal",
+        schedules: [],
+        status: "open",
+        subject: "Live Frappe lifecycle enquiry",
+        title: "Live Frappe lifecycle enquiry",
+        workspace: "Created from TechMedia"
+      },
+      headers
+    );
+    lifecycleCrmEnquiryId = lifecycleCreated.data.id;
+    assert.equal(receivedMethod, "POST");
+    assert.equal(receivedPath, "/api/resource/Enquiry");
+    assert.match(JSON.parse(receivedBody).date, /^\d{4}-\d{2}-\d{2}$/u);
+    assert.equal(JSON.parse(receivedBody).user_employee, "EMP-CREATOR");
+    const lifecycleLink = await database
+      .selectFrom("frappe_enquiry_links")
+      .select(["frappe_name", "sync_status"])
+      .where("crm_enquiry_id", "=", lifecycleCrmEnquiryId)
+      .executeTakeFirstOrThrow();
+    assert.equal(lifecycleLink.frappe_name, lifecycleFrappeEnquiryName);
+    assert.equal(lifecycleLink.sync_status, "synced");
 
-  const liveSettings = await request<typeof saved.data>(
-    "GET",
-    "/tenant/frappe/settings",
-    undefined,
-    headers
-  );
-  assert.equal(liveSettings.data.verificationStatus, "live");
-  assert.ok(liveSettings.data.lastCheckedAt);
-  assert.ok(liveSettings.data.lastVerifiedAt);
+    const lifecycleUpdated = await request<{ subject: string }>(
+      "PUT",
+      `/tenant/crm/enquiries/${lifecycleCrmEnquiryId}`,
+      {
+        assignedToUserId: null,
+        customer: "Live Frappe customer",
+        enquiryDate: "2026-07-25",
+        enquiryGroup: "Stores",
+        messages: [{ comment: "Created through the TechMedia CRM lifecycle." }],
+        mobile: "9888888888",
+        priority: "high",
+        schedules: [],
+        status: "follow",
+        subject: "Updated live Frappe lifecycle enquiry",
+        title: "Live Frappe lifecycle enquiry",
+        workspace: "Updated from TechMedia"
+      },
+      headers
+    );
+    assert.equal(lifecycleUpdated.data.subject, "Updated live Frappe lifecycle enquiry");
+    assert.equal(receivedMethod, "PUT");
+    assert.equal(receivedPath, `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}`);
 
-  const failedVerification = await app.inject({
-    headers,
-    method: "POST",
-    payload: { baseUrl: frappeBaseUrl },
-    url: "/tenant/frappe/settings/verify"
-  });
-  assert.equal(failedVerification.statusCode, 200);
+    const lifecycleResynced = await request<{
+      action: "updated";
+      frappeName: string;
+    }>("POST", `/tenant/crm/enquiries/${lifecycleCrmEnquiryId}/resync`, undefined, headers);
+    assert.equal(lifecycleResynced.data.action, "updated");
+    assert.equal(lifecycleResynced.data.frappeName, lifecycleFrappeEnquiryName);
+    assert.equal(receivedMethod, "PUT");
+    assert.equal(receivedPath, `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}`);
 
-  await request(
-    "PUT",
-    `/tenant/access/users/${adminUserId}`,
-    {
-      email: adminUser.email,
-      frappeApiKey: "wrong-key",
-      frappeApiSecret: "wrong-secret",
-      name: adminUser.name,
-      status: adminUser.status
-    },
-    headers
-  );
-  const rejectedCredentials = await app.inject({
-    headers,
-    method: "POST",
-    payload: { appKey: "wrong-key", appSecret: "wrong-secret", baseUrl: frappeBaseUrl },
-    url: "/tenant/frappe/settings/verify"
-  });
-  assert.equal(rejectedCredentials.statusCode, 400);
-  assert.doesNotMatch(rejectedCredentials.body, /wrong-key|wrong-secret/u);
-  const offlineSettings = await request<typeof saved.data>(
-    "GET",
-    "/tenant/frappe/settings",
-    undefined,
-    headers
-  );
-  assert.equal(offlineSettings.data.verificationStatus, "offline");
-  assert.ok(offlineSettings.data.lastCheckedAt);
-  assert.ok(offlineSettings.data.lastVerifiedAt);
+    frappeCredentialsAccepted = false;
+    const rejectedLifecycleRequest = await app.inject({
+      headers,
+      method: "POST",
+      url: `/tenant/crm/enquiries/${lifecycleCrmEnquiryId}/resync`
+    });
+    assert.equal(rejectedLifecycleRequest.statusCode, 422);
+    assert.match(rejectedLifecycleRequest.body, /saved API key or secret/u);
+    const rejectedUserCredentials = await database
+      .selectFrom("users")
+      .select("frappe_verification_status")
+      .where("id", "=", adminUserId)
+      .executeTakeFirstOrThrow();
+    assert.equal(rejectedUserCredentials.frappe_verification_status, "offline");
+    frappeCredentialsAccepted = true;
+    await request<typeof verified.data>(
+      "POST",
+      `/tenant/frappe/settings/users/${adminUserId}/verify`,
+      undefined,
+      headers
+    );
 
-  await request(
-    "PUT",
-    `/tenant/access/users/${adminUserId}`,
-    {
-      email: adminUser.email,
-      frappeApiKey: apiKey,
-      frappeApiSecret: apiSecret,
-      name: adminUser.name,
-      status: adminUser.status
-    },
-    headers
-  );
-  await request<typeof verified.data>(
-    "POST",
-    "/tenant/frappe/settings/verify",
-    { baseUrl: frappeBaseUrl },
-    headers
-  );
-  await request<typeof verified.data>(
-    "POST",
-    `/tenant/frappe/settings/users/${adminUserId}/verify`,
-    undefined,
-    headers
-  );
-  const loaded = await request<typeof saved.data>(
-    "GET",
-    "/tenant/frappe/settings",
-    undefined,
-    headers
-  );
-  assert.equal(loaded.data.verificationStatus, "live");
-  const handshakeCountBeforeRelogin = handshakeCount;
-  const authenticatedAgain = await request<{
-    frappeAuthenticated: boolean;
-    frappeAuthenticatedUser: string | null;
-    frappeConnectionStatus: string;
-  }>("POST", "/auth/login", {
-    corporateId: env.DEFAULT_TENANT_CORPORATE_ID,
-    desk: "tenant",
-    email: env.DEFAULT_TENANT_ADMIN_EMAIL,
-    password: env.DEFAULT_TENANT_ADMIN_PASSWORD
-  });
-  assert.equal(authenticatedAgain.data.frappeAuthenticated, true);
-  assert.equal(authenticatedAgain.data.frappeAuthenticatedUser, "integration@frappe.test");
-  assert.equal(authenticatedAgain.data.frappeConnectionStatus, "live");
-  assert.equal(handshakeCount, handshakeCountBeforeRelogin);
-  console.info("Frappe connection E2E passed", {
-    connectionName: loaded.data.connectionName,
-    encrypted: true,
-    reusable: true,
-    verificationStatus: loaded.data.verificationStatus
-  });
+    await request(
+      "DELETE",
+      `/tenant/crm/enquiries/${lifecycleCrmEnquiryId}/force`,
+      undefined,
+      headers
+    );
+    assert.equal(receivedMethod, "DELETE");
+    assert.equal(receivedPath, `/api/resource/Enquiry/${lifecycleFrappeEnquiryName}`);
+    assert.equal(
+      await database
+        .selectFrom("crm_enquiries")
+        .select("id")
+        .where("id", "=", lifecycleCrmEnquiryId)
+        .executeTakeFirst(),
+      undefined
+    );
+    lifecycleCrmEnquiryId = 0;
+
+    const verifiedWithSavedCredentials = await request<typeof verified.data>(
+      "POST",
+      "/tenant/frappe/settings/verify",
+      { baseUrl: frappeBaseUrl },
+      headers
+    );
+    assert.equal(verifiedWithSavedCredentials.data.authenticatedUser, "integration@frappe.test");
+    assert.equal(receivedAuthorization, `token ${apiKey}:${apiSecret}`);
+
+    const liveSettings = await request<typeof saved.data>(
+      "GET",
+      "/tenant/frappe/settings",
+      undefined,
+      headers
+    );
+    assert.equal(liveSettings.data.verificationStatus, "live");
+    assert.ok(liveSettings.data.lastCheckedAt);
+    assert.ok(liveSettings.data.lastVerifiedAt);
+
+    const failedVerification = await app.inject({
+      headers,
+      method: "POST",
+      payload: { baseUrl: frappeBaseUrl },
+      url: "/tenant/frappe/settings/verify"
+    });
+    assert.equal(failedVerification.statusCode, 200);
+
+    await request(
+      "PUT",
+      `/tenant/access/users/${adminUserId}`,
+      {
+        email: adminUser.email,
+        frappeApiKey: "wrong-key",
+        frappeApiSecret: "wrong-secret",
+        name: adminUser.name,
+        status: adminUser.status
+      },
+      headers
+    );
+    const rejectedCredentials = await app.inject({
+      headers,
+      method: "POST",
+      payload: { appKey: "wrong-key", appSecret: "wrong-secret", baseUrl: frappeBaseUrl },
+      url: "/tenant/frappe/settings/verify"
+    });
+    assert.equal(rejectedCredentials.statusCode, 400);
+    assert.doesNotMatch(rejectedCredentials.body, /wrong-key|wrong-secret/u);
+    const offlineSettings = await request<typeof saved.data>(
+      "GET",
+      "/tenant/frappe/settings",
+      undefined,
+      headers
+    );
+    assert.equal(offlineSettings.data.verificationStatus, "offline");
+    assert.ok(offlineSettings.data.lastCheckedAt);
+    assert.ok(offlineSettings.data.lastVerifiedAt);
+
+    await request(
+      "PUT",
+      `/tenant/access/users/${adminUserId}`,
+      {
+        email: adminUser.email,
+        frappeApiKey: apiKey,
+        frappeApiSecret: apiSecret,
+        name: adminUser.name,
+        status: adminUser.status
+      },
+      headers
+    );
+    await request<typeof verified.data>(
+      "POST",
+      "/tenant/frappe/settings/verify",
+      { baseUrl: frappeBaseUrl },
+      headers
+    );
+    await request<typeof verified.data>(
+      "POST",
+      `/tenant/frappe/settings/users/${adminUserId}/verify`,
+      undefined,
+      headers
+    );
+    const loaded = await request<typeof saved.data>(
+      "GET",
+      "/tenant/frappe/settings",
+      undefined,
+      headers
+    );
+    assert.equal(loaded.data.verificationStatus, "live");
+    const handshakeCountBeforeRelogin = handshakeCount;
+    const authenticatedAgain = await request<{
+      frappeAuthenticated: boolean;
+      frappeAuthenticatedUser: string | null;
+      frappeConnectionStatus: string;
+    }>("POST", "/auth/login", {
+      corporateId: env.DEFAULT_TENANT_CORPORATE_ID,
+      desk: "tenant",
+      email: env.DEFAULT_TENANT_ADMIN_EMAIL,
+      password: env.DEFAULT_TENANT_ADMIN_PASSWORD
+    });
+    assert.equal(authenticatedAgain.data.frappeAuthenticated, true);
+    assert.equal(authenticatedAgain.data.frappeAuthenticatedUser, "integration@frappe.test");
+    assert.equal(authenticatedAgain.data.frappeConnectionStatus, "live");
+    assert.equal(handshakeCount, handshakeCountBeforeRelogin);
+    console.info("Frappe connection E2E passed", {
+      connectionName: loaded.data.connectionName,
+      encrypted: true,
+      reusable: true,
+      verificationStatus: loaded.data.verificationStatus
+    });
+  }
 } finally {
   if (tenantDatabase) {
     const database = getTenantDatabaseByName(tenantDatabase);

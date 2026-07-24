@@ -105,6 +105,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       {
         authenticated: true,
         email: payload.email,
+        frappeEmployeeCode: payload.frappeEmployeeCode,
+        frappeUser: payload.frappeUser,
         expiresAt: new Date(payload.exp * 1000).toISOString(),
         name: payload.name,
         sessionIssuedAt: payload.sessionIssuedAt,

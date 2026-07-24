@@ -128,3 +128,11 @@ Each tenant should have a planned backup and restore strategy:
   transient network and business-validation failures do not discard a valid verification.
 - Support access must be audited.
 - Cross-tenant admin actions need elevated permission and logging.
+
+Super Admin tenant-user management uses the guarded `/admin/tenants/options` lookup and requires an
+explicit tenant selection. The server resolves that tenant's configured database; clients never
+submit a tenant database name or connection credentials. User create, update, suspend, restore, and
+force-delete operations reuse the `platform.tenant-user` owner and write the selected tenant ID and
+Super Admin actor to Platform activity. The Super Admin upsert does not return, display, or overwrite
+stored Frappe API secrets; integration credentials remain available only through the tenant-owned
+verified connection flow.

@@ -6,6 +6,7 @@ export {
   frappeEnquiryLifecycleContract,
   frappeUserAuthenticationContract
 } from "./frappe.service.js";
+export { frappeLiveEnquiryGatewayContract } from "./frappe.enquiry-gateway.js";
 export type {
   FrappeConnectionCredentials,
   FrappeConnectionSavePayload,
@@ -17,6 +18,8 @@ export type {
   FrappeEnquiryLifecycleFactory,
   FrappeEnquiryLifecycleResult,
   FrappeEnquiryResyncResult,
+  FrappeLiveEnquiryGateway,
+  FrappeLiveEnquiryGatewayFactory,
   FrappeSyncResult,
   FrappeSyncSettings,
   FrappeSyncSettingsSavePayload,

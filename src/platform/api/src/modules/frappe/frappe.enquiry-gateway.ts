@@ -1,0 +1,471 @@
+import { AppError } from "@codexsun/framework/errors";
+import { frappeConnectionContract, frappeRequest } from "./frappe.service.js";
+import type {
+  FrappeConnectionCredentials,
+  FrappeLiveEmployee,
+  FrappeLiveEnquiry,
+  FrappeLiveEnquiryActivity,
+  FrappeLiveEnquiryGatewayFactory,
+  FrappeLiveEnquirySavePayload
+} from "./frappe.types.js";
+
+const enquiryFields = [
+  "name",
+  "mobile",
+  "customer",
+  "enquiry_details",
+  "group",
+  "user_employee",
+  "date",
+  "assigned_to_employee",
+  "status",
+  "status_details",
+  "creation",
+  "modified"
+];
+
+export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory = (context) => {
+  async function connection() {
+    const value = await frappeConnectionContract({
+      database: context.database,
+      userId: context.userId
+    }).get();
+    if (!value?.enabled) {
+      throw AppError.conflict("Enable the Frappe connection before opening CRM.");
+    }
+    if (!value.authenticatedUser) {
+      throw AppError.conflict(
+        "This user's Frappe API credentials must be verified once before opening CRM."
+      );
+    }
+    return value;
+  }
+
+  function employee() {
+    const value = context.employee?.trim();
+    if (!value) {
+      throw AppError.conflict(
+        "The signed-in Frappe user must be linked to an Employee before using CRM."
+      );
+    }
+    return value;
+  }
+
+  return {
+    async list(input) {
+      const target = await connection();
+      const filters: unknown[] = [];
+      if (input.view === "assigned") filters.push(["assigned_to_employee", "=", input.employee]);
+      if (input.view === "created") filters.push(["user_employee", "=", input.employee]);
+      if (input.view === "open") {
+        filters.push(["assigned_to_employee", "is", "not set"]);
+        filters.push(["status", "not in", ["Won", "Lost"]]);
+      }
+      if (input.search?.trim()) {
+        filters.push(["name", "like", `%${input.search.trim()}%`]);
+      }
+      const query = new URLSearchParams({
+        fields: JSON.stringify(enquiryFields),
+        filters: JSON.stringify(filters),
+        limit_page_length: "500",
+        order_by: "creation desc"
+      });
+      const response = await frappeRequest<{ data?: FrappeEnquiryDocument[] }>(
+        target,
+        `/api/resource/Enquiry?${query}`
+      );
+      return (response.data ?? []).map((document) => toEnquiry(document));
+    },
+
+    async get(name) {
+      return hydrate(await connection(), requiredName(name));
+    },
+
+    async create(input) {
+      const target = await connection();
+      const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
+        target,
+        "/api/resource/Enquiry",
+        { body: JSON.stringify(toPayload(input, employee(), true)), method: "POST" }
+      );
+      if (!response.data?.name) throw AppError.conflict("Frappe did not return the new enquiry.");
+      return hydrate(target, response.data.name, response.data);
+    },
+
+    async update(name, input) {
+      const target = await connection();
+      const enquiryName = requiredName(name);
+      const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
+        target,
+        `/api/resource/Enquiry/${encodeURIComponent(enquiryName)}`,
+        { body: JSON.stringify(toPayload(input, employee(), false)), method: "PUT" }
+      );
+      return hydrate(target, enquiryName, response.data);
+    },
+
+    async updateMessages(name, messages) {
+      const target = await connection();
+      const enquiryName = requiredName(name);
+      const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
+        target,
+        `/api/resource/Enquiry/${encodeURIComponent(enquiryName)}`,
+        {
+          body: JSON.stringify({
+            enquiry_messages: messages.map(({ comment, name: childName }) => ({
+              comment: plainMessage(comment),
+              ...(childName ? { name: childName } : {})
+            }))
+          }),
+          method: "PUT"
+        }
+      );
+      return hydrate(target, enquiryName, response.data);
+    },
+
+    async delete(name) {
+      const target = await connection();
+      await frappeRequest(
+        target,
+        `/api/resource/Enquiry/${encodeURIComponent(requiredName(name))}`,
+        { method: "DELETE" }
+      );
+    },
+
+    async employees() {
+      const target = await connection();
+      const query = new URLSearchParams({
+        fields: JSON.stringify(["name", "employee_name", "user_id"]),
+        filters: JSON.stringify([["status", "=", "Active"]]),
+        limit_page_length: "500",
+        order_by: "employee_name asc"
+      });
+      const response = await frappeRequest<{ data?: FrappeEmployeeDocument[] }>(
+        target,
+        `/api/resource/Employee?${query}`
+      );
+      return (response.data ?? []).map(toEmployee).filter(Boolean) as FrappeLiveEmployee[];
+    }
+  };
+};
+
+async function hydrate(
+  connection: FrappeConnectionCredentials,
+  name: string,
+  summary?: FrappeEnquiryDocument
+) {
+  const document =
+    summary?.enquiry_messages !== undefined
+      ? summary
+      : (
+          await frappeRequest<{ data?: FrappeEnquiryDocument }>(
+            connection,
+            `/api/resource/Enquiry/${encodeURIComponent(requiredName(name))}`
+          )
+        ).data;
+  if (!document) throw AppError.notFound("Enquiry was not found in Frappe.");
+  const query = new URLSearchParams({ doctype: "Enquiry", name: requiredName(name) });
+  const timeline = await frappeRequest<FrappeDocInfoResponse>(
+    connection,
+    `/api/method/frappe.desk.form.load.get_docinfo?${query}`
+  );
+  return toEnquiry(document, timeline.docinfo);
+}
+
+function toPayload(
+  input: FrappeLiveEnquirySavePayload,
+  userEmployee: string,
+  includeMessages: boolean
+) {
+  return {
+    assigned_to_employee: input.assignedToEmployee || null,
+    customer: input.customer || null,
+    date: input.enquiryDate,
+    enquiry_details: input.enquiryMessage,
+    ...(includeMessages
+      ? {
+          enquiry_messages: input.messages.map(({ comment }) => ({
+            comment: plainMessage(comment)
+          }))
+        }
+      : {}),
+    group: input.enquiryGroup || null,
+    mobile: input.mobile,
+    status: toFrappeStatus(input.status),
+    status_details: input.subject || input.statusDetails,
+    user_employee: userEmployee
+  };
+}
+
+function toEnquiry(
+  document: FrappeEnquiryDocument,
+  docinfo?: FrappeDocumentInfo
+): FrappeLiveEnquiry {
+  return {
+    activities: toActivities(document, docinfo),
+    assignedToEmployee: document.assigned_to_employee?.trim() || null,
+    createdAt: timestamp(document.creation),
+    customer: document.customer?.trim() ?? "",
+    enquiryDate: document.date?.slice(0, 10) ?? null,
+    enquiryGroup: document.group?.trim() ?? "",
+    enquiryMessage: document.enquiry_details?.trim() ?? "",
+    messages: (document.enquiry_messages ?? []).map((message, index) => ({
+      comment: plainMessage(message.comment ?? ""),
+      createdAt: message.creation ? timestamp(message.creation) : null,
+      createdBy: message.owner?.trim() || null,
+      name: message.name?.trim() || `${document.name}-message-${index + 1}`
+    })),
+    mobile: document.mobile?.trim() ?? "",
+    modifiedAt: timestamp(document.modified ?? document.creation),
+    name: document.name,
+    status: document.status?.trim() || "Open",
+    statusDetails: document.status_details?.trim() ?? "",
+    subject: document.subject?.trim() || document.status_details?.trim() || "",
+    userEmployee: document.user_employee?.trim() ?? ""
+  };
+}
+
+function toActivities(
+  document: FrappeEnquiryDocument,
+  docinfo?: FrappeDocumentInfo
+): FrappeLiveEnquiryActivity[] {
+  if (!docinfo) return [];
+  const activities = [
+    ...(docinfo.versions ?? []).flatMap((version) => versionActivities(version, docinfo)),
+    ...(docinfo.views ?? []).map((view) => {
+      const actor = actorName(view.owner, docinfo);
+      return activity("viewed", view.name, view.creation, actor, `${actor} viewed this`);
+    }),
+    ...(docinfo.info_logs ?? []).map((entry) => {
+      const actor = actorName(entry.owner, docinfo);
+      const details = plainMessage(entry.content ?? "") || `${actor} last edited this`;
+      return activity("edited", entry.name, entry.creation, actor, details);
+    })
+  ];
+  if (
+    !(docinfo.info_logs ?? []).length &&
+    document.modified &&
+    document.modified !== document.creation
+  ) {
+    const actor = actorName(document.modified_by, docinfo);
+    activities.push(
+      activity(
+        "edited",
+        `${document.name}-modified`,
+        document.modified,
+        actor,
+        `${actor} last edited this`
+      )
+    );
+  }
+  return activities.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+function versionActivities(
+  version: FrappeVersionDocument,
+  docinfo: FrappeDocumentInfo
+): FrappeLiveEnquiryActivity[] {
+  const data = parseVersionData(version.data);
+  const actor = actorName(version.owner, docinfo);
+  const output: FrappeLiveEnquiryActivity[] = [];
+  for (const [field, before, after] of data.changed ?? []) {
+    const change = `${fieldLabel(field)} from ${displayValue(before)} to ${displayValue(after)}`;
+    output.push(
+      activity(
+        "changed",
+        `${version.name}-changed-${output.length}`,
+        version.creation,
+        actor,
+        `${actor} changed the value of ${change}`
+      )
+    );
+  }
+  for (const row of data.row_changed ?? []) {
+    const rowNumber = Number(row[1]) + 1;
+    for (const [field, before, after] of row[3] ?? []) {
+      const change = `${fieldLabel(field)} from ${displayValue(before)} to ${displayValue(after)} in row #${rowNumber}`;
+      output.push(
+        activity(
+          "changed",
+          `${version.name}-row-${output.length}`,
+          version.creation,
+          actor,
+          `${actor} changed the values for ${change}`
+        )
+      );
+    }
+  }
+  for (const key of ["added", "removed"] as const) {
+    const counts = new Map<string, number>();
+    for (const [field] of data[key] ?? []) counts.set(field, (counts.get(field) ?? 0) + 1);
+    for (const [field, count] of counts) {
+      const direction = key === "added" ? "to" : "from";
+      const noun = count === 1 ? "row" : "rows";
+      output.push(
+        activity(
+          key,
+          `${version.name}-${key}-${output.length}`,
+          version.creation,
+          actor,
+          `${actor} ${key} ${count} ${noun} ${direction} ${fieldLabel(field)}`
+        )
+      );
+    }
+  }
+  return output;
+}
+
+function activity(
+  action: FrappeLiveEnquiryActivity["action"],
+  name: string | undefined,
+  createdAt: string | undefined,
+  createdBy: string,
+  details: string
+): FrappeLiveEnquiryActivity {
+  return {
+    action,
+    createdAt: timestamp(createdAt),
+    createdBy,
+    details,
+    name: name?.trim() || `${action}-${createdAt ?? "unknown"}`
+  };
+}
+
+function actorName(owner: string | undefined, docinfo: FrappeDocumentInfo) {
+  const key = owner?.trim() || "Frappe";
+  return docinfo.user_info?.[key]?.fullname?.trim() || key;
+}
+
+function fieldLabel(field: string) {
+  if (field === "enquiry_messages") return "Messages";
+  return field.replace(/_/gu, " ").replace(/\b\w/gu, (character) => character.toUpperCase());
+}
+
+function displayValue(value: unknown) {
+  const text = plainMessage(String(value ?? "")) || '""';
+  return text.length > 40 ? `${text.slice(0, 37)}...` : text;
+}
+
+function parseVersionData(value?: string): FrappeVersionData {
+  if (!value) return {};
+  try {
+    return JSON.parse(value) as FrappeVersionData;
+  } catch {
+    return {};
+  }
+}
+
+function toEmployee(value: FrappeEmployeeDocument): FrappeLiveEmployee | null {
+  const name = value.name?.trim();
+  if (!name) return null;
+  return {
+    email: value.user_id?.trim() ?? "",
+    name,
+    title: value.employee_name?.trim() || name
+  };
+}
+
+function requiredName(value: string) {
+  const name = value.trim();
+  if (!name) throw AppError.validation("Frappe enquiry name is required.");
+  return name;
+}
+
+function timestamp(value?: string) {
+  if (!value) return new Date(0).toISOString();
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  const date = new Date(normalized.endsWith("Z") ? normalized : `${normalized}Z`);
+  return Number.isNaN(date.valueOf()) ? new Date(0).toISOString() : date.toISOString();
+}
+
+function toFrappeStatus(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "won") return "Won";
+  if (normalized === "lost") return "Lost";
+  if (normalized === "follow") return "Follow";
+  if (normalized === "escalation") return "Escalation";
+  return "Open";
+}
+
+function plainMessage(value: string) {
+  return value
+    .replace(/\r/gu, "")
+    .replace(/<br\s*\/?\s*>/giu, "\n")
+    .replace(/<li(?:\s[^>]*)?>/giu, "- ")
+    .replace(/<\/(?:blockquote|div|h[1-6]|li|p)\s*>/giu, "\n")
+    .replace(/<[^>]*>/gu, "")
+    .replace(/&nbsp;/giu, " ")
+    .replace(/&amp;/giu, "&")
+    .replace(/&lt;/giu, "<")
+    .replace(/&gt;/giu, ">")
+    .replace(/&quot;/giu, '"')
+    .replace(/&#39;|&apos;/giu, "'")
+    .replace(/[ \t]+\n/gu, "\n")
+    .replace(/\n[ \t]+/gu, "\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
+type FrappeEmployeeDocument = {
+  employee_name?: string;
+  name?: string;
+  user_id?: string;
+};
+
+type FrappeEnquiryDocument = {
+  assigned_to_employee?: string;
+  creation?: string;
+  customer?: string;
+  date?: string;
+  enquiry_details?: string;
+  enquiry_messages?: Array<{
+    comment?: string;
+    creation?: string;
+    name?: string;
+    owner?: string;
+  }>;
+  group?: string;
+  mobile?: string;
+  modified?: string;
+  modified_by?: string;
+  name: string;
+  status?: string;
+  status_details?: string;
+  subject?: string;
+  user_employee?: string;
+};
+
+type FrappeDocInfoResponse = { docinfo?: FrappeDocumentInfo };
+
+type FrappeDocumentInfo = {
+  info_logs?: FrappeInfoLogDocument[];
+  user_info?: Record<string, { fullname?: string }>;
+  versions?: FrappeVersionDocument[];
+  views?: FrappeViewDocument[];
+};
+
+type FrappeInfoLogDocument = {
+  content?: string;
+  creation?: string;
+  name?: string;
+  owner?: string;
+};
+
+type FrappeVersionDocument = {
+  creation?: string;
+  data?: string;
+  name?: string;
+  owner?: string;
+};
+
+type FrappeViewDocument = {
+  creation?: string;
+  name?: string;
+  owner?: string;
+};
+
+type FrappeVersionData = {
+  added?: Array<[string, unknown]>;
+  changed?: Array<[string, unknown, unknown]>;
+  removed?: Array<[string, unknown]>;
+  row_changed?: Array<[string, number, string, Array<[string, unknown, unknown]>]>;
+};

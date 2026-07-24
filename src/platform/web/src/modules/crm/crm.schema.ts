@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const crmEnquirySchema = z.object({
-  assignedToUserId: z.number().int().positive().nullable(),
+  assignedToUserId: z.string().trim().min(1).nullable(),
   customer: z.string().trim().max(220),
   enquiryDate: z.iso.date().nullable(),
   enquiryGroup: z.string().trim().max(80),

@@ -271,10 +271,27 @@ type AppPage =
   | `core.common.${"accounts" | "contacts" | "others" | "products" | "workorder"}.${string}`;
 const COMPANY_CONTEXT_STORAGE_KEY = "codexsun.tenant.company-id";
 const ACCOUNTING_YEAR_CONTEXT_STORAGE_KEY = "codexsun.tenant.financial-year-id";
+const tenantAdminCrmPermissions = [
+  "crm.enquiry.assigned.view",
+  "crm.enquiry.created.view",
+  "crm.enquiry.open.view",
+  "crm.enquiry.create",
+  "crm.enquiry.update",
+  "crm.enquiry.assign",
+  "crm.enquiry.suspend",
+  "crm.enquiry.force-delete"
+] as const;
 
 export function AppDesk() {
   const queryClient = useQueryClient();
-  const signedInUser = signedInTenantUser();
+  const identity = signedInTenantUser();
+  const signedInUser =
+    identity.tenantRole === "admin"
+      ? {
+          ...identity,
+          permissions: [...new Set([...identity.permissions, ...tenantAdminCrmPermissions])]
+        }
+      : identity;
   const canViewCoreRecords = signedInUser.permissions.includes("core.application.records.view");
   const [page, setPage] = useState<AppPage>(() => pageFromUrl(null));
   const [shouldResolveLandingPath, setShouldResolveLandingPath] = useState(() => isAppRootPath());
@@ -560,7 +577,9 @@ export function AppDesk() {
           ) : null}
           {safePage === "application.profile" ? <ApplicationProfile /> : null}
           {safePage === "application.settings" ? <ApplicationSettings /> : null}
-          {safePage === "application.access.users" ? <TenantUserWorkspace /> : null}
+          {safePage === "application.access.users" ? (
+            <TenantUserWorkspace actorEmail={signedInUser.email} />
+          ) : null}
           {safePage === "application.access.roles" ? <TenantRoleWorkspace /> : null}
           {safePage === "application.access.permissions" ? <TenantPermissionWorkspace /> : null}
           {safePage === "application.access.user-roles" ? <TenantUserRoleWorkspace /> : null}

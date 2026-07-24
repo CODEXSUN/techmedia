@@ -7,6 +7,7 @@ import { WorkspaceTable } from "@codexsun/ui/workspace/table";
 import type { TenantUser } from "./tenant-user.types";
 
 export function TenantUserList({
+  actorEmail,
   loading,
   onEdit,
   onForceDelete,
@@ -14,6 +15,7 @@ export function TenantUserList({
   onSuspend,
   records
 }: {
+  actorEmail: string;
   loading: boolean;
   onEdit: (record: TenantUser) => void;
   onForceDelete: (record: TenantUser) => void;
@@ -30,10 +32,17 @@ export function TenantUserList({
     },
     {
       accessorKey: "name",
-      cell: ({ row }) => <RecordName record={row.original} onEdit={onEdit} />,
+      cell: ({ row }) => (
+        <RecordName actorEmail={actorEmail} record={row.original} onEdit={onEdit} />
+      ),
       header: "User"
     },
     { accessorKey: "email", header: "Email" },
+    {
+      accessorKey: "frappeEmployeeCode",
+      cell: ({ row }) => row.original.frappeEmployeeCode || "—",
+      header: "Employee"
+    },
     {
       cell: ({ row }) => (
         <WorkspaceStatusBadge
@@ -76,6 +85,7 @@ export function TenantUserList({
     {
       cell: ({ row }) => (
         <Actions
+          actorEmail={actorEmail}
           record={row.original}
           onEdit={onEdit}
           onForceDelete={onForceDelete}
@@ -95,18 +105,22 @@ export function TenantUserList({
       data={records}
       emptyState="No users found."
       isLoading={loading}
-      minWidth="760px"
+      minWidth="860px"
     />
   );
 }
 function RecordName({
+  actorEmail,
   onEdit,
   record
 }: {
+  actorEmail: string;
   onEdit: (record: TenantUser) => void;
   record: TenantUser;
 }) {
-  return (
+  return record.isProtected && record.email.toLowerCase() !== actorEmail.toLowerCase() ? (
+    <span className="font-medium">{record.name}</span>
+  ) : (
     <button
       className="cursor-pointer font-medium text-foreground hover:underline"
       onClick={() => onEdit(record)}
@@ -117,12 +131,14 @@ function RecordName({
   );
 }
 function Actions({
+  actorEmail,
   onEdit,
   onForceDelete,
   onRestore,
   onSuspend,
   record
 }: {
+  actorEmail: string;
   onEdit: (record: TenantUser) => void;
   onForceDelete: (record: TenantUser) => void;
   onRestore: (record: TenantUser) => void;
@@ -135,8 +151,10 @@ function Actions({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      {record.isProtected ? (
+      {record.isProtected && record.email.toLowerCase() !== actorEmail.toLowerCase() ? (
         <WorkspaceProtectedIndicator label="Protected user" />
+      ) : record.isProtected ? (
+        <WorkspaceRowActions onEdit={() => onEdit(record)} title={record.name} />
       ) : (
         <WorkspaceRowActions
           actions={[

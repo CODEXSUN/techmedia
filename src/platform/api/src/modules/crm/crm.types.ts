@@ -7,7 +7,7 @@ export type CrmEnquiryLifecycleStatus = "active" | "suspended";
 export type CrmEnquiryView = "assigned" | "created" | "open";
 
 export type CrmEnquirySchedule = {
-  id: number;
+  id: string;
   scheduledOn: string;
 };
 
@@ -19,9 +19,14 @@ export type CrmStoredEnquiryMessage = {
   messageType: "comment" | "reply";
 };
 
-export type CrmEnquiryMessage = CrmStoredEnquiryMessage & {
+export type CrmEnquiryMessage = {
   canDelete: boolean;
   canEdit: boolean;
+  comment: string;
+  createdAt: string;
+  createdByUserId: string | null;
+  id: string;
+  messageType: "comment" | "reply";
 };
 
 export type CrmEnquiryEmail = {
@@ -82,7 +87,7 @@ export type CrmEnquiryActivity = {
 
 export type CrmUserReference = {
   email: string;
-  id: number;
+  id: string;
   name: string;
   uuid: string;
 };
@@ -90,17 +95,18 @@ export type CrmUserReference = {
 export type CrmEnquiry = {
   activities: CrmEnquiryActivity[];
   assignedTo: CrmUserReference | null;
-  assignedToUserId: number | null;
+  assignedToUserId: string | null;
   attachments: CrmEnquiryAttachment[];
   calls: CrmEnquiryCall[];
   createdAt: string;
   createdBy: CrmUserReference;
-  createdByUserId: number;
+  createdByUserId: string;
   customer: string;
   enquiryDate: string | null;
   enquiryGroup: string;
   emails: CrmEnquiryEmail[];
   id: number;
+  frappeName: string;
   lifecycleStatus: CrmEnquiryLifecycleStatus;
   messages: CrmEnquiryMessage[];
   mobile: string;
@@ -151,7 +157,7 @@ export type CrmEnquiryAttachmentCreatePayload = {
 };
 
 export type CrmEnquirySavePayload = {
-  assignedToUserId: number | null;
+  assignedToUserId: string | null;
   customer: string;
   enquiryDate: string | null;
   enquiryGroup: string;
@@ -165,12 +171,13 @@ export type CrmEnquirySavePayload = {
   workspace: string;
 };
 
-export type CrmEnquirySyncInput = CrmEnquirySavePayload & {
+export type CrmEnquirySyncInput = Omit<CrmEnquirySavePayload, "assignedToUserId"> & {
+  assignedToUserId: number | null;
   createdByUserId: number;
 };
 
 export type CrmEnquiryListFilters = {
-  enquiryId?: number;
+  enquiryId?: string;
   search?: string;
   view: CrmEnquiryView;
 };
@@ -217,5 +224,6 @@ export type CrmContext = {
   authorize: (permission: string) => Promise<void>;
   can: (permission: string) => Promise<boolean>;
   database: Kysely<TenantDatabase>;
+  frappeEmployeeCode: string | null;
   tenantId: string;
 };

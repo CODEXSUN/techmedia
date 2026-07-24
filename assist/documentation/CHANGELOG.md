@@ -2,16 +2,46 @@
 
 ## Version State
 
-Current version: 1.0.6
+Current version: 1.0.7
 
-Release tag: v-1.0.6
+Release tag: v-1.0.7
 
-Changelog label: v 1.0.6
+Changelog label: v 1.0.7
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.7
+
+### [v 1.0.7] 2026-07-24 5:28 pm - Run CRM directly on live Frappe
+
+#### Database Changes
+
+- Database update: Yes.
+- Extended tenant-user persistence with encrypted per-user Frappe credentials, authenticated-user
+  identity, resolved Employee code, verification state, and verification timestamps.
+- Extended Frappe connection persistence with separate encrypted application credentials and a
+  compatible migration of the earlier administrator connection credentials.
+- Retained former CRM and Frappe-link tables as untouched transition archives; the live CRM runtime
+  no longer reads from or writes to them.
+
+#### App Codebase Changes
+
+- Cut CRM over to a live server-side Frappe gateway for enquiry list, get, create, update, delete,
+  assignment, schedules, and Enquiry Message child-row operations without pull/push synchronization.
+- Reused verified encrypted per-user API tokens and signed-session Employee mappings without
+  repeating connection verification on every CRM transaction.
+- Normalized Frappe rich-text headings and child messages to readable plain text at the integration
+  boundary while preserving existing child-row identities during updates.
+- Loaded enquiry activity directly from Frappe versions, view logs, and edit logs, including
+  Messages child-row additions, removals, and field changes without local activity persistence.
+- Refined CRM list, upsert, show, comments/replies, filters, columns, responsive layout, navigation,
+  permissions, protected-system-user editing, and Employee-code capture.
+- Added focused Frappe live-gateway and tenant-user administration E2E coverage and updated the
+  tenant-isolation and repository-inventory documentation.
+- Bumped repository version to 1.0.7.
 
 ## v-1.0.6
 

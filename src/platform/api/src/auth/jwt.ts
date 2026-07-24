@@ -11,6 +11,8 @@ export type AuthTokenPayload = {
   iss: "codexsun-platform-api";
   jti: string;
   name?: string;
+  frappeEmployeeCode?: string;
+  frappeUser?: string;
   sessionIssuedAt: string;
   tenantCode?: string;
   tenantDbName?: string;

@@ -27,6 +27,7 @@ import {
 } from "./crm.hooks";
 import { CrmList } from "./crm.list";
 import { CrmShow } from "./crm.show";
+import { getCrmEnquiry } from "./crm.services";
 import type {
   CrmEnquiry,
   CrmEnquiryColumnId,
@@ -37,7 +38,7 @@ import type {
 
 type PendingAction = {
   record: CrmEnquiry;
-  type: "force-delete" | "restore" | "suspend";
+  type: "force-delete";
 };
 
 const viewDetails: Record<CrmEnquiryView, { description: string; title: string }> = {
@@ -71,7 +72,6 @@ export function CrmWorkspace({
   canAssign,
   canCreate,
   canForceDelete,
-  canSuspend,
   canUpdate,
   view
 }: {
@@ -83,7 +83,7 @@ export function CrmWorkspace({
   view: CrmEnquiryView;
 }) {
   const [search, setSearch] = useState("");
-  const [enquiryId, setEnquiryId] = useState<number | undefined>();
+  const [enquiryId, setEnquiryId] = useState<string | undefined>();
   const [listInFilter, setListInFilter] = useState("all");
   const [visibleColumns, setVisibleColumns] =
     useState<CrmEnquiryColumnVisibility>(allEnquiryColumnsVisible);
@@ -132,6 +132,18 @@ export function CrmWorkspace({
       : undefined;
   const details = viewDetails[view];
 
+  async function loadRecord(record: CrmEnquiry, target: "edit" | "view") {
+    try {
+      const live = await getCrmEnquiry(record.frappeName);
+      if (target === "edit") setEditing(live);
+      else setViewing(live);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "The live Frappe enquiry could not be loaded."
+      );
+    }
+  }
+
   useEffect(() => setPage(1), [view, search, enquiryId, listInFilter]);
   useEffect(() => {
     if (!listInOptions.some((option) => option.id === listInFilter)) setListInFilter("all");
@@ -140,7 +152,7 @@ export function CrmWorkspace({
   async function save(value: CrmEnquirySavePayload) {
     try {
       const saved = editing
-        ? await mutations.update.mutateAsync({ id: editing.id, payload: value })
+        ? await mutations.update.mutateAsync({ id: editing.frappeName, payload: value })
         : await mutations.create.mutateAsync(value);
       toast.success(`Enquiry ${editing ? "updated" : "created"}`, {
         description: `#${saved.id} · ${saved.subject.trim() || saved.title}`
@@ -151,20 +163,10 @@ export function CrmWorkspace({
 
   async function act(action: PendingAction) {
     try {
-      const record =
-        action.type === "force-delete"
-          ? await mutations.forceDelete.mutateAsync(action.record)
-          : action.type === "restore"
-            ? await mutations.restore.mutateAsync(action.record)
-            : await mutations.suspend.mutateAsync(action.record);
-      toast.success(
-        action.type === "force-delete"
-          ? "Enquiry permanently deleted"
-          : action.type === "restore"
-            ? "Enquiry restored"
-            : "Enquiry suspended",
-        { description: `#${record.id} · ${record.subject.trim() || record.title}` }
-      );
+      const record = await mutations.forceDelete.mutateAsync(action.record);
+      toast.success("Enquiry permanently deleted", {
+        description: `#${record.id} · ${record.subject.trim() || record.title}`
+      });
       setPendingAction(null);
       if (viewing?.id === record.id) setViewing(null);
     } catch (error) {
@@ -172,27 +174,13 @@ export function CrmWorkspace({
     }
   }
 
-  async function resync(record: CrmEnquiry) {
-    try {
-      const result = await mutations.resync.mutateAsync(record);
-      toast.success("Enquiry synchronized with Frappe", {
-        description: `${result.frappeName} · ${result.action === "created" ? "Created" : "Updated"}`
-      });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The Frappe synchronization failed.");
-    }
-  }
-
   if (viewing) {
     return (
       <CrmShow
-        canResync={canUpdate}
         onBack={() => setViewing(null)}
-        {...(nextViewing ? { onNext: () => setViewing(nextViewing) } : {})}
+        {...(nextViewing ? { onNext: () => void loadRecord(nextViewing, "view") } : {})}
         onRecordChange={setViewing}
-        onResync={() => resync(viewing)}
         record={viewing}
-        resyncing={mutations.resync.isPending}
       />
     );
   }
@@ -258,7 +246,7 @@ export function CrmWorkspace({
               placeholder="Enquiry ID"
               showAllOptionsOnFocus
               value={enquiryId ? String(enquiryId) : ""}
-              onValueChange={(value) => setEnquiryId(value ? Number(value) : undefined)}
+              onValueChange={(value) => setEnquiryId(value || undefined)}
             />
           </div>
         }
@@ -269,14 +257,8 @@ export function CrmWorkspace({
               onForceDelete: (record) => setPendingAction({ record, type: "force-delete" as const })
             }
           : {})}
-        {...(canSuspend
-          ? {
-              onRestore: (record) => setPendingAction({ record, type: "restore" as const }),
-              onSuspend: (record) => setPendingAction({ record, type: "suspend" as const })
-            }
-          : {})}
-        {...(canUpdate ? { onSelect: setEditing } : {})}
-        onView={setViewing}
+        {...(canUpdate ? { onSelect: (record) => void loadRecord(record, "edit") } : {})}
+        onView={(record) => void loadRecord(record, "view")}
         records={visibleRecords}
         visibleColumns={{
           ...visibleColumns,
@@ -305,20 +287,14 @@ export function CrmWorkspace({
           : {})}
         loading={mutations.create.isPending || mutations.update.isPending}
         onCancel={() => setEditing(undefined)}
-        onResync={() => editing && resync(editing)}
         onSubmit={(value) => void save(value)}
         open={editing !== undefined}
         record={editing ?? null}
-        resyncing={mutations.resync.isPending}
         users={users.data ?? []}
       />
       <CrmActionDialog
         action={pendingAction}
-        loading={
-          mutations.forceDelete.isPending ||
-          mutations.restore.isPending ||
-          mutations.suspend.isPending
-        }
+        loading={mutations.forceDelete.isPending}
         onCancel={() => setPendingAction(null)}
         onConfirm={() => pendingAction && void act(pendingAction)}
       />
@@ -337,17 +313,15 @@ function CrmActionDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  const destructive = action?.type === "force-delete";
-  const verb = action?.type === "restore" ? "Restore" : destructive ? "Force delete" : "Suspend";
+  const destructive = true;
+  const verb = "Force delete";
   return (
     <AlertDialog open={action !== null} onOpenChange={(open) => !open && onCancel()}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{verb} enquiry?</AlertDialogTitle>
           <AlertDialogDescription>
-            {destructive
-              ? `Enquiry #${action?.record.id ?? ""} will be permanently removed, including its schedules and Frappe link.`
-              : `Enquiry #${action?.record.id ?? ""} will be ${action?.type === "restore" ? "restored" : "suspended"}.`}
+            {`Enquiry #${action?.record.id ?? ""} will be permanently removed from Frappe.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

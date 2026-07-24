@@ -3,3 +3,4 @@ export * from "./tenant-user.schema";
 export * from "./tenant-user.services";
 export * from "./tenant-user.types";
 export { TenantUserWorkspace } from "./tenant-user.workspace";
+export { TenantUserAdminWorkspace } from "./tenant-user.admin.workspace";

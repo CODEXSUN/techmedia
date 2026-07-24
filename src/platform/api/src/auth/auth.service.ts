@@ -42,11 +42,17 @@ export class AuthService {
     const permissions = await tenantRepository.findTenantUserPermissionKeys(tenant, user.id);
     const frappeAuthentication = tenant.enabledModuleKeys.includes("frappe")
       ? await frappeUserAuthenticationContract(getTenantDatabase(tenant)).statusForLogin(user.id)
-      : { authenticatedUser: null, status: "disabled" as const };
+      : { authenticatedUser: null, employeeCode: null, status: "disabled" as const };
 
     return {
       accessToken: signAuthToken({
         email: user.email,
+        ...(frappeAuthentication.employeeCode
+          ? { frappeEmployeeCode: frappeAuthentication.employeeCode }
+          : {}),
+        ...(frappeAuthentication.authenticatedUser
+          ? { frappeUser: frappeAuthentication.authenticatedUser }
+          : {}),
         name: user.name,
         tenantCode: tenant.tenantCode,
         tenantDbName: tenant.dbName,
@@ -60,6 +66,7 @@ export class AuthService {
       email: user.email,
       frappeAuthenticated: frappeAuthentication.status === "live",
       frappeAuthenticatedUser: frappeAuthentication.authenticatedUser,
+      frappeEmployeeCode: frappeAuthentication.employeeCode,
       frappeConnectionStatus: frappeAuthentication.status,
       name: user.name,
       tenantCode: tenant.tenantCode,

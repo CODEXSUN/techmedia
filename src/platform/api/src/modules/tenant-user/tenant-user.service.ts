@@ -16,6 +16,7 @@ import type {
   TenantUserSavePayload,
   TenantUserStatus
 } from "./tenant-user.types.js";
+import type { TenantSupportTarget } from "../tenant/index.js";
 import type { Kysely } from "kysely";
 import type { TenantDatabase } from "../../database/schema.js";
 
@@ -51,29 +52,32 @@ export class TenantUserService {
     await this.context.authorize("platform.application.user.update");
     const current = await this.required(id);
     const value = normalize(input, false);
-    if (
-      current.isProtected &&
-      (value.email !== current.email ||
-        value.name !== current.name ||
-        value.status !== current.status ||
-        Boolean(value.password))
-    ) {
-      throw AppError.forbidden("Protected user identity and lifecycle fields cannot be modified.");
+    if (current.isProtected) {
+      if (this.context.actorEmail.toLowerCase() !== current.email.toLowerCase()) {
+        throw AppError.forbidden("The protected system user can only edit its own account.");
+      }
+      if (value.name !== current.name || value.status !== current.status) {
+        throw AppError.forbidden("The protected system user's name and status cannot be modified.");
+      }
     }
     const currentCredentials = await this.repository.findFrappeCredentials(current.id);
     const credentials = await this.credentialsForSave(value, currentCredentials);
     let record = current;
-    if (!current.isProtected) {
-      record = (await this.save(() =>
-        this.repository.update(
-          current.id,
-          value,
-          value.password ? hashPassword(value.password) : undefined
-        )
-      ))!;
-    }
+    record = (await this.save(() =>
+      this.repository.update(
+        current.id,
+        value,
+        value.password ? hashPassword(value.password) : undefined
+      )
+    ))!;
     if (credentials.changed) {
       record = (await this.repository.updateFrappeCredentials(current.id, credentials))!;
+    }
+    if (value.frappeEmployeeCode !== undefined) {
+      record = (await this.repository.updateFrappeEmployeeCode(
+        current.id,
+        value.frappeEmployeeCode || null
+      ))!;
     }
     await this.audit("updated", record);
     return record;
@@ -166,6 +170,15 @@ export class TenantUserService {
   }
 }
 
+export function createTenantUserAdminService(target: TenantSupportTarget, actorEmail: string) {
+  return new TenantUserService({
+    actorEmail,
+    authorize: async () => undefined,
+    database: target.database,
+    tenantId: target.tenantId
+  });
+}
+
 /** Fixed public lookup contract for modules that reference active tenant users. */
 export function tenantUserReferenceContract(database: Kysely<TenantDatabase>) {
   const repository = new TenantUserRepository(database);
@@ -186,6 +199,7 @@ export function tenantUserFrappeCredentialContract(database: Kysely<TenantDataba
         apiKey: decryptIntegrationCredential(stored.apiKeyCiphertext, "frappe"),
         apiSecret: decryptIntegrationCredential(stored.apiSecretCiphertext, "frappe"),
         authenticatedUser: stored.authenticatedUser,
+        employeeCode: stored.employeeCode,
         lastCheckedAt: stored.lastCheckedAt,
         lastVerifiedAt: stored.lastVerifiedAt,
         verificationStatus: stored.verificationStatus
@@ -195,8 +209,16 @@ export function tenantUserFrappeCredentialContract(database: Kysely<TenantDataba
       userId: number,
       status: "live" | "offline",
       checkedAt: Date,
-      authenticatedUser: string | null
-    ) => repository.recordFrappeVerification(userId, status, checkedAt, authenticatedUser),
+      authenticatedUser: string | null,
+      employeeCode?: string | null
+    ) =>
+      repository.recordFrappeVerification(
+        userId,
+        status,
+        checkedAt,
+        authenticatedUser,
+        employeeCode
+      ),
     resetVerification: () => repository.resetFrappeVerification()
   };
 }
@@ -265,6 +287,9 @@ function normalize(input: TenantUserSavePayload, creating: boolean): TenantUserS
     email: input.email.trim().toLowerCase(),
     ...(input.frappeApiKey?.trim() ? { frappeApiKey: input.frappeApiKey.trim() } : {}),
     ...(input.frappeApiSecret?.trim() ? { frappeApiSecret: input.frappeApiSecret.trim() } : {}),
+    ...(input.frappeEmployeeCode !== undefined
+      ? { frappeEmployeeCode: input.frappeEmployeeCode.trim() }
+      : {}),
     name: input.name.trim(),
     ...(password ? { password } : {}),
     status: input.status

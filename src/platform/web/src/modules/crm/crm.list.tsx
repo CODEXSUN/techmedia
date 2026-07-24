@@ -123,7 +123,7 @@ export function CrmList({
                       onClick={() => onView(record)}
                       type="button"
                     >
-                      {record.subject.trim() || record.title}
+                      {plainText(record.subject) || plainText(record.title)}
                     </button>
                   </td>
                 ) : null}
@@ -213,6 +213,17 @@ export function CrmList({
 
 function statusLabel(status: CrmEnquiry["status"]) {
   return status[0]!.toUpperCase() + status.slice(1);
+}
+
+function plainText(value: string) {
+  return value
+    .replace(/<br\s*\/?\s*>/giu, " ")
+    .replace(/<\/p\s*>/giu, " ")
+    .replace(/<[^>]*>/gu, "")
+    .replace(/&nbsp;/giu, " ")
+    .replace(/&amp;/giu, "&")
+    .replace(/\s+/gu, " ")
+    .trim();
 }
 
 function statusTone(status: CrmEnquiry["status"]): "danger" | "neutral" | "success" | "warning" {

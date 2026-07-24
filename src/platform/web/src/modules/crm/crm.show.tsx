@@ -15,7 +15,6 @@ import {
   Paperclip,
   Pencil,
   Phone,
-  RefreshCw,
   Send,
   Smile,
   Star,
@@ -54,21 +53,15 @@ import type { CrmEnquiry } from "./crm.types";
 type CrmShowTab = "activity" | "attachments" | "calls" | "comments" | "emails" | "notes" | "tasks";
 
 export function CrmShow({
-  canResync,
   onBack,
   onNext,
   onRecordChange,
-  onResync,
-  record,
-  resyncing
+  record
 }: {
-  canResync: boolean;
   onBack: () => void;
   onNext?: () => void;
   onRecordChange: (record: CrmEnquiry) => void;
-  onResync: () => void;
   record: CrmEnquiry;
-  resyncing: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<CrmShowTab>("comments");
   const childMutations = useCrmEnquiryChildMutations(onRecordChange);
@@ -94,20 +87,25 @@ export function CrmShow({
           record={record}
           onAdd={(input) =>
             saveChild(input.messageType === "reply" ? "Reply" : "Comment", () =>
-              childMutations.message.mutateAsync([record.id, input])
+              childMutations.message.mutateAsync([record.frappeName, input])
             )
           }
           onDelete={(message) =>
             saveChild(
               message.messageType === "reply" ? "Reply" : "Comment",
-              () => childMutations.messageDelete.mutateAsync([record.id, message.id]),
+              () => childMutations.messageDelete.mutateAsync([record.frappeName, message.id]),
               "deleted"
             )
           }
           onUpdate={(message, comment) =>
             saveChild(
               message.messageType === "reply" ? "Reply" : "Comment",
-              () => childMutations.messageUpdate.mutateAsync([record.id, message.id, { comment }]),
+              () =>
+                childMutations.messageUpdate.mutateAsync([
+                  record.frappeName,
+                  message.id,
+                  { comment }
+                ]),
               "updated"
             )
           }
@@ -131,7 +129,7 @@ export function CrmShow({
           loading={childMutations.email.isPending}
           record={record}
           onAdd={(input) =>
-            saveChild("Email", () => childMutations.email.mutateAsync([record.id, input]))
+            saveChild("Email", () => childMutations.email.mutateAsync([record.frappeName, input]))
           }
         />
       ),
@@ -145,7 +143,7 @@ export function CrmShow({
           loading={childMutations.call.isPending}
           record={record}
           onAdd={(input) =>
-            saveChild("Call", () => childMutations.call.mutateAsync([record.id, input]))
+            saveChild("Call", () => childMutations.call.mutateAsync([record.frappeName, input]))
           }
         />
       ),
@@ -159,7 +157,7 @@ export function CrmShow({
           loading={childMutations.task.isPending}
           record={record}
           onAdd={(input) =>
-            saveChild("Task", () => childMutations.task.mutateAsync([record.id, input]))
+            saveChild("Task", () => childMutations.task.mutateAsync([record.frappeName, input]))
           }
         />
       ),
@@ -173,7 +171,7 @@ export function CrmShow({
           loading={childMutations.note.isPending}
           record={record}
           onAdd={(input) =>
-            saveChild("Note", () => childMutations.note.mutateAsync([record.id, input]))
+            saveChild("Note", () => childMutations.note.mutateAsync([record.frappeName, input]))
           }
         />
       ),
@@ -187,7 +185,9 @@ export function CrmShow({
           loading={childMutations.attachment.isPending}
           record={record}
           onAdd={(input) =>
-            saveChild("Attachment", () => childMutations.attachment.mutateAsync([record.id, input]))
+            saveChild("Attachment", () =>
+              childMutations.attachment.mutateAsync([record.frappeName, input])
+            )
           }
         />
       ),
@@ -205,19 +205,6 @@ export function CrmShow({
     <WorkspacePage
       actions={
         <div className="flex items-center gap-2">
-          {canResync ? (
-            <Button
-              aria-label="Resync enquiry with Frappe"
-              disabled={resyncing}
-              size="icon"
-              title="Resync with Frappe"
-              type="button"
-              variant="outline"
-              onClick={onResync}
-            >
-              <RefreshCw className={`size-4 ${resyncing ? "animate-spin" : ""}`} />
-            </Button>
-          ) : null}
           <Button onClick={onBack} type="button" variant="outline">
             <ArrowLeft className="size-4" />
             Back
@@ -230,7 +217,7 @@ export function CrmShow({
       }
       className="!w-full !max-w-none px-1 lg:px-2"
       technicalName="page.crm.enquiry.show"
-      title={`#${record.id} · ${record.mobile || "—"} · ${record.customer || record.title}`}
+      title={`#${record.id} · ${record.mobile || "—"} · ${record.customer || enquiryDisplayTitle(record)}`}
     >
       <EnquirySummary record={record} />
 
@@ -319,9 +306,9 @@ function CommentsTab({
 }) {
   const [messageType, setMessageType] = useState<"comment" | "reply">("comment");
   const [comment, setComment] = useState("");
-  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState("");
-  const [starredMessageIds, setStarredMessageIds] = useState<Set<number>>(() => new Set());
+  const [starredMessageIds, setStarredMessageIds] = useState<Set<string>>(() => new Set());
   const [deletingMessage, setDeletingMessage] = useState<CrmEnquiry["messages"][number] | null>(
     null
   );
@@ -338,7 +325,7 @@ function CommentsTab({
     setComment((current) => `${current}<p>🙂</p>`);
   }
 
-  function toggleStar(messageId: number) {
+  function toggleStar(messageId: string) {
     setStarredMessageIds((current) => {
       const next = new Set(current);
       if (next.has(messageId)) next.delete(messageId);
@@ -1107,7 +1094,7 @@ function formatDateTime(value: string) {
   return format(new Date(value), "dd MMM yyyy, hh:mm a");
 }
 
-function messageAuthor(record: CrmEnquiry, userId: number | null) {
+function messageAuthor(record: CrmEnquiry, userId: string | null) {
   if (userId === record.createdBy.id) {
     return record.createdBy.name;
   }

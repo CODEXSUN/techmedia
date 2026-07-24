@@ -6,5 +6,6 @@ export * from "./tenant.routes.js";
 export * from "./tenant.seed.js";
 export * from "./tenant.service.js";
 export * from "./tenant.sync.js";
+export * from "./tenant.support.js";
 export * from "./tenant.types.js";
 export * from "./tenant.worker.js";

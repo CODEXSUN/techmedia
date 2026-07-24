@@ -21,7 +21,6 @@ export async function seedTenantUserModule(database: Kysely<TenantDatabase>) {
     })
     .onDuplicateKeyUpdate({
       name: (env.DEFAULT_TENANT_ADMIN_NAME || env.TENANT_ADMIN_NAME).trim() || email,
-      password_hash: hashPassword(password),
       role: "admin",
       status: "active",
       is_protected: true

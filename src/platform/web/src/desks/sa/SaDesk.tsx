@@ -29,6 +29,9 @@ const TenantList = lazyWorkspace(() =>
 const TenantDomainList = lazyWorkspace(() =>
   import("../../modules/tenant-domain").then((module) => module.TenantDomainList)
 );
+const TenantUserAdminWorkspace = lazyWorkspace(() =>
+  import("../../modules/tenant-user").then((module) => module.TenantUserAdminWorkspace)
+);
 const PlanWorkspace = lazyWorkspace(() =>
   import("../../modules/plan").then((module) => module.PlanWorkspace)
 );
@@ -85,6 +88,7 @@ type SaPage =
   | "apps"
   | "entitlements"
   | "tenant-access"
+  | "tenant-users"
   | "industries"
   | "master-database"
   | "tenant-database"
@@ -132,10 +136,19 @@ export function SaDesk() {
     {
       title: "Tenant Setup",
       icon: Building2Icon,
-      isActive: page === "tenants" || page === "domains" || page === "tenant-access",
+      isActive:
+        page === "tenants" ||
+        page === "domains" ||
+        page === "tenant-access" ||
+        page === "tenant-users",
       items: [
         { title: "Tenants", isActive: page === "tenants", onSelect: () => selectPage("tenants") },
         { title: "Domains", isActive: page === "domains", onSelect: () => selectPage("domains") },
+        {
+          title: "Tenant Users",
+          isActive: page === "tenant-users",
+          onSelect: () => selectPage("tenant-users")
+        },
         {
           title: "Tenant Access",
           isActive: page === "tenant-access",
@@ -262,6 +275,7 @@ export function SaDesk() {
           {page === "apps" ? <AppRegistryWorkspace /> : null}
           {page === "entitlements" ? <EntitlementWorkspace /> : null}
           {page === "tenant-access" ? <TenantAccessWorkspace /> : null}
+          {page === "tenant-users" ? <TenantUserAdminWorkspace /> : null}
           {page === "industries" ? <IndustryWorkspace /> : null}
           {page === "master-database" ? <MasterDatabaseWorkspace /> : null}
           {page === "tenant-database" ? <TenantDatabaseWorkspace /> : null}
@@ -287,6 +301,7 @@ function pageFromUrl(): SaPage {
     page === "apps" ||
     page === "entitlements" ||
     page === "tenant-access" ||
+    page === "tenant-users" ||
     page === "industries" ||
     page === "master-database" ||
     page === "tenant-database" ||

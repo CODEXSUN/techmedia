@@ -16,19 +16,19 @@ export type CrmEnquiryColumnVisibility = Record<CrmEnquiryColumnId, boolean>;
 
 export type CrmUserReference = {
   email: string;
-  id: number;
+  id: string;
   name: string;
   uuid: string;
 };
 
-export type CrmEnquirySchedule = { id: number; scheduledOn: string };
+export type CrmEnquirySchedule = { id: string; scheduledOn: string };
 export type CrmEnquiryMessage = {
   canDelete: boolean;
   canEdit: boolean;
   comment: string;
   createdAt: string;
-  createdByUserId: number | null;
-  id: number;
+  createdByUserId: string | null;
+  id: string;
   messageType: "comment" | "reply";
 };
 export type CrmEnquiryEmail = {
@@ -85,17 +85,18 @@ export type CrmEnquiryActivity = {
 export type CrmEnquiry = {
   activities: CrmEnquiryActivity[];
   assignedTo: CrmUserReference | null;
-  assignedToUserId: number | null;
+  assignedToUserId: string | null;
   attachments: CrmEnquiryAttachment[];
   calls: CrmEnquiryCall[];
   createdAt: string;
   createdBy: CrmUserReference;
-  createdByUserId: number;
+  createdByUserId: string;
   customer: string;
   enquiryDate: string | null;
   enquiryGroup: string;
   emails: CrmEnquiryEmail[];
   id: number;
+  frappeName: string;
   lifecycleStatus: CrmEnquiryLifecycleStatus;
   messages: CrmEnquiryMessage[];
   mobile: string;
@@ -112,7 +113,7 @@ export type CrmEnquiry = {
 };
 
 export type CrmEnquirySavePayload = {
-  assignedToUserId: number | null;
+  assignedToUserId: string | null;
   customer: string;
   enquiryDate: string | null;
   enquiryGroup: string;
@@ -159,7 +160,7 @@ export type CrmEnquiryAttachmentCreatePayload = {
   fileUrl: string;
 };
 
-export type CrmEnquiryReference = { id: number; title: string };
+export type CrmEnquiryReference = { id: string; title: string };
 
 export type CrmEnquiryOverview = {
   leaderboard: Array<{

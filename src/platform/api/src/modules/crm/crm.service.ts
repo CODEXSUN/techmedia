@@ -1,26 +1,23 @@
 import { randomBytes } from "node:crypto";
 import { AppError } from "@codexsun/framework/errors";
+import type { PlatformModuleDependencies } from "../../module-dependencies.js";
 import { recordTenantAccessAudit } from "../../database/tenant-access-audit.js";
-import { tenantUserReferenceContract } from "../tenant-user/index.js";
-import { CrmRepository } from "./crm.repository.js";
 import type {
   CrmContext,
-  CrmEnquiryExternalLifecycle,
-  CrmEnquiryAttachmentCreatePayload,
-  CrmEnquiryCallCreatePayload,
-  CrmEnquiryEmailCreatePayload,
   CrmEnquiry,
   CrmEnquiryListFilters,
   CrmEnquiryMessageCreatePayload,
   CrmEnquiryMessageUpdatePayload,
-  CrmEnquiryNoteCreatePayload,
   CrmEnquiryOverview,
   CrmEnquirySavePayload,
   CrmEnquirySyncInput,
-  CrmEnquiryTaskCreatePayload,
   CrmEnquiryView,
   CrmUserReference
 } from "./crm.types.js";
+import { CrmRepository } from "./crm.repository.js";
+
+type LiveGateway = ReturnType<PlatformModuleDependencies["frappeLiveEnquiryGateway"]>;
+type LiveRecord = Awaited<ReturnType<LiveGateway["get"]>>;
 
 const viewPermissions: Record<CrmEnquiryView, string> = {
   assigned: "crm.enquiry.assigned.view",
@@ -29,337 +26,265 @@ const viewPermissions: Record<CrmEnquiryView, string> = {
 };
 
 export class CrmService {
-  private readonly repository: CrmRepository;
-  private readonly users;
-
   constructor(
     private readonly context: CrmContext,
-    private readonly externalLifecycle: CrmEnquiryExternalLifecycle
-  ) {
-    this.repository = new CrmRepository(context.database);
-    this.users = tenantUserReferenceContract(context.database);
-  }
+    private readonly gateway: LiveGateway
+  ) {}
 
   async list(filters: CrmEnquiryListFilters) {
     await this.context.authorize(viewPermissions[filters.view]);
-    const actor = await this.actor();
-    return this.enrich(await this.repository.list(filters, actor.id));
+    const records = await this.gateway.list({
+      employee: this.employee(),
+      view: filters.view,
+      ...(filters.search ? { search: filters.search } : {})
+    });
+    const filtered = filters.enquiryId
+      ? records.filter((record) => record.name === filters.enquiryId)
+      : records;
+    return this.mapMany(filtered);
   }
 
-  async get(id: number) {
-    const record = await this.repository.find(id);
-    if (!record) throw AppError.notFound("Enquiry was not found.");
+  async get(name: string) {
+    await this.requireAnyView();
+    const record = await this.gateway.get(name);
     await this.authorizeRecord(record);
-    return this.enrichOne(record);
+    return this.map(record);
   }
 
   async overview(): Promise<CrmEnquiryOverview> {
     await this.requireAnyView();
-    const actor = await this.actor();
-    const visibility = {
-      assigned: await this.context.can(viewPermissions.assigned),
-      created: await this.context.can(viewPermissions.created),
-      open: await this.context.can(viewPermissions.open)
-    };
-    const overview = await this.repository.overview(actor.id, visibility);
-    const leaderboard: CrmEnquiryOverview["leaderboard"] = [];
-    for (const row of overview.leaderboard) {
-      const user = await this.users.find(row.assignedToUserId);
-      if (!user) continue;
-      leaderboard.push({
-        active: row.active,
-        closed: row.closed,
-        completionRate: row.total === 0 ? 0 : Math.round((row.closed / row.total) * 100),
-        total: row.total,
-        user: user satisfies CrmUserReference
-      });
+    const employee = this.employee();
+    const views: CrmEnquiryView[] = ["assigned", "created", "open"];
+    const visible = await Promise.all(
+      views.map(async (view) =>
+        (await this.context.can(viewPermissions[view]))
+          ? this.gateway.list({ employee, view })
+          : Promise.resolve([])
+      )
+    );
+    const records = uniqueByName(visible.flat());
+    const employees = await this.gateway.employees();
+    const counts = new Map<string, { active: number; closed: number; total: number }>();
+    for (const record of records) {
+      const owner = record.assignedToEmployee || record.userEmployee;
+      if (!owner) continue;
+      const current = counts.get(owner) ?? { active: 0, closed: 0, total: 0 };
+      current.total++;
+      if (isClosed(record.status)) current.closed++;
+      else current.active++;
+      counts.set(owner, current);
     }
-    return { leaderboard, stats: overview.stats };
+    const closed = records.filter((record) => isClosed(record.status)).length;
+    const open = records.filter((record) => record.status.toLowerCase() === "open").length;
+    return {
+      leaderboard: employees
+        .map((employee) => {
+          const count = counts.get(employee.name) ?? { active: 0, closed: 0, total: 0 };
+          return {
+            ...count,
+            completionRate: count.total === 0 ? 0 : Math.round((count.closed / count.total) * 100),
+            user: employeeReference(employee)
+          };
+        })
+        .filter((row) => row.total > 0)
+        .sort((left, right) => right.total - left.total),
+      stats: {
+        closed,
+        inProgress: records.length - closed - open,
+        open,
+        total: records.length
+      }
+    };
   }
 
   async create(input: CrmEnquirySavePayload) {
     await this.context.authorize("crm.enquiry.create");
-    const actor = await this.actor();
-    const value = await this.normalize(input);
-    if (
-      value.assignedToUserId !== null &&
-      value.assignedToUserId !== actor.id &&
-      !(await this.context.can("crm.enquiry.assign"))
-    ) {
-      throw AppError.forbidden("Permission crm.enquiry.assign is required to assign another user.");
-    }
-    const record = await this.repository.create(value, actor.id, randomBytes(4).toString("hex"));
+    await this.validateAssignment(input.assignedToUserId);
+    const record = await this.gateway.create(toLivePayload(input));
     await this.audit("created", record);
-    await this.externalLifecycle.upsert(record.id, actor.id);
-    return this.enrichOne(record);
+    return this.map(record);
   }
 
-  async update(id: number, input: CrmEnquirySavePayload) {
+  async update(name: string, input: CrmEnquirySavePayload) {
     await this.context.authorize("crm.enquiry.update");
-    const current = await this.repository.find(id);
-    if (!current) throw AppError.notFound("Enquiry was not found.");
+    const current = await this.gateway.get(name);
     await this.authorizeRecord(current);
-    if (current.lifecycleStatus === "suspended") {
-      throw AppError.conflict("Restore the enquiry before editing it.");
+    if (input.assignedToUserId !== current.assignedToEmployee) {
+      await this.context.authorize("crm.enquiry.assign");
     }
-    if (
-      input.assignedToUserId !== current.assignedToUserId &&
-      !(await this.context.can("crm.enquiry.assign"))
-    ) {
-      throw AppError.forbidden("Permission crm.enquiry.assign is required to reassign enquiries.");
-    }
-    const record = (await this.repository.update(id, await this.normalize(input)))!;
+    await this.validateAssignment(input.assignedToUserId);
+    const record = await this.gateway.update(name, toLivePayload(input));
     await this.audit("updated", record);
-    await this.externalLifecycle.upsert(record.id, (await this.actor()).id);
-    return this.enrichOne(record);
+    return this.map(record);
   }
 
-  async suspend(id: number) {
-    await this.context.authorize("crm.enquiry.suspend");
-    const current = await this.repository.find(id);
-    if (!current) throw AppError.notFound("Enquiry was not found.");
-    await this.authorizeRecord(current);
-    if (current.lifecycleStatus === "suspended") return this.enrichOne(current);
-    const record = (await this.repository.setLifecycleStatus(id, "suspended"))!;
-    await this.audit("suspended", record);
-    return this.enrichOne(record);
-  }
-
-  async restore(id: number) {
-    await this.context.authorize("crm.enquiry.suspend");
-    const current = await this.repository.find(id);
-    if (!current) throw AppError.notFound("Enquiry was not found.");
-    await this.authorizeRecord(current);
-    if (current.lifecycleStatus === "active") return this.enrichOne(current);
-    const record = (await this.repository.setLifecycleStatus(id, "active"))!;
-    await this.audit("restored", record);
-    return this.enrichOne(record);
-  }
-
-  async resync(id: number) {
-    await this.context.authorize("crm.enquiry.update");
-    const actor = await this.actor();
-    const record = await this.repository.find(id);
-    if (!record) throw AppError.notFound("Enquiry was not found.");
-    await this.authorizeRecord(record);
-    if (record.lifecycleStatus === "suspended") {
-      throw AppError.conflict("Restore the enquiry before synchronizing it with Frappe.");
-    }
-    return this.externalLifecycle.resync(id, actor.id);
-  }
-
-  async forceDelete(id: number) {
+  async forceDelete(name: string) {
     await this.context.authorize("crm.enquiry.force-delete");
     const actor = await this.actor();
     if (actor.role !== "admin") {
       throw AppError.forbidden("Only tenant administrators can permanently delete enquiries.");
     }
-    const current = await this.repository.find(id);
-    if (!current) throw AppError.notFound("Enquiry was not found.");
-    await this.externalLifecycle.delete(id, actor.id);
-    const record = (await this.repository.forceDelete(id))!;
-    await this.audit("force-deleted", record);
-    return this.enrichOne(record);
+    const current = await this.gateway.get(name);
+    await this.gateway.delete(name);
+    await this.audit("deleted", current);
+    return this.map(current);
   }
 
-  async addMessage(id: number, input: CrmEnquiryMessageCreatePayload) {
-    const { actor } = await this.childContext(id);
-    await this.repository.addMessage(
-      id,
-      { comment: input.comment.trim(), messageType: input.messageType },
-      actor.id
+  async addMessage(name: string, input: CrmEnquiryMessageCreatePayload) {
+    await this.context.authorize("crm.enquiry.update");
+    const current = await this.gateway.get(name);
+    await this.authorizeRecord(current);
+    const messages: Array<{ comment: string; name?: string }> = current.messages.map(
+      ({ comment, name: childName }) => ({
+        comment,
+        name: childName
+      })
     );
-    await this.repository.addActivity(
-      id,
-      input.messageType === "reply" ? "reply-added" : "comment-added",
-      input.comment.trim(),
-      actor.id,
-      this.uuid()
-    );
-    await this.externalLifecycle.upsert(id, actor.id);
-    return this.enrichOne((await this.repository.find(id))!);
+    const comment = plainMessage(input.comment);
+    if (!comment) throw AppError.validation("Comment cannot be empty.");
+    messages.push({ comment });
+    return this.map(await this.gateway.updateMessages(name, messages));
   }
 
-  async updateMessage(id: number, messageId: number, input: CrmEnquiryMessageUpdatePayload) {
-    const { actor, record } = await this.childContext(id);
-    const message = this.mutableMessage(record, messageId, actor.id);
-    const comment = input.comment.trim();
-    const updated = await this.repository.updateLatestMessage(id, messageId, actor.id, comment);
-    if (!updated) {
-      throw AppError.conflict("Only your latest conversation entry can be edited.");
+  async updateMessage(name: string, messageId: string, input: CrmEnquiryMessageUpdatePayload) {
+    await this.context.authorize("crm.enquiry.update");
+    const current = await this.gateway.get(name);
+    await this.authorizeRecord(current);
+    const index = current.messages.findIndex((message) => message.name === messageId);
+    if (index < 0) throw AppError.notFound("Conversation entry was not found in Frappe.");
+    if (index !== current.messages.length - 1) {
+      throw AppError.conflict("Only the latest conversation entry can be edited.");
     }
-    await this.repository.addActivity(
-      id,
-      message.messageType === "reply" ? "reply-edited" : "comment-edited",
+    const messages = current.messages.map(({ comment, name: childName }) => ({
       comment,
-      actor.id,
-      this.uuid()
-    );
-    await this.externalLifecycle.upsert(id, actor.id);
-    return this.enrichOne((await this.repository.find(id))!);
+      name: childName
+    }));
+    const comment = plainMessage(input.comment);
+    if (!comment) throw AppError.validation("Comment cannot be empty.");
+    messages[index] = {
+      comment,
+      name: messages[index]!.name
+    };
+    return this.map(await this.gateway.updateMessages(name, messages));
   }
 
-  async deleteMessage(id: number, messageId: number) {
-    const { actor, record } = await this.childContext(id);
-    const message = this.mutableMessage(record, messageId, actor.id);
-    const deleted = await this.repository.deleteLatestMessage(id, messageId, actor.id);
-    if (!deleted) {
-      throw AppError.conflict("Only your latest conversation entry can be deleted.");
+  async deleteMessage(name: string, messageId: string) {
+    await this.context.authorize("crm.enquiry.update");
+    const current = await this.gateway.get(name);
+    await this.authorizeRecord(current);
+    const index = current.messages.findIndex((message) => message.name === messageId);
+    if (index < 0) throw AppError.notFound("Conversation entry was not found in Frappe.");
+    if (index !== current.messages.length - 1) {
+      throw AppError.conflict("Only the latest conversation entry can be deleted.");
     }
-    await this.repository.addActivity(
-      id,
-      message.messageType === "reply" ? "reply-deleted" : "comment-deleted",
-      message.comment,
-      actor.id,
-      this.uuid()
-    );
-    await this.externalLifecycle.upsert(id, actor.id);
-    return this.enrichOne((await this.repository.find(id))!);
-  }
-
-  async addEmail(id: number, input: CrmEnquiryEmailCreatePayload) {
-    const { actor } = await this.childContext(id);
-    await this.repository.addEmail(
-      id,
-      {
-        body: input.body.trim(),
-        recipient: input.recipient.trim().toLowerCase(),
-        subject: input.subject.trim()
-      },
-      actor.id,
-      this.uuid()
-    );
-    await this.repository.addActivity(
-      id,
-      "email-added",
-      input.subject.trim(),
-      actor.id,
-      this.uuid()
-    );
-    return this.enrichOne((await this.repository.find(id))!);
-  }
-
-  async addCall(id: number, input: CrmEnquiryCallCreatePayload) {
-    const { actor } = await this.childContext(id);
-    await this.repository.addCall(
-      id,
-      { calledAt: input.calledAt, phone: input.phone.trim(), summary: input.summary.trim() },
-      actor.id,
-      this.uuid()
-    );
-    await this.repository.addActivity(
-      id,
-      "call-added",
-      input.summary.trim(),
-      actor.id,
-      this.uuid()
-    );
-    return this.enrichOne((await this.repository.find(id))!);
-  }
-
-  async addTask(id: number, input: CrmEnquiryTaskCreatePayload) {
-    const { actor } = await this.childContext(id);
-    await this.repository.addTask(
-      id,
-      { dueOn: input.dueOn, status: input.status, title: input.title.trim() },
-      actor.id,
-      this.uuid()
-    );
-    await this.repository.addActivity(id, "task-added", input.title.trim(), actor.id, this.uuid());
-    return this.enrichOne((await this.repository.find(id))!);
-  }
-
-  async addNote(id: number, input: CrmEnquiryNoteCreatePayload) {
-    const { actor } = await this.childContext(id);
-    await this.repository.addNote(id, { note: input.note.trim() }, actor.id, this.uuid());
-    await this.repository.addActivity(id, "note-added", input.note.trim(), actor.id, this.uuid());
-    return this.enrichOne((await this.repository.find(id))!);
-  }
-
-  async addAttachment(id: number, input: CrmEnquiryAttachmentCreatePayload) {
-    const { actor } = await this.childContext(id);
-    await this.repository.addAttachment(
-      id,
-      { fileName: input.fileName.trim(), fileUrl: input.fileUrl.trim() },
-      actor.id,
-      this.uuid()
-    );
-    await this.repository.addActivity(
-      id,
-      "attachment-added",
-      input.fileName.trim(),
-      actor.id,
-      this.uuid()
-    );
-    return this.enrichOne((await this.repository.find(id))!);
+    const messages = current.messages
+      .filter((_, messageIndex) => messageIndex !== index)
+      .map(({ comment, name: childName }) => ({ comment, name: childName }));
+    return this.map(await this.gateway.updateMessages(name, messages));
   }
 
   async userReferences() {
     await this.requireAnyView();
-    return this.users.list();
+    return (await this.gateway.employees()).map(employeeReference);
   }
 
   async enquiryReferences() {
     await this.requireAnyView();
-    return this.repository.listReferences();
+    const records = await this.gateway.list({ employee: this.employee(), view: "created" });
+    return records.map((record) => ({ id: record.name, title: displayTitle(record) }));
   }
 
-  private async actor() {
-    const actor = await this.context.actorUser();
-    if (!actor) throw AppError.unauthorized("Active tenant user is required.");
-    return actor;
+  private async mapMany(records: LiveRecord[]) {
+    const employees = await this.gateway.employees();
+    return Promise.all(records.map((record) => this.map(record, employees)));
   }
 
-  private async childContext(id: number) {
-    await this.context.authorize("crm.enquiry.update");
-    const actor = await this.actor();
-    const record = await this.repository.find(id);
-    if (!record) throw AppError.notFound("Enquiry was not found.");
-    await this.authorizeRecord(record);
-    if (record.lifecycleStatus === "suspended") {
-      throw AppError.conflict("Restore the enquiry before adding workspace records.");
-    }
-    return { actor, record };
-  }
-
-  private mutableMessage(
-    record: Awaited<ReturnType<CrmRepository["find"]>> extends infer T ? Exclude<T, null> : never,
-    messageId: number,
-    actorId: number
+  private async map(
+    record: LiveRecord,
+    knownEmployees?: Awaited<ReturnType<LiveGateway["employees"]>>
   ) {
-    const message = record.messages.find((item) => item.id === messageId);
-    if (!message) throw AppError.notFound("Conversation entry was not found.");
-    if (message.createdByUserId !== actorId) {
-      throw AppError.forbidden("Only the conversation entry creator can change it.");
-    }
-    if (record.messages.at(-1)?.id !== messageId) {
-      throw AppError.conflict(
-        "This conversation entry is locked because a newer comment or reply exists."
-      );
-    }
-    return message;
+    const employees = knownEmployees ?? (await this.gateway.employees());
+    const byName = new Map(employees.map((employee) => [employee.name, employee]));
+    const assigned = record.assignedToEmployee
+      ? (byName.get(record.assignedToEmployee) ?? {
+          email: "",
+          name: record.assignedToEmployee,
+          title: record.assignedToEmployee
+        })
+      : null;
+    const created = byName.get(record.userEmployee) ?? {
+      email: "",
+      name: record.userEmployee || "Frappe",
+      title: record.userEmployee || "Frappe"
+    };
+    return {
+      activities: record.activities.map((entry) => ({
+        action: entry.action,
+        createdAt: entry.createdAt,
+        createdByUserId: numericId(entry.createdBy),
+        details: entry.details,
+        id: numericId(entry.name),
+        uuid: entry.name
+      })),
+      assignedTo: assigned ? employeeReference(assigned) : null,
+      assignedToUserId: assigned?.name ?? null,
+      attachments: [],
+      calls: [],
+      createdAt: record.createdAt,
+      createdBy: employeeReference(created),
+      createdByUserId: created.name,
+      customer: record.customer,
+      enquiryDate: record.enquiryDate,
+      enquiryGroup: record.enquiryGroup,
+      emails: [],
+      frappeName: record.name,
+      id: numericId(record.name),
+      lifecycleStatus: "active" as const,
+      messages: record.messages.map((message, index) => ({
+        canDelete:
+          message.createdBy === this.context.actorEmail && index === record.messages.length - 1,
+        canEdit:
+          message.createdBy === this.context.actorEmail && index === record.messages.length - 1,
+        comment: message.comment,
+        createdAt: message.createdAt ?? record.modifiedAt,
+        createdByUserId: message.createdBy,
+        id: message.name,
+        messageType: index === 0 ? ("comment" as const) : ("reply" as const)
+      })),
+      mobile: record.mobile,
+      notes: [],
+      priority: "normal" as const,
+      schedules: record.enquiryDate
+        ? [{ id: `${record.name}-due`, scheduledOn: record.enquiryDate }]
+        : [],
+      status: fromFrappeStatus(record.status),
+      subject: plainText(record.subject),
+      tasks: [],
+      title: displayTitle(record),
+      updatedAt: record.modifiedAt,
+      uuid: record.name,
+      workspace: record.enquiryMessage || record.statusDetails
+    } satisfies CrmEnquiry;
   }
 
-  private uuid() {
-    return randomBytes(4).toString("hex");
-  }
-
-  private async authorizeRecord(record: {
-    assignedToUserId: number | null;
-    createdByUserId: number;
-    lifecycleStatus: string;
-    status: string;
-  }) {
-    const actor = await this.actor();
+  private async authorizeRecord(record: LiveRecord) {
+    const employee = this.employee();
     const allowed =
-      (record.assignedToUserId === actor.id &&
+      (record.assignedToEmployee === employee &&
         (await this.context.can(viewPermissions.assigned))) ||
-      (record.createdByUserId === actor.id && (await this.context.can(viewPermissions.created))) ||
-      (record.lifecycleStatus === "active" &&
-        record.assignedToUserId === null &&
-        !["won", "lost"].includes(record.status) &&
+      (record.userEmployee === employee && (await this.context.can(viewPermissions.created))) ||
+      (!record.assignedToEmployee &&
+        !isClosed(record.status) &&
         (await this.context.can(viewPermissions.open)));
     if (!allowed) throw AppError.forbidden("You do not have access to this enquiry.");
+  }
+
+  private async validateAssignment(value: string | null) {
+    if (!value) return;
+    const employees = await this.gateway.employees();
+    if (!employees.some((employee) => employee.name === value)) {
+      throw AppError.validation("Assigned employee must be an active Frappe Employee.");
+    }
   }
 
   private async requireAnyView() {
@@ -372,94 +297,141 @@ export class CrmService {
     }
   }
 
-  private async normalize(input: CrmEnquirySavePayload): Promise<CrmEnquirySavePayload> {
-    const assigned =
-      input.assignedToUserId === null ? null : await this.users.find(input.assignedToUserId);
-    if (input.assignedToUserId !== null && !assigned) {
-      throw AppError.validation("Assigned user must be an active tenant user.");
+  private employee() {
+    const employee = this.context.frappeEmployeeCode?.trim();
+    if (!employee) {
+      throw AppError.conflict(
+        "Sign in again after linking the Frappe user to an Employee. CRM uses that verified session mapping."
+      );
     }
-    const scheduleDates = input.schedules.map((schedule) => schedule.scheduledOn);
-    if (new Set(scheduleDates).size !== scheduleDates.length) {
-      throw AppError.conflict("An enquiry cannot contain duplicate schedule dates.");
-    }
-    return {
-      assignedToUserId: assigned?.id ?? null,
-      customer: input.customer.trim(),
-      enquiryDate: input.enquiryDate,
-      enquiryGroup: input.enquiryGroup.trim(),
-      messages: input.messages
-        .map(({ comment }) => ({ comment: comment.trim() }))
-        .filter(({ comment }) => Boolean(comment)),
-      mobile: input.mobile.trim(),
-      priority: input.priority,
-      schedules: [...input.schedules].sort((left, right) =>
-        left.scheduledOn.localeCompare(right.scheduledOn)
-      ),
-      status: input.status,
-      subject: input.subject.trim(),
-      title: input.title.trim(),
-      workspace: input.workspace.trim()
-    };
+    return employee;
   }
 
-  private async enrich(records: Awaited<ReturnType<CrmRepository["list"]>>) {
-    return Promise.all(records.map((record) => this.enrichOne(record)));
+  private async actor() {
+    const actor = await this.context.actorUser();
+    if (!actor) throw AppError.unauthorized("Active tenant user is required.");
+    return actor;
   }
 
-  private async enrichOne(
-    record: Awaited<ReturnType<CrmRepository["find"]>> extends infer T ? Exclude<T, null> : never
-  ): Promise<CrmEnquiry> {
-    const [actor, assignedTo, createdBy] = await Promise.all([
-      this.actor(),
-      record.assignedToUserId === null
-        ? Promise.resolve(null)
-        : this.users.find(record.assignedToUserId),
-      this.users.find(record.createdByUserId)
-    ]);
-    if ((record.assignedToUserId !== null && !assignedTo) || !createdBy) {
-      throw AppError.conflict("An enquiry references a tenant user that is not active.");
-    }
-    return {
-      ...record,
-      assignedTo,
-      createdBy: createdBy satisfies CrmUserReference,
-      messages: record.messages.map((message, index) => {
-        const mutable =
-          record.lifecycleStatus === "active" &&
-          message.createdByUserId === actor.id &&
-          index === record.messages.length - 1;
-        return { ...message, canDelete: mutable, canEdit: mutable };
-      })
-    };
-  }
-
-  private async audit(action: string, record: { id: number; title: string; uuid: string }) {
+  private async audit(action: string, record: LiveRecord) {
     await recordTenantAccessAudit({
       action,
       actorEmail: this.context.actorEmail,
-      moduleKey: "crm.enquiry",
-      recordId: record.id,
-      recordLabel: record.title,
-      recordUuid: record.uuid,
+      moduleKey: "crm.enquiry.live",
+      recordId: numericId(record.name),
+      recordLabel: displayTitle(record),
+      recordUuid: record.name.slice(-8).padStart(8, "0"),
       tenantId: this.context.tenantId
     });
   }
 }
 
+function toLivePayload(input: CrmEnquirySavePayload) {
+  return {
+    assignedToEmployee: input.assignedToUserId,
+    customer: input.customer.trim(),
+    enquiryDate: input.enquiryDate,
+    enquiryGroup: input.enquiryGroup.trim(),
+    enquiryMessage: input.workspace.trim() || input.title.trim(),
+    messages: input.messages
+      .map(({ comment }) => ({ comment: plainMessage(comment) }))
+      .filter(({ comment }) => comment),
+    mobile: input.mobile.trim(),
+    status: input.status,
+    statusDetails: input.workspace.trim(),
+    subject: input.subject.trim()
+  };
+}
+
+function employeeReference(employee: {
+  email: string;
+  name: string;
+  title: string;
+}): CrmUserReference {
+  return {
+    email: employee.email || `${employee.name}@frappe.local`,
+    id: employee.name,
+    name: employee.title,
+    uuid: employee.name
+  };
+}
+
+function displayTitle(record: Pick<LiveRecord, "enquiryMessage" | "name" | "subject">) {
+  return plainText(record.subject) || plainText(record.enquiryMessage) || record.name;
+}
+
+function plainText(value: string) {
+  return value
+    .replace(/<br\s*\/?\s*>/giu, " ")
+    .replace(/<\/p\s*>/giu, " ")
+    .replace(/<[^>]*>/gu, "")
+    .replace(/&nbsp;/giu, " ")
+    .replace(/&amp;/giu, "&")
+    .replace(/&lt;/giu, "<")
+    .replace(/&gt;/giu, ">")
+    .replace(/&quot;/giu, '"')
+    .replace(/&#39;|&apos;/giu, "'")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function plainMessage(value: string) {
+  return value
+    .replace(/\r/gu, "")
+    .replace(/<br\s*\/?\s*>/giu, "\n")
+    .replace(/<li(?:\s[^>]*)?>/giu, "- ")
+    .replace(/<\/(?:blockquote|div|h[1-6]|li|p)\s*>/giu, "\n")
+    .replace(/<[^>]*>/gu, "")
+    .replace(/&nbsp;/giu, " ")
+    .replace(/&amp;/giu, "&")
+    .replace(/&lt;/giu, "<")
+    .replace(/&gt;/giu, ">")
+    .replace(/&quot;/giu, '"')
+    .replace(/&#39;|&apos;/giu, "'")
+    .replace(/[ \t]+\n/gu, "\n")
+    .replace(/\n[ \t]+/gu, "\n")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
+function numericId(name: string) {
+  const digits = name.match(/\d+/g)?.join("");
+  if (digits) return Math.max(Number(digits) % 2_147_483_647, 1);
+  let hash = 0;
+  for (const character of name) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return Math.max(hash % 2_147_483_647, 1);
+}
+
+function fromFrappeStatus(value: string): CrmEnquiry["status"] {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "won") return "won";
+  if (normalized === "lost") return "lost";
+  if (normalized === "follow") return "follow";
+  if (normalized === "escalation") return "escalation";
+  return "open";
+}
+
+function isClosed(status: string) {
+  return ["won", "lost"].includes(status.trim().toLowerCase());
+}
+
+function uniqueByName(records: LiveRecord[]) {
+  return [...new Map(records.map((record) => [record.name, record])).values()];
+}
+
+/** @deprecated Read-only transition support for pre-cutover Frappe code. Not routed by CRM. */
 export function crmEnquirySyncContract(database: CrmContext["database"]) {
   const repository = new CrmRepository(database);
   return {
     find: (id: number) => repository.find(id),
     list: () => repository.listAll(),
     async upsert(id: number | null, input: CrmEnquirySyncInput) {
-      const value: CrmEnquirySavePayload = {
+      const value = {
         assignedToUserId: input.assignedToUserId,
         customer: input.customer.trim(),
         enquiryDate: input.enquiryDate,
         enquiryGroup: input.enquiryGroup.trim(),
-        messages: input.messages
-          .map(({ comment }) => ({ comment: comment.trim() }))
-          .filter(({ comment }) => Boolean(comment)),
+        messages: input.messages,
         mobile: input.mobile.trim(),
         priority: input.priority,
         schedules: input.schedules,
@@ -468,14 +440,9 @@ export function crmEnquirySyncContract(database: CrmContext["database"]) {
         title: input.title.trim(),
         workspace: input.workspace.trim()
       };
-      if (id) {
-        const current = await repository.find(id);
-        if (current?.lifecycleStatus === "suspended") {
-          throw AppError.conflict("Suspended enquiries cannot be synchronized.");
-        }
-        return repository.update(id, value, true);
-      }
-      return repository.create(value, input.createdByUserId, randomBytes(4).toString("hex"));
+      return id
+        ? repository.update(id, value as never, true)
+        : repository.create(value as never, input.createdByUserId, randomBytes(4).toString("hex"));
     }
   };
 }

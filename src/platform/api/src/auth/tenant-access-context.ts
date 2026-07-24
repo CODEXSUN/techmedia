@@ -3,6 +3,7 @@ import { requireTenantAccess } from "@codexsun/framework/api";
 import { AppError } from "@codexsun/framework/errors";
 import { getTenantDatabaseByName } from "../database/tenant-database.js";
 import { env } from "../env.js";
+import { verifyAuthToken } from "./jwt.js";
 
 export function tenantAccessContext(request: FastifyRequest) {
   const header = request.headers["x-tenant-db"];
@@ -15,6 +16,10 @@ export function tenantAccessContext(request: FastifyRequest) {
     tenantId: request.headers["x-tenant-id"]
   });
   const database = getTenantDatabaseByName(tenantDatabase);
+  const token = request.headers.authorization?.startsWith("Bearer ")
+    ? request.headers.authorization.slice("Bearer ".length).trim()
+    : "";
+  const localClaims = token ? verifyAuthToken(token) : null;
   const actorUser = () =>
     database
       .selectFrom("users")
@@ -26,6 +31,7 @@ export function tenantAccessContext(request: FastifyRequest) {
     const user = await actorUser();
     if (!user) return false;
     if (permission.startsWith("platform.application.") && user.role !== "admin") return false;
+    if (permission.startsWith("crm.enquiry.") && user.role === "admin") return true;
     const allowed = await database
       .selectFrom("user_roles as userRole")
       .innerJoin("roles as role", "role.id", "userRole.role_id")
@@ -43,10 +49,13 @@ export function tenantAccessContext(request: FastifyRequest) {
   };
   return {
     actorEmail: claims.email ?? "tenant@techmedia.app",
+    frappeEmployeeCode: localClaims?.frappeEmployeeCode ?? null,
+    frappeUser: localClaims?.frappeUser ?? null,
     actorUser,
     can,
     authorize: async (permission: string) => {
-      if (!(await can(permission))) throw AppError.forbidden(`Permission ${permission} is required.`);
+      if (!(await can(permission)))
+        throw AppError.forbidden(`Permission ${permission} is required.`);
     },
     database,
     tenantDatabase,

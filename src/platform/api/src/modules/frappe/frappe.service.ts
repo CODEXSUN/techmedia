@@ -25,7 +25,8 @@ import type {
   FrappeSyncResult,
   FrappeSyncSettingsSavePayload,
   FrappeUserImportResult,
-  FrappeUserPreview
+  FrappeUserPreview,
+  FrappeUserVerificationResult
 } from "./frappe.types.js";
 
 const handshakePath = "/api/method/frappe.auth.get_logged_user";
@@ -127,13 +128,33 @@ export class FrappeService {
     return result;
   }
 
-  async verifyUser(userId: number): Promise<FrappeConnectionVerificationResult> {
+  async verifyUser(userId: number): Promise<FrappeUserVerificationResult> {
     await this.context.authorize("platform.application.user.update");
     const connection = await this.repository.find();
     if (!connection?.enabled) {
       throw AppError.conflict("Enable the Frappe connection before verifying user credentials.");
     }
-    return verifyUserAgainstConnection(this.context.database, userId, connection);
+    const verified = await verifyUserAgainstConnection(this.context.database, userId, connection);
+    const credentials = await tenantUserFrappeCredentialContract(this.context.database).find(
+      userId
+    );
+    if (!credentials) throw missingUserCredentials();
+    const employeeCode = await requiredFrappeEmployeeName({
+      apiKey: credentials.apiKey,
+      apiSecret: credentials.apiSecret,
+      authenticatedUser: verified.authenticatedUser,
+      baseUrl: connection.baseUrl,
+      connectionName: connection.connectionName,
+      enabled: connection.enabled
+    });
+    await tenantUserFrappeCredentialContract(this.context.database).recordVerification(
+      userId,
+      "live",
+      new Date(verified.checkedAt),
+      verified.authenticatedUser,
+      employeeCode
+    );
+    return { ...verified, employeeCode };
   }
 
   async getSyncSettings() {
@@ -694,18 +715,26 @@ export function frappeUserAuthenticationContract(database: FrappeContext["databa
       if (!connection?.enabled) {
         return {
           authenticatedUser: null,
+          employeeCode: null,
           status: connection ? ("disabled" as const) : ("not_configured" as const)
         };
       }
       const credentials = await tenantUserFrappeCredentialContract(database).find(userId);
       if (!credentials) {
-        return { authenticatedUser: null, status: "not_configured" as const };
+        return { authenticatedUser: null, employeeCode: null, status: "not_configured" as const };
       }
-      return {
-        authenticatedUser:
-          credentials.verificationStatus === "live" ? credentials.authenticatedUser : null,
-        status: credentials.verificationStatus
-      };
+      if (
+        credentials.verificationStatus === "live" &&
+        credentials.authenticatedUser?.trim() &&
+        credentials.employeeCode?.trim()
+      ) {
+        return {
+          authenticatedUser: credentials.authenticatedUser,
+          employeeCode: credentials.employeeCode,
+          status: "live" as const
+        };
+      }
+      return { authenticatedUser: null, employeeCode: null, status: "offline" as const };
     }
   };
 }
@@ -933,7 +962,7 @@ async function frappeLifecycleRequest<T>(
   }
 }
 
-async function frappeRequest<T>(
+export async function frappeRequest<T = unknown>(
   connection: FrappeConnectionCredentials,
   path: string,
   init: RequestInit = {},
@@ -955,7 +984,7 @@ async function frappeRequest<T>(
   } catch {
     throw new AppError({
       code: "FRAPPE_SYNC_UNAVAILABLE",
-      message: "TechMedia could not reach Frappe during synchronization.",
+      message: "TechMedia could not reach the live Frappe server.",
       statusCode: 502
     });
   }
@@ -970,13 +999,16 @@ async function frappeRequest<T>(
         statusCode: 422
       });
     }
+    const validationStatus = [409, 417, 422].includes(response.status);
+    if (response.status === 404) {
+      throw AppError.notFound(upstreamMessage || "The requested Frappe record was not found.");
+    }
     throw new AppError({
-      code: response.status === 417 ? "FRAPPE_VALIDATION_FAILED" : "FRAPPE_SYNC_FAILED",
-      message:
-        response.status === 417 && upstreamMessage
-          ? `Frappe rejected the enquiry: ${upstreamMessage}`
-          : `Frappe synchronization failed with HTTP ${response.status}.`,
-      statusCode: response.status === 417 ? 422 : 502
+      code: validationStatus ? "FRAPPE_VALIDATION_FAILED" : "FRAPPE_REQUEST_FAILED",
+      message: upstreamMessage
+        ? `Frappe rejected the request: ${upstreamMessage}`
+        : `Frappe request failed with HTTP ${response.status}.`,
+      statusCode: validationStatus ? 422 : 502
     });
   }
   return responseBody as T;
