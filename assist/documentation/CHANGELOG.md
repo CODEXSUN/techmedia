@@ -2,16 +2,30 @@
 
 ## Version State
 
-Current version: 1.0.8
+Current version: 1.0.9
 
-Release tag: v-1.0.8
+Release tag: v-1.0.9
 
-Changelog label: v 1.0.8
+Changelog label: v 1.0.9
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.9
+
+### [v 1.0.9] 2026-07-25 9:17 am - Standardize repository LF line endings
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Standardized detected repository text files on LF through a repository-owned `.gitattributes`
+  policy, preventing Windows Git from repeatedly warning about LF-to-CRLF conversion.
+- Bumped repository version to 1.0.9.
 
 ## v-1.0.8
 
