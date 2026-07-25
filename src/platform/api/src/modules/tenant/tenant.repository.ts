@@ -272,6 +272,16 @@ export class TenantRepository {
     return rows.map((row) => row.key);
   }
 
+  async findTenantPermissionKeys(tenant: Tenant) {
+    const rows = await getTenantDatabase(tenant)
+      .selectFrom("permissions")
+      .select("key")
+      .where("status", "=", "active")
+      .orderBy("key", "asc")
+      .execute();
+    return rows.map((row) => row.key);
+  }
+
   private async audit(tenantId: number, eventName: string) {
     await getPlatformDatabase()
       .insertInto("tenant_audit_events")

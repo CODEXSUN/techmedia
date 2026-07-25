@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { fail, ok } from "@codexsun/framework/http";
 import { verifyAuthToken } from "../../auth/jwt.js";
 import { requireSuperAdmin } from "../../auth/super-admin.guard.js";
+import { z } from "zod";
 import { StorageManagerService } from "./storage-manager.service.js";
 import type {
   CompanyLogoUploadPayload,
@@ -73,6 +74,41 @@ export async function registerStorageManagerRoutes(app: FastifyInstance) {
         .send(file.buffer);
     }
   );
+  app.post("/tenant/media/user-avatar", { preHandler: requireTenantUser }, async (request) => {
+    const payload = authPayload(request)!;
+    const body = z
+      .object({
+        contentBase64: z.string().min(1),
+        mimeType: z.enum(["image/jpeg", "image/png", "image/webp"])
+      })
+      .strict()
+      .parse(request.body);
+    return ok(await service.uploadUserAvatar(payload.tenantId!, payload.userId, body), {
+      requestId: request.id
+    });
+  });
+  app.get("/public/tenant/:tenantId/users/:userUuid/avatar", async (request, reply) => {
+    const params = z
+      .object({ tenantId: z.string().min(1), userUuid: z.string().length(8) })
+      .parse(request.params);
+    try {
+      const file = await service.readUserAvatar(params.tenantId, params.userUuid);
+      return reply
+        .header("cache-control", "public, max-age=300")
+        .header("content-type", file.mimeType)
+        .header("content-length", String(file.sizeBytes))
+        .send(file.buffer);
+    } catch {
+      return reply
+        .code(404)
+        .send(
+          fail(
+            { code: "USER_AVATAR_NOT_FOUND", message: "User avatar was not found." },
+            { requestId: request.id }
+          )
+        );
+    }
+  });
   app.get("/tenant/storage/download", { preHandler: requireTenantUser }, async (request, reply) =>
     sendDownload(
       reply,

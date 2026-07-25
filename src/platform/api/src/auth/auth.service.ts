@@ -5,6 +5,7 @@ import { TenantRepository } from "../modules/tenant/tenant.repository.js";
 import type { Tenant } from "../modules/tenant/tenant.types.js";
 import { signAuthToken, type AuthUserType } from "./jwt.js";
 import { verifyPassword } from "./password-hash.js";
+import { TENANT_SUPER_ADMIN_ROLE_KEY } from "../modules/tenant-role/index.js";
 
 const tenantRepository = new TenantRepository();
 
@@ -39,7 +40,11 @@ export class AuthService {
     if (!user || user.status !== "active" || !verifyPassword(input.password, user.password_hash)) {
       return null;
     }
-    const permissions = await tenantRepository.findTenantUserPermissionKeys(tenant, user.id);
+    const permissions =
+      user.role === TENANT_SUPER_ADMIN_ROLE_KEY
+        ? await tenantRepository.findTenantPermissionKeys(tenant)
+        : await tenantRepository.findTenantUserPermissionKeys(tenant, user.id);
+    const publicTenantRole = user.role === TENANT_SUPER_ADMIN_ROLE_KEY ? "user" : user.role;
     const frappeAuthentication = tenant.enabledModuleKeys.includes("frappe")
       ? await frappeUserAuthenticationContract(getTenantDatabase(tenant)).statusForLogin(user.id)
       : { authenticatedUser: null, employeeCode: null, status: "disabled" as const };
@@ -58,7 +63,7 @@ export class AuthService {
         tenantDbName: tenant.dbName,
         tenantId: tenant.uuid,
         tenantUuid: tenant.uuid,
-        tenantRole: user.role,
+        tenantRole: publicTenantRole,
         permissions,
         userId: user.uuid,
         userType: "tenant"
@@ -73,7 +78,7 @@ export class AuthService {
       tenantDbName: tenant.dbName,
       tenantId: tenant.uuid,
       tenantUuid: tenant.uuid,
-      tenantRole: user.role,
+      tenantRole: publicTenantRole,
       permissions,
       userType: "tenant" as const
     };

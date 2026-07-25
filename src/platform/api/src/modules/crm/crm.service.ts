@@ -120,10 +120,6 @@ export class CrmService {
 
   async forceDelete(name: string) {
     await this.context.authorize("crm.enquiry.force-delete");
-    const actor = await this.actor();
-    if (actor.role !== "admin") {
-      throw AppError.forbidden("Only tenant administrators can permanently delete enquiries.");
-    }
     const current = await this.gateway.get(name);
     await this.gateway.delete(name);
     await this.audit("deleted", current);

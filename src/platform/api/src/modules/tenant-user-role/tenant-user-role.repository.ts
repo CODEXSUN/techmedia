@@ -6,6 +6,7 @@ import type {
   TenantUserRoleSavePayload,
   TenantUserRoleStatus
 } from "./tenant-user-role.types.js";
+import { TENANT_SUPER_ADMIN_ROLE_KEY } from "../tenant-role/index.js";
 type Row = {
   id: number;
   is_protected: boolean | number;
@@ -23,14 +24,14 @@ export class TenantUserRoleRepository {
   async list(f: TenantUserRoleListFilters = {}) {
     const term = `%${(f.search ?? "").trim().toLowerCase()}%`;
     const r =
-      await sql<Row>`SELECT ur.id,ur.uuid,ur.user_id,ur.role_id,ur.status,ur.is_protected,u.name user_name,u.email user_email,r.label role_label,r.\`key\` role_key FROM user_roles ur INNER JOIN users u ON u.id=ur.user_id INNER JOIN roles r ON r.id=ur.role_id WHERE (${f.search ?? ""}='' OR LOWER(u.name) LIKE ${term} OR LOWER(u.email) LIKE ${term} OR LOWER(r.label) LIKE ${term}) ORDER BY u.name,r.label`.execute(
+      await sql<Row>`SELECT ur.id,ur.uuid,ur.user_id,ur.role_id,ur.status,ur.is_protected,u.name user_name,u.email user_email,r.label role_label,r.\`key\` role_key FROM user_roles ur INNER JOIN users u ON u.id=ur.user_id INNER JOIN roles r ON r.id=ur.role_id WHERE u.is_protected=FALSE AND r.\`key\`<>${TENANT_SUPER_ADMIN_ROLE_KEY} AND (${f.search ?? ""}='' OR LOWER(u.name) LIKE ${term} OR LOWER(u.email) LIKE ${term} OR LOWER(r.label) LIKE ${term}) ORDER BY u.name,r.label`.execute(
         this.database
       );
     return r.rows.map(map);
   }
   async find(id: string | number) {
     const r =
-      await sql<Row>`SELECT ur.id,ur.uuid,ur.user_id,ur.role_id,ur.status,ur.is_protected,u.name user_name,u.email user_email,r.label role_label,r.\`key\` role_key FROM user_roles ur INNER JOIN users u ON u.id=ur.user_id INNER JOIN roles r ON r.id=ur.role_id WHERE ur.id=${Number(id)} LIMIT 1`.execute(
+      await sql<Row>`SELECT ur.id,ur.uuid,ur.user_id,ur.role_id,ur.status,ur.is_protected,u.name user_name,u.email user_email,r.label role_label,r.\`key\` role_key FROM user_roles ur INNER JOIN users u ON u.id=ur.user_id INNER JOIN roles r ON r.id=ur.role_id WHERE ur.id=${Number(id)} AND u.is_protected=FALSE AND r.\`key\`<>${TENANT_SUPER_ADMIN_ROLE_KEY} LIMIT 1`.execute(
         this.database
       );
     return r.rows[0] ? map(r.rows[0]) : null;
@@ -46,7 +47,7 @@ export class TenantUserRoleRepository {
     const r = await sql<{
       role_count: number | string;
       user_count: number | string;
-    }>`SELECT (SELECT COUNT(*) FROM users WHERE id=${v.userId} AND status='active') user_count,(SELECT COUNT(*) FROM roles WHERE id=${v.roleId} AND status='active') role_count`.execute(
+    }>`SELECT (SELECT COUNT(*) FROM users WHERE id=${v.userId} AND status='active' AND is_protected=FALSE) user_count,(SELECT COUNT(*) FROM roles WHERE id=${v.roleId} AND status='active' AND \`key\`<>${TENANT_SUPER_ADMIN_ROLE_KEY}) role_count`.execute(
       this.database
     );
     return {

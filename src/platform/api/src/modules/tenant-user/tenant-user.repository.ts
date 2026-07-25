@@ -95,6 +95,17 @@ export class TenantUserRepository {
       );
     return this.find(id);
   }
+  async updateProfile(id: number, input: { email: string; name: string }, passwordHash?: string) {
+    if (passwordHash)
+      await sql`UPDATE users SET name=${input.name},email=${input.email},password_hash=${passwordHash} WHERE id=${id}`.execute(
+        this.database
+      );
+    else
+      await sql`UPDATE users SET name=${input.name},email=${input.email} WHERE id=${id}`.execute(
+        this.database
+      );
+    return this.find(id);
+  }
   async updateFrappeCredentials(id: number, credentials: FrappeCredentialWrite) {
     await sql`UPDATE users SET
       frappe_api_key_ciphertext=${credentials.apiKeyCiphertext},

@@ -69,7 +69,7 @@ export async function migrateFrappeModule(database: Kysely<TenantDatabase>) {
           tenant_user.frappe_verification_status=connection_settings.verification_status,
           tenant_user.frappe_last_checked_at=connection_settings.last_checked_at,
           tenant_user.frappe_last_verified_at=connection_settings.last_verified_at
-        WHERE tenant_user.role='admin'
+        WHERE tenant_user.role IN ('admin','super-admin')
           AND tenant_user.frappe_api_key_ciphertext IS NULL
           AND tenant_user.frappe_api_secret_ciphertext IS NULL
           AND connection_settings.api_key_ciphertext IS NOT NULL

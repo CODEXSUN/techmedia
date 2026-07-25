@@ -31,10 +31,17 @@ import {
 import { listFinancialYears } from "@codexsun/core-web/modules/organisation/financial-year";
 import { getToken, logout } from "../../shared/api/platform-api";
 import { setPlatformDocumentTitle } from "../../shared/document/PageTitle";
+import { useTenantUserProfileQuery } from "../../modules/tenant-user/tenant-user.hooks";
 
 function lazyWorkspace<Props>(loader: () => Promise<ComponentType<Props>>) {
   return lazy(async () => ({ default: await loader() }));
 }
+
+const TenantUserProfileWorkspace = lazyWorkspace(() =>
+  import("../../modules/tenant-user/tenant-user.profile.workspace").then(
+    (module) => module.TenantUserProfileWorkspace
+  )
+);
 
 const AddressTypesWorkspace = lazyWorkspace(() =>
   import("@codexsun/core-web/modules/common/contacts/address-types").then(
@@ -271,27 +278,20 @@ type AppPage =
   | `core.common.${"accounts" | "contacts" | "others" | "products" | "workorder"}.${string}`;
 const COMPANY_CONTEXT_STORAGE_KEY = "codexsun.tenant.company-id";
 const ACCOUNTING_YEAR_CONTEXT_STORAGE_KEY = "codexsun.tenant.financial-year-id";
-const tenantAdminCrmPermissions = [
-  "crm.enquiry.assigned.view",
-  "crm.enquiry.created.view",
-  "crm.enquiry.open.view",
-  "crm.enquiry.create",
-  "crm.enquiry.update",
-  "crm.enquiry.assign",
-  "crm.enquiry.suspend",
-  "crm.enquiry.force-delete"
-] as const;
-
 export function AppDesk() {
   const queryClient = useQueryClient();
-  const identity = signedInTenantUser();
-  const signedInUser =
-    identity.tenantRole === "admin"
-      ? {
-          ...identity,
-          permissions: [...new Set([...identity.permissions, ...tenantAdminCrmPermissions])]
-        }
-      : identity;
+  const profileQuery = useTenantUserProfileQuery();
+  const tokenIdentity = signedInTenantUser();
+  const identity = profileQuery.data
+    ? {
+        ...tokenIdentity,
+        avatarSrc: profileQuery.data.avatarUrl,
+        email: profileQuery.data.email,
+        fallback: userInitials(profileQuery.data.name),
+        name: profileQuery.data.name
+      }
+    : tokenIdentity;
+  const signedInUser = identity;
   const canViewCoreRecords = signedInUser.permissions.includes("core.application.records.view");
   const [page, setPage] = useState<AppPage>(() => pageFromUrl(null));
   const [shouldResolveLandingPath, setShouldResolveLandingPath] = useState(() => isAppRootPath());
@@ -508,8 +508,8 @@ export function AppDesk() {
           <Card title="No application access">
             <StatusBadge tone="amber">Restricted</StatusBadge>
             <p className="mt-4 text-sm text-muted-foreground">
-              Your account has no enabled application permission. Ask a tenant administrator to
-              assign the appropriate application role.
+              Your account has no enabled application permission. Ask an administrator to assign the
+              appropriate application role.
             </p>
           </Card>
         </main>
@@ -557,6 +557,7 @@ export function AppDesk() {
         homeHref="/"
         menuItems={menuItems}
         onLogout={handleLogout}
+        profileHref="/app/application/profile"
         subtitle={null}
         title={null}
         user={signedInUser}
@@ -575,7 +576,7 @@ export function AppDesk() {
               onPublish={(nextLandingApp) => landingAppMutation.mutate(nextLandingApp)}
             />
           ) : null}
-          {safePage === "application.profile" ? <ApplicationProfile /> : null}
+          {safePage === "application.profile" ? <TenantUserProfileWorkspace /> : null}
           {safePage === "application.settings" ? <ApplicationSettings /> : null}
           {safePage === "application.access.users" ? (
             <TenantUserWorkspace actorEmail={signedInUser.email} />
@@ -605,11 +606,8 @@ export function AppDesk() {
             <CrmWorkspace
               canAssign={signedInUser.permissions.includes("crm.enquiry.assign")}
               canCreate={signedInUser.permissions.includes("crm.enquiry.create")}
-              canForceDelete={signedInUser.tenantRole === "admin"}
-              canSuspend={
-                signedInUser.tenantRole === "admin" ||
-                signedInUser.permissions.includes("crm.enquiry.suspend")
-              }
+              canForceDelete={signedInUser.permissions.includes("crm.enquiry.force-delete")}
+              canSuspend={signedInUser.permissions.includes("crm.enquiry.suspend")}
               canUpdate={signedInUser.permissions.includes("crm.enquiry.update")}
               view="assigned"
             />
@@ -618,11 +616,8 @@ export function AppDesk() {
             <CrmWorkspace
               canAssign={signedInUser.permissions.includes("crm.enquiry.assign")}
               canCreate={signedInUser.permissions.includes("crm.enquiry.create")}
-              canForceDelete={signedInUser.tenantRole === "admin"}
-              canSuspend={
-                signedInUser.tenantRole === "admin" ||
-                signedInUser.permissions.includes("crm.enquiry.suspend")
-              }
+              canForceDelete={signedInUser.permissions.includes("crm.enquiry.force-delete")}
+              canSuspend={signedInUser.permissions.includes("crm.enquiry.suspend")}
               canUpdate={signedInUser.permissions.includes("crm.enquiry.update")}
               view="created"
             />
@@ -631,11 +626,8 @@ export function AppDesk() {
             <CrmWorkspace
               canAssign={signedInUser.permissions.includes("crm.enquiry.assign")}
               canCreate={signedInUser.permissions.includes("crm.enquiry.create")}
-              canForceDelete={signedInUser.tenantRole === "admin"}
-              canSuspend={
-                signedInUser.tenantRole === "admin" ||
-                signedInUser.permissions.includes("crm.enquiry.suspend")
-              }
+              canForceDelete={signedInUser.permissions.includes("crm.enquiry.force-delete")}
+              canSuspend={signedInUser.permissions.includes("crm.enquiry.suspend")}
               canUpdate={signedInUser.permissions.includes("crm.enquiry.update")}
               view="open"
             />
@@ -881,19 +873,6 @@ function ApplicationOverview({
   );
 }
 
-function ApplicationProfile() {
-  return (
-    <Card
-      title="Application Profile"
-      description="Platform identity, workspace access, and tenant context."
-    >
-      <div className="flex flex-wrap gap-2">
-        <StatusBadge tone="green">Always enabled</StatusBadge>
-      </div>
-    </Card>
-  );
-}
-
 function ApplicationSettings() {
   return (
     <Card title="Application Settings" description="Tenant-scoped platform settings.">
@@ -1105,29 +1084,28 @@ function isAppRootPath() {
   return window.location.pathname === "/app" || window.location.pathname === "/app/";
 }
 
-function accessibleApps(
-  apps: PlatformAppId[],
-  user: { permissions: string[]; tenantRole: string }
-) {
+function accessibleApps(apps: PlatformAppId[], user: { permissions: string[] }) {
+  const canUseApplication = user.permissions.some((permission) =>
+    permission.startsWith("platform.application.")
+  );
   const canUseCrm = user.permissions.some((permission) => permission.startsWith("crm.enquiry."));
   const canUseFrappe = user.permissions.some((permission) =>
     permission.startsWith("frappe.connection.")
   );
   return apps.filter(
     (app) =>
-      (app === "application" && user.tenantRole === "admin") ||
+      (app === "application" && canUseApplication) ||
       (app === "crm" && canUseCrm) ||
       (app === "frappe" && canUseFrappe)
   );
 }
 
-function pageAllowed(
-  page: AppPage,
-  user: { permissions: string[]; tenantRole: string },
-  apps: PlatformAppId[]
-) {
+function pageAllowed(page: AppPage, user: { permissions: string[] }, apps: PlatformAppId[]) {
   if (page.startsWith("application") || page.startsWith("core")) {
-    return user.tenantRole === "admin" && apps.includes("application");
+    return (
+      apps.includes("application") &&
+      user.permissions.some((permission) => permission.startsWith("platform.application."))
+    );
   }
   if (page.startsWith("frappe")) {
     return apps.includes("frappe") && user.permissions.includes("frappe.connection.view");

@@ -48,3 +48,13 @@ export type TenantUserTenantOption = {
   status: string;
   tenantCode: string;
 };
+export type TenantUserProfile = {
+  avatarPath: string;
+  avatarUrl: string;
+  email: string;
+  id: number;
+  name: string;
+  uuid: string;
+};
+export type TenantUserProfileSavePayload = { email: string; name: string; password?: string | undefined };
+export type TenantUserProfileFormValue = TenantUserProfileSavePayload & { confirmPassword: string };

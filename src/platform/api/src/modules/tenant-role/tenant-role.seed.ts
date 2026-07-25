@@ -1,12 +1,19 @@
 import { createHash } from "node:crypto";
 import type { Kysely } from "kysely";
 import type { TenantDatabase } from "../../database/schema.js";
+import { TENANT_ADMIN_ROLE_KEY, TENANT_SUPER_ADMIN_ROLE_KEY } from "./tenant-role.types.js";
 export async function seedTenantRoleModule(database: Kysely<TenantDatabase>) {
   for (const role of [
     {
-      key: "admin",
-      label: "Tenant Administrator",
-      description: "Full tenant administration access.",
+      key: TENANT_SUPER_ADMIN_ROLE_KEY,
+      label: "Super Admin",
+      description: "Internal protected access for the initial tenant system user.",
+      protected: true
+    },
+    {
+      key: TENANT_ADMIN_ROLE_KEY,
+      label: "Administrator",
+      description: "Assignable tenant administration access.",
       protected: true
     },
     {

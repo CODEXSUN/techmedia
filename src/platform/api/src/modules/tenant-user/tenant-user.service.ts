@@ -13,6 +13,8 @@ import type {
   TenantUserFrappeImportPayload,
   TenantUserFrappeImportResult,
   TenantUserListFilters,
+  TenantUserProfile,
+  TenantUserProfileSavePayload,
   TenantUserSavePayload,
   TenantUserStatus
 } from "./tenant-user.types.js";
@@ -32,6 +34,25 @@ export class TenantUserService {
   async get(id: string) {
     await this.context.authorize("platform.application.user.view");
     return this.repository.find(id);
+  }
+  async getProfile(): Promise<TenantUserProfile> {
+    const record = await this.repository.findByEmail(this.context.actorEmail);
+    if (!record) throw AppError.notFound("Signed-in user was not found.");
+    return profile(record, this.context.tenantId);
+  }
+  async updateProfile(input: TenantUserProfileSavePayload): Promise<TenantUserProfile> {
+    const current = await this.repository.findByEmail(this.context.actorEmail);
+    if (!current) throw AppError.notFound("Signed-in user was not found.");
+    const value = normalizeProfile(input);
+    const record = (await this.save(() =>
+      this.repository.updateProfile(
+        current.id,
+        value,
+        value.password ? hashPassword(value.password) : undefined
+      )
+    ))!;
+    await this.audit("profile-updated", record);
+    return profile(record, this.context.tenantId);
   }
   async create(input: TenantUserSavePayload) {
     await this.context.authorize("platform.application.user.create");
@@ -293,6 +314,25 @@ function normalize(input: TenantUserSavePayload, creating: boolean): TenantUserS
     name: input.name.trim(),
     ...(password ? { password } : {}),
     status: input.status
+  };
+}
+function normalizeProfile(input: TenantUserProfileSavePayload): TenantUserProfileSavePayload {
+  const password = input.password?.trim();
+  if (password && password.length < 8)
+    throw AppError.validation("Password must contain at least 8 characters.");
+  return {
+    email: input.email.trim().toLowerCase(),
+    name: input.name.trim(),
+    ...(password ? { password } : {})
+  };
+}
+function profile(record: TenantUser, tenantId: string): TenantUserProfile {
+  return {
+    email: record.email,
+    id: record.id,
+    name: record.name,
+    uuid: record.uuid,
+    avatarPath: `/public/tenant/${encodeURIComponent(tenantId)}/users/${record.uuid}/avatar`
   };
 }
 function isDuplicate(error: unknown): error is { code: string } {

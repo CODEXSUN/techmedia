@@ -61,6 +61,10 @@ export type CompanyLogoUploadPayload = {
   contentBase64: string;
   variant: "logo" | "logo-dark";
 };
+export type UserAvatarUploadPayload = {
+  contentBase64: string;
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+};
 
 export type StorageFolderPayload = StorageListInput & {
   name: string;

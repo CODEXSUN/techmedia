@@ -109,7 +109,10 @@ function TenantUserRoleFormBody({
             allowTextValue={false}
             loading={lookupLoading}
             options={users
-              .filter((item) => item.status === "active" || item.id === value.userId)
+              .filter(
+                (item) =>
+                  !item.isProtected && (item.status === "active" || item.id === value.userId)
+              )
               .map((item) => ({
                 description: item.email,
                 label: item.name,

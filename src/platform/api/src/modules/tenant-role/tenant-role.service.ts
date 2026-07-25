@@ -9,6 +9,7 @@ import type {
   TenantRoleSavePayload,
   TenantRoleStatus
 } from "./tenant-role.types.js";
+import { TENANT_SUPER_ADMIN_ROLE_KEY } from "./tenant-role.types.js";
 export class TenantRoleService {
   private repository;
   constructor(private context: TenantRoleContext) {
@@ -101,9 +102,13 @@ export class TenantRoleService {
   }
 }
 function normalize(v: TenantRoleSavePayload) {
+  const key = v.key.trim().toLowerCase();
+  if ([TENANT_SUPER_ADMIN_ROLE_KEY, "super_admin", "superadmin"].includes(key)) {
+    throw AppError.forbidden("The internal Super Admin role cannot be created or assigned.");
+  }
   return {
     description: v.description.trim(),
-    key: v.key.trim().toLowerCase(),
+    key,
     label: v.label.trim(),
     status: v.status
   };

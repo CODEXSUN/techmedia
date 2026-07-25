@@ -4,7 +4,8 @@ import type {
   StorageDownloadInput,
   StorageFolderPayload,
   StorageListInput,
-  StorageUploadPayload
+  StorageUploadPayload,
+  UserAvatarUploadPayload
 } from "./storage-manager.types.js";
 
 export class StorageManagerService {
@@ -32,6 +33,12 @@ export class StorageManagerService {
 
   readCompanyLogo(tenantId: string, variant: "logo" | "logo-dark") {
     return this.repository.readCompanyLogo(tenantId, variant);
+  }
+  uploadUserAvatar(tenantId: string, userUuid: string, input: UserAvatarUploadPayload) {
+    return this.repository.uploadUserAvatar(tenantId, userUuid, input);
+  }
+  readUserAvatar(tenantId: string, userUuid: string) {
+    return this.repository.readUserAvatar(tenantId, userUuid);
   }
 
   download(input: StorageDownloadInput) {

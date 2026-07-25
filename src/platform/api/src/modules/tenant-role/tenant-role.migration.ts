@@ -1,6 +1,12 @@
+import { createHash } from "node:crypto";
 import { sql, type Kysely } from "kysely";
 import type { TenantDatabase } from "../../database/schema.js";
-export const tenantRoleMigration = { key: "platform.tenant-role.foundation-v1" } as const;
+import { TENANT_ADMIN_ROLE_KEY, TENANT_SUPER_ADMIN_ROLE_KEY } from "./tenant-role.types.js";
+export const tenantRoleMigrations = [
+  { key: "platform.tenant-role.foundation-v1" },
+  { key: "platform.tenant-role.internal-super-admin-v2" }
+] as const;
+export const tenantRoleMigration = tenantRoleMigrations[0];
 export async function migrateTenantRoleModule(database: Kysely<TenantDatabase>) {
   await sql
     .raw(
@@ -15,10 +21,40 @@ export async function migrateTenantRoleModule(database: Kysely<TenantDatabase>) 
       await sql.raw(`ALTER TABLE roles ADD COLUMN \`${column}\` ${definition}`).execute(database);
   }
   await database
+    .insertInto("roles")
+    .values({
+      description: "Internal protected access for the initial tenant system user.",
+      is_protected: true,
+      key: TENANT_SUPER_ADMIN_ROLE_KEY,
+      label: "Super Admin",
+      status: "active",
+      uuid: stable(`tenant-role:${TENANT_SUPER_ADMIN_ROLE_KEY}`)
+    })
+    .onDuplicateKeyUpdate({
+      description: "Internal protected access for the initial tenant system user.",
+      is_protected: true,
+      label: "Super Admin",
+      status: "active"
+    })
+    .execute();
+  await database
+    .updateTable("roles")
+    .set({
+      description: "Assignable tenant administration access.",
+      is_protected: true,
+      label: "Administrator",
+      status: "active"
+    })
+    .where("key", "=", TENANT_ADMIN_ROLE_KEY)
+    .execute();
+  await database
     .insertInto("schema_migrations")
     .ignore()
-    .values({ name: tenantRoleMigration.key })
+    .values(tenantRoleMigrations.map((migration) => ({ name: migration.key })))
     .execute();
+}
+function stable(value: string) {
+  return createHash("sha256").update(value).digest("hex").slice(0, 8);
 }
 async function exists(database: Kysely<TenantDatabase>, column: string) {
   const r = await sql<{

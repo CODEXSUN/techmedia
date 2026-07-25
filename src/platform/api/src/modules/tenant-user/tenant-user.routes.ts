@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AppError } from "@codexsun/framework/errors";
 import { registerContractRoute } from "@codexsun/framework/http";
 import { tenantAccessContext } from "../../auth/tenant-access-context.js";
+import { signAuthToken, verifyAuthToken } from "../../auth/jwt.js";
 import { requireSuperAdmin, superAdminActorEmail } from "../../auth/super-admin.guard.js";
 import { tenantSupportContract } from "../tenant/index.js";
 import { createTenantUserAdminService, TenantUserService } from "./tenant-user.service.js";
@@ -33,12 +34,55 @@ const payload = z.object({
   password: z.string().min(8).max(128).optional(),
   status
 });
+const profilePayload = z
+  .object({
+    email: z.string().trim().email(),
+    name: z.string().trim().min(2).max(180),
+    password: z.string().min(8).max(128).optional()
+  })
+  .strict();
+const profileRecord = record
+  .pick({ email: true, id: true, name: true, uuid: true })
+  .extend({ avatarPath: z.string() });
+const profileResponse = z.object({ accessToken: z.string(), profile: profileRecord });
 const params = z.object({ id: z.string().regex(/^\d+$/) });
 const query = z.object({ search: z.string().trim().optional() });
 const adminQuery = query.extend({ tenantId: z.string().trim().min(1) }).strict();
 const adminPayload = payload.extend({ tenantId: z.string().trim().min(1) }).strict();
 const adminTarget = z.object({ tenantId: z.string().trim().min(1) }).strict();
 export async function registerTenantUserRoutes(app: FastifyInstance) {
+  registerContractRoute(app, {
+    method: "GET",
+    url: "/tenant/profile",
+    schemas: { response: profileRecord },
+    handler: ({ request }) => new TenantUserService(tenantAccessContext(request)).getProfile()
+  });
+  registerContractRoute(app, {
+    method: "PUT",
+    url: "/tenant/profile",
+    schemas: { body: profilePayload, response: profileResponse },
+    handler: async ({ body, request }) => {
+      const profile = await new TenantUserService(tenantAccessContext(request)).updateProfile(body);
+      const claims = tenantClaims(request.headers.authorization);
+      return {
+        profile,
+        accessToken: signAuthToken({
+          email: profile.email,
+          name: profile.name,
+          userId: profile.uuid,
+          userType: "tenant",
+          ...(claims.tenantCode ? { tenantCode: claims.tenantCode } : {}),
+          ...(claims.tenantDbName ? { tenantDbName: claims.tenantDbName } : {}),
+          ...(claims.tenantId ? { tenantId: claims.tenantId } : {}),
+          ...(claims.tenantUuid ? { tenantUuid: claims.tenantUuid } : {}),
+          ...(claims.tenantRole ? { tenantRole: claims.tenantRole } : {}),
+          ...(claims.permissions ? { permissions: claims.permissions } : {}),
+          ...(claims.frappeEmployeeCode ? { frappeEmployeeCode: claims.frappeEmployeeCode } : {}),
+          ...(claims.frappeUser ? { frappeUser: claims.frappeUser } : {})
+        })
+      };
+    }
+  });
   registerContractRoute(app, {
     method: "GET",
     url: path,
@@ -122,6 +166,14 @@ export async function registerTenantUserRoutes(app: FastifyInstance) {
     handler: async ({ params, query, request }) =>
       (await adminService(request, query.tenantId)).forceDelete(params.id)
   });
+}
+function tenantClaims(authorization: string | undefined) {
+  const token = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : "";
+  const claims = token ? verifyAuthToken(token) : null;
+  if (!claims || claims.userType !== "tenant") throw AppError.unauthorized("Session expired.");
+  return claims;
 }
 function action(app: FastifyInstance, name: string, value: z.infer<typeof status>) {
   registerContractRoute(app, {

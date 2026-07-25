@@ -6,6 +6,7 @@ import type {
   TenantRoleSavePayload,
   TenantRoleStatus
 } from "./tenant-role.types.js";
+import { TENANT_SUPER_ADMIN_ROLE_KEY } from "./tenant-role.types.js";
 type Row = {
   description: string;
   id: number;
@@ -20,14 +21,14 @@ export class TenantRoleRepository {
   async list(filters: TenantRoleListFilters = {}) {
     const term = `%${(filters.search ?? "").trim().toLowerCase()}%`;
     const r =
-      await sql<Row>`SELECT id,uuid,\`key\`,label,description,status,is_protected FROM roles WHERE (${filters.search ?? ""}='' OR LOWER(\`key\`) LIKE ${term} OR LOWER(label) LIKE ${term}) ORDER BY label`.execute(
+      await sql<Row>`SELECT id,uuid,\`key\`,label,description,status,is_protected FROM roles WHERE \`key\`<>${TENANT_SUPER_ADMIN_ROLE_KEY} AND (${filters.search ?? ""}='' OR LOWER(\`key\`) LIKE ${term} OR LOWER(label) LIKE ${term}) ORDER BY label`.execute(
         this.database
       );
     return r.rows.map(map);
   }
   async find(id: string | number) {
     const r =
-      await sql<Row>`SELECT id,uuid,\`key\`,label,description,status,is_protected FROM roles WHERE id=${Number(id)} LIMIT 1`.execute(
+      await sql<Row>`SELECT id,uuid,\`key\`,label,description,status,is_protected FROM roles WHERE id=${Number(id)} AND \`key\`<>${TENANT_SUPER_ADMIN_ROLE_KEY} LIMIT 1`.execute(
         this.database
       );
     return r.rows[0] ? map(r.rows[0]) : null;

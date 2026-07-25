@@ -19,10 +19,19 @@ New entries must keep database-facing work and application code work separate.
 
 #### Database Changes
 
-- Database update: No.
+- Database update: Yes.
+- Preserved exactly one internal Super Admin user-role assignment and seeded its tenant permission
+  links so permission-aware sibling packages can authorize the protected account without exposing it
+  through tenant access APIs.
 
 #### App Codebase Changes
 
+- Replaced the former tenant administrator role with one hidden, non-assignable Super Admin and a
+  visible Administrator role for normal administration.
+- Kept the protected Super Admin identity and role behavior out of user, role, assignment, and
+  permission management responses while retaining its internal authorization path.
+- Added focused tenant-role E2E coverage proving the Super Admin can load Core application records
+  and that protected role assignments remain absent from public tenant access responses.
 - Added a repository-local text encoding gate that scans source, configuration, documentation, and
   environment files for invalid UTF-8 and common mojibake sequences.
 - Required environment comments to remain ASCII and environment files to remain BOM-free so

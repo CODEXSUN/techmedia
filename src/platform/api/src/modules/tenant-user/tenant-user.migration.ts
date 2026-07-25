@@ -4,7 +4,8 @@ import type { TenantDatabase } from "../../database/schema.js";
 export const tenantUserMigrations = [
   { key: "platform.tenant-user.foundation-v1" },
   { key: "platform.tenant-user.frappe-credentials-v2" },
-  { key: "platform.tenant-user.frappe-employee-code-v3" }
+  { key: "platform.tenant-user.frappe-employee-code-v3" },
+  { key: "platform.tenant-user.internal-super-admin-v4" }
 ] as const;
 export const tenantUserMigration = tenantUserMigrations[0];
 
@@ -37,6 +38,12 @@ export async function migrateTenantUserModule(database: Kysely<TenantDatabase>) 
       .raw("ALTER TABLE users ADD COLUMN is_protected BOOLEAN NOT NULL DEFAULT FALSE AFTER status")
       .execute(database);
   }
+  await sql`UPDATE users SET role='user' WHERE role='super-admin' AND id<>COALESCE((SELECT protected_id FROM (SELECT MIN(id) protected_id FROM users WHERE is_protected=TRUE) protected_user),-1)`.execute(
+    database
+  );
+  await sql`UPDATE users SET role='super-admin' WHERE id=(SELECT protected_id FROM (SELECT MIN(id) protected_id FROM users WHERE is_protected=TRUE) protected_user)`.execute(
+    database
+  );
   await sql
     .raw(
       `ALTER TABLE users

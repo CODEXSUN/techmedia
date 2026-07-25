@@ -27,6 +27,10 @@ export type TenantUserSavePayload = {
   password?: string | undefined;
   status: TenantUserStatus;
 };
+export type TenantUserProfile = Pick<TenantUser, "email" | "id" | "name" | "uuid"> & {
+  avatarPath: string;
+};
+export type TenantUserProfileSavePayload = { email: string; name: string; password?: string | undefined };
 export type TenantUserListFilters = { search?: string };
 export type TenantUserReference = Pick<TenantUser, "email" | "id" | "name" | "uuid">;
 export type TenantUserFrappeCredentials = {

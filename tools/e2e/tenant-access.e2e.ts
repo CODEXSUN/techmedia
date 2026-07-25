@@ -5,6 +5,7 @@ import { closePlatformDatabase } from "../../src/platform/api/src/database/platf
 import { closeAllTenantDatabases } from "../../src/platform/api/src/database/tenant-database.js";
 import { env } from "../../src/platform/api/src/env.js";
 import { signAuthToken } from "../../src/platform/api/src/auth/jwt.js";
+import { TENANT_SUPER_ADMIN_ROLE_KEY } from "../../src/platform/api/src/modules/tenant-role/index.js";
 
 type TenantRow = RowDataPacket & { db_name: string; tenant_code: string; uuid: string };
 type RecordValue = { id: number; status: string } & Record<string, unknown>;
@@ -127,10 +128,11 @@ async function request(
 ) {
   await connection.changeUser({ database: tenant.db_name });
   const [users] = await connection.query<Array<RowDataPacket & { email: string; uuid: string }>>(
-    "SELECT email, uuid FROM users WHERE role='admin' AND status='active' ORDER BY id LIMIT 1"
+    "SELECT email, uuid FROM users WHERE role=? AND status='active' ORDER BY id LIMIT 1",
+    [TENANT_SUPER_ADMIN_ROLE_KEY]
   );
   const admin = users[0];
-  assert.ok(admin, `${tenant.tenant_code} administrator was not seeded.`);
+  assert.ok(admin, `${tenant.tenant_code} Super Admin was not seeded.`);
   const token = signAuthToken({
     email: admin.email,
     tenantCode: tenant.tenant_code,

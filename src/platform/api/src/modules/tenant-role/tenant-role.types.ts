@@ -1,5 +1,7 @@
 import type { Kysely } from "kysely";
 import type { TenantDatabase } from "../../database/schema.js";
+export const TENANT_SUPER_ADMIN_ROLE_KEY = "super-admin" as const;
+export const TENANT_ADMIN_ROLE_KEY = "admin" as const;
 export type TenantRoleStatus = "active" | "inactive";
 export type TenantRole = {
   description: string;

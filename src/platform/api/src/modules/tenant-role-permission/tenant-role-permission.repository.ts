@@ -6,6 +6,7 @@ import type {
   TenantRolePermissionSavePayload,
   TenantRolePermissionStatus
 } from "./tenant-role-permission.types.js";
+import { TENANT_SUPER_ADMIN_ROLE_KEY } from "../tenant-role/index.js";
 type Row = {
   id: number;
   is_protected: boolean | number;
@@ -23,14 +24,14 @@ export class TenantRolePermissionRepository {
   async list(f: TenantRolePermissionListFilters = {}) {
     const term = `%${(f.search ?? "").trim().toLowerCase()}%`;
     const r =
-      await sql<Row>`SELECT rp.id,rp.uuid,rp.role_id,rp.permission_id,rp.status,rp.is_protected,r.label role_label,r.\`key\` role_key,p.label permission_label,p.\`key\` permission_key FROM role_permissions rp INNER JOIN roles r ON r.id=rp.role_id INNER JOIN permissions p ON p.id=rp.permission_id WHERE (${f.search ?? ""}='' OR LOWER(r.label) LIKE ${term} OR LOWER(p.label) LIKE ${term} OR LOWER(p.\`key\`) LIKE ${term}) ORDER BY r.label,p.\`key\``.execute(
+      await sql<Row>`SELECT rp.id,rp.uuid,rp.role_id,rp.permission_id,rp.status,rp.is_protected,r.label role_label,r.\`key\` role_key,p.label permission_label,p.\`key\` permission_key FROM role_permissions rp INNER JOIN roles r ON r.id=rp.role_id INNER JOIN permissions p ON p.id=rp.permission_id WHERE r.\`key\`<>${TENANT_SUPER_ADMIN_ROLE_KEY} AND (${f.search ?? ""}='' OR LOWER(r.label) LIKE ${term} OR LOWER(p.label) LIKE ${term} OR LOWER(p.\`key\`) LIKE ${term}) ORDER BY r.label,p.\`key\``.execute(
         this.database
       );
     return r.rows.map(map);
   }
   async find(id: string | number) {
     const r =
-      await sql<Row>`SELECT rp.id,rp.uuid,rp.role_id,rp.permission_id,rp.status,rp.is_protected,r.label role_label,r.\`key\` role_key,p.label permission_label,p.\`key\` permission_key FROM role_permissions rp INNER JOIN roles r ON r.id=rp.role_id INNER JOIN permissions p ON p.id=rp.permission_id WHERE rp.id=${Number(id)} LIMIT 1`.execute(
+      await sql<Row>`SELECT rp.id,rp.uuid,rp.role_id,rp.permission_id,rp.status,rp.is_protected,r.label role_label,r.\`key\` role_key,p.label permission_label,p.\`key\` permission_key FROM role_permissions rp INNER JOIN roles r ON r.id=rp.role_id INNER JOIN permissions p ON p.id=rp.permission_id WHERE rp.id=${Number(id)} AND r.\`key\`<>${TENANT_SUPER_ADMIN_ROLE_KEY} LIMIT 1`.execute(
         this.database
       );
     return r.rows[0] ? map(r.rows[0]) : null;
@@ -39,7 +40,7 @@ export class TenantRolePermissionRepository {
     const r = await sql<{
       permission_count: number | string;
       role_count: number | string;
-    }>`SELECT (SELECT COUNT(*) FROM roles WHERE id=${v.roleId} AND status='active') role_count,(SELECT COUNT(*) FROM permissions WHERE id=${v.permissionId} AND status='active') permission_count`.execute(
+    }>`SELECT (SELECT COUNT(*) FROM roles WHERE id=${v.roleId} AND status='active' AND \`key\`<>${TENANT_SUPER_ADMIN_ROLE_KEY}) role_count,(SELECT COUNT(*) FROM permissions WHERE id=${v.permissionId} AND status='active') permission_count`.execute(
       this.database
     );
     return {

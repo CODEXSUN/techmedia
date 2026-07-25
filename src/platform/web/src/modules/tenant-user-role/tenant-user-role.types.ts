@@ -20,6 +20,7 @@ export type TenantUserRoleListFilters = { search?: string };
 export type TenantUserRoleUserLookup = {
   id: number;
   email: string;
+  isProtected: boolean;
   name: string;
   status: string;
 };

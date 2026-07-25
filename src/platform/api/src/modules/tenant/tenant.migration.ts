@@ -10,7 +10,7 @@ import {
 } from "../tenant-role-permission/tenant-role-permission.migration.js";
 import {
   migrateTenantRoleModule,
-  tenantRoleMigration
+  tenantRoleMigrations
 } from "../tenant-role/tenant-role.migration.js";
 import {
   migrateTenantUserRoleModule,
@@ -45,11 +45,11 @@ export const tenantRuntimeMigrations = [
     name: migration.key,
     statements: ["RUN platform.tenant-user migration"]
   })),
-  {
+  ...tenantRoleMigrations.map((migration) => ({
     description: "Tenant roles and lifecycle state.",
-    name: tenantRoleMigration.key,
+    name: migration.key,
     statements: ["RUN platform.tenant-role migration"]
-  },
+  })),
   {
     description: "Tenant permission catalog.",
     name: tenantPermissionMigration.key,

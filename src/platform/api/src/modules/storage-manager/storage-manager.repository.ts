@@ -25,7 +25,8 @@ import type {
   StorageFolderPayload,
   StorageListing,
   StorageListInput,
-  StorageUploadPayload
+  StorageUploadPayload,
+  UserAvatarUploadPayload
 } from "./storage-manager.types.js";
 
 export class StorageManagerRepository {
@@ -198,6 +199,48 @@ export class StorageManagerRepository {
       sizeBytes: info.size
     };
   }
+  async uploadUserAvatar(tenantId: string, userUuid: string, input: UserAvatarUploadPayload) {
+    const tenant = await this.tenants.findByIdOrCode(tenantId);
+    if (!tenant) throw new Error("Tenant was not found for storage.");
+    const tenantKey = tenant.slug || tenant.tenantCode;
+    const relativePath = `avatars/${userUuid}.avatar`;
+    const base = tenantPublicStorageRoot(tenantKey);
+    const filePath = resolveInsideStorage(base, relativePath);
+    const buffer = Buffer.from(input.contentBase64, "base64");
+    const mimeType = avatarMimeType(buffer);
+    if (!mimeType || mimeType !== input.mimeType)
+      throw new Error("Avatar must be a valid PNG, JPEG, or WebP image.");
+    if (buffer.byteLength > 1024 * 1024) throw new Error("Avatar images must be 1 MB or smaller.");
+    await mkdir(resolveInsideStorage(base, "avatars"), { recursive: true });
+    await writeFile(filePath, buffer);
+    await this.recordObject({
+      checksum: createHash("sha256").update(buffer).digest("hex"),
+      diskPath: filePath,
+      mimeType,
+      objectType: "file",
+      relativePath,
+      scope: "tenant",
+      sizeBytes: buffer.byteLength,
+      tenantId: tenant.id,
+      visibility: "public"
+    });
+    return { path: relativePath };
+  }
+  async readUserAvatar(tenantId: string, userUuid: string) {
+    const tenant = await this.tenants.findByIdOrCode(tenantId);
+    if (!tenant) throw new Error("Tenant was not found for storage.");
+    const tenantKey = tenant.slug || tenant.tenantCode;
+    const fileName = `${userUuid}.avatar`;
+    const filePath = resolveInsideStorage(
+      tenantPublicStorageRoot(tenantKey),
+      `avatars/${fileName}`
+    );
+    const info = await stat(filePath);
+    const buffer = await readFile(filePath);
+    const mimeType = avatarMimeType(buffer);
+    if (!info.isFile() || !mimeType) throw new Error("User avatar was not found.");
+    return { buffer, fileName, mimeType, sizeBytes: info.size };
+  }
 
   async download(input: StorageDownloadInput) {
     const context = await this.context(input);
@@ -299,6 +342,17 @@ export class StorageManagerRepository {
       })
       .execute();
   }
+}
+function avatarMimeType(buffer: Buffer) {
+  if (buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
+    return "image/png" as const;
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return "image/jpeg" as const;
+  if (
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  )
+    return "image/webp" as const;
+  return null;
 }
 
 async function fileInfo(filePath: string) {

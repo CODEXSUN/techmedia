@@ -39,6 +39,7 @@
     "test:e2e:organisation": "tsx ../core/api/src/modules/organisation/organisation.e2e.ts",
     "test:e2e:composed-runtime": "tsx tools/e2e/composed-platform-runtime.e2e.ts",
     "test:e2e:tenant-access": "tsx tools/e2e/tenant-access.e2e.ts",
+    "test:e2e:tenant-roles": "tsx src/platform/api/src/modules/tenant-role/tenant-role.e2e.ts",
     "test:e2e:tenant-landing": "tsx src/platform/api/src/modules/tenant/tenant.landing.e2e.ts",
     "test:e2e:tenant-user-admin": "tsx src/platform/api/src/modules/tenant-user/tenant-user.admin.e2e.ts",
     "test:e2e:crm": "tsx src/platform/api/src/modules/crm/crm.e2e.ts",

@@ -129,6 +129,16 @@ Each tenant should have a planned backup and restore strategy:
 - Support access must be audited.
 - Cross-tenant admin actions need elevated permission and logging.
 
+Each tenant has exactly one protected internal Super Admin identity: the initial seeded system
+user. Its `super-admin` role key is never returned by tenant role, user-role, role-permission, or
+lookup APIs, and the public tenant session masks that internal role value. Additional administrators
+use the visible protected `Administrator` role with key `admin`; their access is resolved through
+normal persisted role-permission assignments. User creation and role-assignment APIs cannot create,
+select, or attach the internal Super Admin role, and the protected system user cannot receive visible
+role assignments. The internal Super Admin user-role and role-permission links remain protected and
+are filtered from every tenant access API so Core and other permission-aware packages can authorize
+the account without exposing its role or assignment behavior.
+
 Super Admin tenant-user management uses the guarded `/admin/tenants/options` lookup and requires an
 explicit tenant selection. The server resolves that tenant's configured database; clients never
 submit a tenant database name or connection credentials. User create, update, suspend, restore, and
