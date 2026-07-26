@@ -135,7 +135,7 @@ export default defineConfig(({ command, mode }) => {
     },
     plugins: [tailwindcss(), react()],
     resolve: {
-      dedupe: ["react", "react-dom"]
+      dedupe: ["@tanstack/react-query", "react", "react-dom"]
     },
     ...(command === "serve"
       ? {

@@ -30,6 +30,8 @@ New entries must keep database-facing work and application code work separate.
 - Replaced the previous container layout with the TMApp deployment, safe setup/update scripts,
   shared CXApp networks, and Cloudflare routing.
 - Split large TechMedia Web production bundles by dependency owner.
+- Deduplicated TanStack Query across the composed TechMedia and Core frontend bundle so hooks and
+  the application provider share one Query Client context.
 - Bumped repository version to 1.0.10.
 
 ## v-1.0.9
