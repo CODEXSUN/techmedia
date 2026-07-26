@@ -2,7 +2,7 @@
 
 The TechMedia application and orchestration repository.
 
-Standalone container install: `bash install.sh`. See `.container/README.md` for owned ports,
+Standalone TMApp install: `bash setup.sh`; updates use `bash update.sh`. See `.container/README.md` for owned ports,
 volumes, default tenant data, and production routing.
 
 This project plays the same role as a Laravel application: it installs the framework and selected application packages, provides deployment configuration, builds the composed stack, and starts the runtime. Business implementation stays in its owning package.

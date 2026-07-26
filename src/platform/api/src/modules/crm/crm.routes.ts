@@ -21,7 +21,20 @@ const message = z.object({
   createdAt: z.iso.datetime(),
   createdByUserId: z.string().nullable(),
   id: z.string().min(1),
-  messageType: z.enum(["comment", "reply"])
+  messageType: z.enum(["comment", "reply"]),
+  parentMessageId: z.string().nullable()
+});
+const job = z.object({
+  createdAt: z.iso.datetime(),
+  employee: z.string(),
+  employeeCostPerHour: z.number(),
+  enquiry: z.string(),
+  hours: z.number(),
+  name: z.string(),
+  startTime: z.string(),
+  status: z.enum(["Running", "Completed", "Cancelled"]),
+  stopTime: z.string().nullable(),
+  totalCost: z.number()
 });
 const record = z.object({
   activities: z.array(z.unknown()),
@@ -38,6 +51,7 @@ const record = z.object({
   emails: z.array(z.unknown()),
   frappeName: z.string().min(1),
   id: z.number().int().positive(),
+  jobs: z.array(job),
   lifecycleStatus: z.literal("active"),
   messages: z.array(message),
   mobile: z.string(),
@@ -45,7 +59,6 @@ const record = z.object({
   priority,
   schedules: z.array(z.object({ id: z.string(), scheduledOn: z.iso.date() })),
   status,
-  subject: z.string(),
   tasks: z.array(z.unknown()),
   title: z.string(),
   updatedAt: z.iso.datetime(),
@@ -62,7 +75,6 @@ const payload = z.object({
   priority,
   schedules: z.array(z.object({ scheduledOn: z.iso.date() })).max(20),
   status,
-  subject: z.string().trim().max(220).default(""),
   title: z.string().trim().min(2).max(220),
   workspace: z.string().trim().max(100_000)
 });
@@ -70,8 +82,10 @@ const params = z.object({ id: z.string().trim().min(1).max(140) });
 const messageParams = params.extend({ messageId: z.string().trim().min(1).max(240) });
 const messagePayload = z.object({
   comment: z.string().trim().min(1).max(10_000),
-  messageType: z.enum(["comment", "reply"])
+  messageType: z.enum(["comment", "reply"]),
+  parentMessageId: z.string().trim().min(1).max(240).nullable().optional()
 });
+const jobParams = params.extend({ jobName: z.string().trim().min(1).max(240) });
 const messageUpdatePayload = z.object({ comment: z.string().trim().min(1).max(10_000) });
 const query = z.object({
   enquiryId: z.string().trim().min(1).max(140).optional(),
@@ -110,6 +124,19 @@ export async function registerCrmRoutes(
         ...(query.enquiryId ? { enquiryId: query.enquiryId } : {}),
         ...(query.search ? { search: query.search } : {})
       })
+  });
+  registerContractRoute(app, {
+    method: "POST",
+    url: `${path}/:id/jobs/start`,
+    schemas: { params, response: record },
+    handler: async ({ params, request }) => (await service(request)).startJob(params.id)
+  });
+  registerContractRoute(app, {
+    method: "POST",
+    url: `${path}/:id/jobs/:jobName/stop`,
+    schemas: { params: jobParams, response: record },
+    handler: async ({ params, request }) =>
+      (await service(request)).stopJob(params.id, params.jobName)
   });
   registerContractRoute(app, {
     method: "GET",

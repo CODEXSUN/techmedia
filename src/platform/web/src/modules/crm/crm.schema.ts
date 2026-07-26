@@ -14,7 +14,6 @@ export const crmEnquirySchema = z.object({
     .array(z.object({ scheduledOn: z.iso.date("Choose a valid schedule date.") }))
     .max(20, "An enquiry can contain up to 20 schedule dates."),
   status: z.enum(["open", "follow", "escalation", "won", "lost"]),
-  subject: z.string().trim().max(220, "Subject must be 220 characters or fewer."),
   title: z.string().trim().min(2, "Title is required.").max(220),
   workspace: z.string().trim().max(100_000)
 });

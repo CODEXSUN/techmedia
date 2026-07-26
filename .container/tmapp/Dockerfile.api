@@ -1,5 +1,6 @@
 ARG NODE_RUNTIME_VERSION=26.5.0
 FROM node:${NODE_RUNTIME_VERSION}-bookworm-slim AS build
+
 ARG NPM_RUNTIME_VERSION=12.0.1
 WORKDIR /workspace
 RUN npm install --global npm@${NPM_RUNTIME_VERSION}
@@ -7,22 +8,24 @@ COPY framework ./framework
 COPY core ./core
 COPY ui ./ui
 COPY techmedia ./techmedia
-WORKDIR /workspace/techmedia
-RUN npm ci && npm run setup && npm run build && npm run dependencies:check
 
-FROM build AS migrations
-ENV NODE_ENV=production
-CMD ["npm", "run", "db:migrations:run"]
+WORKDIR /workspace/techmedia
+RUN --mount=type=cache,id=tmapp-api-npm,target=/root/.npm \
+  npm ci \
+  && npm run setup \
+  && npm run build \
+  && npm run dependencies:check
 
 FROM build AS production-dependencies
-RUN npm prune --omit=dev \
-  && npm prune --omit=dev --prefix ../framework \
-  && npm prune --omit=dev --prefix ../core
 
 FROM node:${NODE_RUNTIME_VERSION}-bookworm-slim AS runtime
-ARG TECHMEDIA_VERSION=1.0.2
+
+ARG TMAPP_VERSION=1.0.9
 ARG NPM_RUNTIME_VERSION=12.0.1
-LABEL org.opencontainers.image.title="Techmedia Platform API" org.opencontainers.image.version="$TECHMEDIA_VERSION"
+ARG PLATFORM_API_PORT=7050
+LABEL org.opencontainers.image.title="TechMedia TMApp API" \
+      org.opencontainers.image.version="$TMAPP_VERSION"
+
 WORKDIR /workspace/techmedia
 RUN npm install --global npm@${NPM_RUNTIME_VERSION} \
   && apt-get update \
@@ -30,17 +33,21 @@ RUN npm install --global npm@${NPM_RUNTIME_VERSION} \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /storage/app /storage/public /storage/tenants /storage/backups/database \
   && chown -R node:node /storage /workspace
+
 COPY --from=production-dependencies /workspace/framework /workspace/framework
 COPY --from=production-dependencies /workspace/core /workspace/core
 COPY --from=production-dependencies /workspace/techmedia /workspace/techmedia
-COPY techmedia/.container/scripts/api-entrypoint.sh /usr/local/bin/techmedia-api-entrypoint
+COPY techmedia/.container/scripts/tmapp-api-entrypoint.sh /usr/local/bin/tmapp-api-entrypoint
+
 RUN cp -a /workspace/core/dist/api /workspace/core/api/dist \
-  && sed -i 's#./src/index.ts#./dist/index.js#g' /workspace/core/api/package.json \
+  && sed -i 's#\./src/index\.ts#./dist/index.js#g' /workspace/core/api/package.json \
   && rm -rf /workspace/techmedia/storage \
   && ln -s /storage/tenants /workspace/techmedia/storage \
-  && chmod +x /usr/local/bin/techmedia-api-entrypoint
+  && chmod +x /usr/local/bin/tmapp-api-entrypoint
+
 ENV NODE_ENV=production
 USER node
-EXPOSE 7050
-HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=10 CMD node -e "fetch('http://127.0.0.1:'+process.env.PLATFORM_API_PORT+'/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
-ENTRYPOINT ["techmedia-api-entrypoint"]
+EXPOSE ${PLATFORM_API_PORT}
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=10 \
+  CMD node -e "fetch('http://127.0.0.1:'+process.env.PLATFORM_API_PORT+'/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+ENTRYPOINT ["tmapp-api-entrypoint"]

@@ -27,6 +27,20 @@ export type CrmEnquiryMessage = {
   createdByUserId: string | null;
   id: string;
   messageType: "comment" | "reply";
+  parentMessageId: string | null;
+};
+
+export type CrmJobExecution = {
+  createdAt: string;
+  employee: string;
+  employeeCostPerHour: number;
+  enquiry: string;
+  hours: number;
+  name: string;
+  startTime: string;
+  status: "Cancelled" | "Completed" | "Running";
+  stopTime: string | null;
+  totalCost: number;
 };
 
 export type CrmEnquiryEmail = {
@@ -107,6 +121,7 @@ export type CrmEnquiry = {
   emails: CrmEnquiryEmail[];
   id: number;
   frappeName: string;
+  jobs: CrmJobExecution[];
   lifecycleStatus: CrmEnquiryLifecycleStatus;
   messages: CrmEnquiryMessage[];
   mobile: string;
@@ -114,7 +129,6 @@ export type CrmEnquiry = {
   notes: CrmEnquiryNote[];
   schedules: CrmEnquirySchedule[];
   status: CrmEnquiryStatus;
-  subject: string;
   title: string;
   tasks: CrmEnquiryTask[];
   updatedAt: string;
@@ -125,6 +139,7 @@ export type CrmEnquiry = {
 export type CrmEnquiryMessageCreatePayload = {
   comment: string;
   messageType: "comment" | "reply";
+  parentMessageId?: string | null | undefined;
 };
 
 export type CrmEnquiryMessageUpdatePayload = {
@@ -166,7 +181,8 @@ export type CrmEnquirySavePayload = {
   priority: CrmEnquiryPriority;
   schedules: Array<{ scheduledOn: string }>;
   status: CrmEnquiryStatus;
-  subject: string;
+  /** @deprecated Transition-only storage column; live Frappe enquiries do not use Subject. */
+  subject?: string;
   title: string;
   workspace: string;
 };

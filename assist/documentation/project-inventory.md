@@ -51,9 +51,9 @@ and franchise-style network capabilities are described only as staged product di
 their module-owned implementations exist.
 
 Container host ports are intentionally distinct from native development: API `18050`, Web
-`18060`. It uses the single shared CODEXSUN MariaDB, Redis, and media containers on
-`codexsun-network`. Production routing maps `app.techmedia.in` to the
-Techmedia Web container.
+`18060`. TMApp uses the single shared CODEXSUN CXApp MariaDB, Redis, and Media layer discovered
+from its protected deployment environment; current defaults are `cxapp-mariadb`, `cxapp-redis`,
+`cxapp-media`, and `cxapp-network`. Production routing maps `logicx.tmnext.in` to `tmapp-web`.
 
 ## Installed Shared Repositories
 

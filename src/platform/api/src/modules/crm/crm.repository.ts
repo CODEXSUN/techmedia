@@ -104,7 +104,7 @@ export class CrmRepository {
   async create(input: CrmEnquirySavePayload, createdByUserId: number, uuid: string) {
     const result = await sql`INSERT INTO crm_enquiries
       (uuid,title,subject,priority,status,assigned_to_user_id,created_by_user_id,mobile,customer,enquiry_group,enquiry_date,workspace)
-      VALUES (${uuid},${input.title},${input.subject},${input.priority},${input.status},${input.assignedToUserId},${createdByUserId},
+      VALUES (${uuid},${input.title},${input.subject ?? ""},${input.priority},${input.status},${input.assignedToUserId},${createdByUserId},
         ${input.mobile},${input.customer},${input.enquiryGroup},${input.enquiryDate},${input.workspace})`.execute(
       this.database
     );
@@ -115,7 +115,7 @@ export class CrmRepository {
   }
 
   async update(id: number, input: CrmEnquirySavePayload, replaceMessages = false) {
-    await sql`UPDATE crm_enquiries SET title=${input.title},subject=${input.subject},priority=${input.priority},status=${input.status},
+    await sql`UPDATE crm_enquiries SET title=${input.title},subject=${input.subject ?? ""},priority=${input.priority},status=${input.status},
       assigned_to_user_id=${input.assignedToUserId},mobile=${input.mobile},customer=${input.customer},
       enquiry_group=${input.enquiryGroup},enquiry_date=${input.enquiryDate},workspace=${input.workspace}
       WHERE id=${id}`.execute(this.database);

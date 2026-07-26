@@ -26,7 +26,6 @@ const emptyEnquiry: CrmEnquirySavePayload = {
   priority: "normal",
   schedules: [],
   status: "open",
-  subject: "",
   title: "",
   workspace: ""
 };
@@ -73,7 +72,6 @@ export function CrmForm({
                 priority: record.priority,
                 schedules: record.schedules.map(({ scheduledOn }) => ({ scheduledOn })),
                 status: record.status,
-                subject: record.subject,
                 title: record.title,
                 workspace: record.workspace || record.title
               }
@@ -183,16 +181,6 @@ function CrmFormBody({
                 content={value.workspace}
                 placeholder="Enter the customer enquiry..."
                 onChange={(workspace) => setValue((current) => ({ ...current, workspace }))}
-              />
-            </WorkspaceFormField>
-            <WorkspaceFormField label="Subject">
-              <Input
-                maxLength={220}
-                placeholder="Short note about this enquiry"
-                value={value.subject}
-                onChange={(event) =>
-                  setValue((current) => ({ ...current, subject: event.target.value }))
-                }
               />
             </WorkspaceFormField>
           </section>

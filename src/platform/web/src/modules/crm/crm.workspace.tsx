@@ -155,7 +155,7 @@ export function CrmWorkspace({
         ? await mutations.update.mutateAsync({ id: editing.frappeName, payload: value })
         : await mutations.create.mutateAsync(value);
       toast.success(`Enquiry ${editing ? "updated" : "created"}`, {
-        description: `#${saved.id} · ${saved.subject.trim() || saved.title}`
+        description: `#${saved.id} · ${saved.title}`
       });
       setEditing(undefined);
     } catch {}
@@ -165,7 +165,7 @@ export function CrmWorkspace({
     try {
       const record = await mutations.forceDelete.mutateAsync(action.record);
       toast.success("Enquiry permanently deleted", {
-        description: `#${record.id} · ${record.subject.trim() || record.title}`
+        description: `#${record.id} · ${record.title}`
       });
       setPendingAction(null);
       if (viewing?.id === record.id) setViewing(null);

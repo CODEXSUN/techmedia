@@ -2,16 +2,35 @@
 
 ## Version State
 
-Current version: 1.0.9
+Current version: 1.0.10
 
-Release tag: v-1.0.9
+Release tag: v-1.0.10
 
-Changelog label: v 1.0.9
+Changelog label: v 1.0.10
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.10
+
+### [v 1.0.10] 2026-07-26 3:08 pm - Complete TechMedia CRM and TMApp deployment
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Expanded CRM enquiries with priority, rich threaded messages, employee assignment, and live
+  Frappe job-execution time and cost tracking.
+- Aligned the CRM API, Frappe gateway, frontend contracts, forms, lists, show views, and workspace
+  behavior around the same persisted enquiry model.
+- Replaced the previous container layout with the TMApp deployment, safe setup/update scripts,
+  shared CXApp networks, and Cloudflare routing.
+- Split large TechMedia Web production bundles by dependency owner.
+- Bumped repository version to 1.0.10.
 
 ## v-1.0.9
 

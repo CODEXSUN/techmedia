@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { format } from "date-fns";
 import {
   Activity,
@@ -17,7 +17,9 @@ import {
   Phone,
   Send,
   Smile,
+  Square,
   Star,
+  Timer,
   Trash2
 } from "lucide-react";
 import {
@@ -50,7 +52,8 @@ import { WorkspaceTableEmptyState, WorkspaceTableHeaderCell } from "@codexsun/ui
 import { useCrmEnquiryChildMutations } from "./crm.hooks";
 import type { CrmEnquiry } from "./crm.types";
 
-type CrmShowTab = "activity" | "attachments" | "calls" | "comments" | "emails" | "notes" | "tasks";
+type CrmShowTab =
+  "activity" | "attachments" | "calls" | "comments" | "emails" | "jobs" | "notes" | "tasks";
 
 export function CrmShow({
   onBack,
@@ -74,6 +77,15 @@ export function CrmShow({
       throw error;
     }
   }
+  const jobLoading = childMutations.jobStart.isPending || childMutations.jobStop.isPending;
+  const startJob = () =>
+    saveChild("Job", () => childMutations.jobStart.mutateAsync(record.frappeName), "started");
+  const stopJob = (jobName: string) =>
+    saveChild(
+      "Job",
+      () => childMutations.jobStop.mutateAsync([record.frappeName, jobName]),
+      "stopped"
+    );
   const tabs = [
     {
       content: (
@@ -121,6 +133,21 @@ export function CrmShow({
         />
       ),
       value: "comments"
+    },
+    {
+      content: (
+        <JobsTab
+          key={`jobs-${record.id}`}
+          loading={jobLoading}
+          record={record}
+          onStart={startJob}
+          onStop={stopJob}
+        />
+      ),
+      label: (
+        <TabLabel count={record.jobs.length} icon={<Timer className="size-4" />} label="Jobs" />
+      ),
+      value: "jobs"
     },
     {
       content: (
@@ -232,9 +259,149 @@ export function CrmShow({
           />
         </div>
 
-        <EnquiryProperties record={record} />
+        <EnquiryProperties
+          jobLoading={jobLoading}
+          record={record}
+          onStartJob={startJob}
+          onStopJob={stopJob}
+        />
       </div>
     </WorkspacePage>
+  );
+}
+
+function JobsTab({
+  loading,
+  onStart,
+  onStop,
+  record
+}: {
+  loading: boolean;
+  onStart: () => Promise<unknown>;
+  onStop: (jobName: string) => Promise<unknown>;
+  record: CrmEnquiry;
+}) {
+  const running = record.jobs.filter((job) => job.status === "Running");
+  const active = running[0];
+  return (
+    <section className="min-h-[calc(100dvh-21rem)] bg-card p-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          Live job time recorded directly against this enquiry in Frappe.
+        </p>
+        <JobControlButton
+          active={active}
+          loading={loading}
+          runningCount={running.length}
+          onStart={onStart}
+          onStop={onStop}
+        />
+      </div>
+      {running.length > 1 ? (
+        <p className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          Frappe returned more than one running job. Stop the duplicate records in Frappe before
+          continuing.
+        </p>
+      ) : null}
+      <div className="overflow-hidden rounded-md border border-border/70">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2">Job</th>
+              <th className="px-3 py-2">Employee</th>
+              <th className="px-3 py-2">Start</th>
+              <th className="px-3 py-2">Stop</th>
+              <th className="px-3 py-2">Hours</th>
+              <th className="px-3 py-2">Rate/hr</th>
+              <th className="px-3 py-2">Cost</th>
+              <th className="px-3 py-2">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {record.jobs.map((job) => (
+              <tr className="border-t border-border/70" key={job.name}>
+                <td className="px-3 py-2 font-medium">{job.name}</td>
+                <td className="px-3 py-2">{job.employee}</td>
+                <td className="px-3 py-2">{job.startTime || "—"}</td>
+                <td className="px-3 py-2">{job.stopTime || "—"}</td>
+                <td className="px-3 py-2">
+                  {job.status === "Running" ? "Running" : job.hours.toFixed(2)}
+                </td>
+                <td className="px-3 py-2">₹{job.employeeCostPerHour.toFixed(2)}</td>
+                <td className="px-3 py-2">{job.totalCost.toFixed(2)}</td>
+                <td className="px-3 py-2">
+                  <WorkspaceStatusBadge
+                    label={job.status}
+                    tone={
+                      job.status === "Completed"
+                        ? "success"
+                        : job.status === "Cancelled"
+                          ? "neutral"
+                          : "warning"
+                    }
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {record.jobs.length === 0 ? (
+          <WorkspaceTableEmptyState>No jobs have been recorded.</WorkspaceTableEmptyState>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function JobControlButton({
+  active,
+  fullWidth = false,
+  loading,
+  onStart,
+  onStop,
+  runningCount
+}: {
+  active: CrmEnquiry["jobs"][number] | undefined;
+  fullWidth?: boolean;
+  loading: boolean;
+  onStart: () => Promise<unknown>;
+  onStop: (jobName: string) => Promise<unknown>;
+  runningCount: number;
+}) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  if (!active) {
+    return (
+      <Button
+        className={fullWidth ? "w-full" : undefined}
+        disabled={loading}
+        type="button"
+        variant="secondary"
+        onClick={() => void onStart()}
+      >
+        <Timer className="size-4" />
+        Start job
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      className={`${fullWidth ? "w-full" : ""} bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white active:bg-emerald-700`}
+      disabled={loading || runningCount > 1}
+      type="button"
+      onClick={() => void onStop(active.name)}
+    >
+      <Square className="size-3.5 fill-current" />
+      Stop · {elapsedJobTime(active.createdAt, now)}
+    </Button>
   );
 }
 
@@ -947,7 +1114,18 @@ function ActivityTab({ record }: { record: CrmEnquiry }) {
   );
 }
 
-function EnquiryProperties({ record }: { record: CrmEnquiry }) {
+function EnquiryProperties({
+  jobLoading,
+  onStartJob,
+  onStopJob,
+  record
+}: {
+  jobLoading: boolean;
+  onStartJob: () => Promise<unknown>;
+  onStopJob: (jobName: string) => Promise<unknown>;
+  record: CrmEnquiry;
+}) {
+  const runningJobs = record.jobs.filter((job) => job.status === "Running");
   return (
     <aside className="space-y-4 xl:sticky xl:top-4 xl:[&_td]:whitespace-nowrap xl:[&_th]:whitespace-nowrap">
       <WorkspaceShowCard title="Properties">
@@ -955,7 +1133,21 @@ function EnquiryProperties({ record }: { record: CrmEnquiry }) {
           rows={[
             ["List in", record.enquiryGroup || "—"],
             ["Priority", capitalize(record.priority)],
-            ["Assigned to", record.assignedTo?.name ?? "Unassigned"],
+            ["Assigned to", record.assignedTo?.name ?? "Unassigned"]
+          ]}
+        />
+        <div className="border-y border-border/70 p-3">
+          <JobControlButton
+            active={runningJobs[0]}
+            fullWidth
+            loading={jobLoading}
+            runningCount={runningJobs.length}
+            onStart={onStartJob}
+            onStop={onStopJob}
+          />
+        </div>
+        <WorkspaceDetailTable
+          rows={[
             ["Status", capitalize(record.status)],
             ["Updated", formatDateTime(record.updatedAt)]
           ]}
@@ -1113,8 +1305,17 @@ function plainText(value: string) {
     .trim();
 }
 
-function enquiryDisplayTitle(record: Pick<CrmEnquiry, "subject" | "title" | "workspace">) {
-  return record.subject.trim() || plainText(record.workspace) || record.title;
+function enquiryDisplayTitle(record: Pick<CrmEnquiry, "title" | "workspace">) {
+  return plainText(record.workspace) || record.title;
+}
+
+function elapsedJobTime(createdAt: string, now: number) {
+  const started = Date.parse(createdAt);
+  const seconds = Math.max(0, Math.floor((now - (Number.isNaN(started) ? now : started)) / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  return [hours, minutes, remainder].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
 function sanitizeRichText(value: string) {

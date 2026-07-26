@@ -30,6 +30,19 @@ export type CrmEnquiryMessage = {
   createdByUserId: string | null;
   id: string;
   messageType: "comment" | "reply";
+  parentMessageId: string | null;
+};
+export type CrmJobExecution = {
+  createdAt: string;
+  employee: string;
+  employeeCostPerHour: number;
+  enquiry: string;
+  hours: number;
+  name: string;
+  startTime: string;
+  status: "Cancelled" | "Completed" | "Running";
+  stopTime: string | null;
+  totalCost: number;
 };
 export type CrmEnquiryEmail = {
   body: string;
@@ -97,6 +110,7 @@ export type CrmEnquiry = {
   emails: CrmEnquiryEmail[];
   id: number;
   frappeName: string;
+  jobs: CrmJobExecution[];
   lifecycleStatus: CrmEnquiryLifecycleStatus;
   messages: CrmEnquiryMessage[];
   mobile: string;
@@ -104,7 +118,6 @@ export type CrmEnquiry = {
   priority: CrmEnquiryPriority;
   schedules: CrmEnquirySchedule[];
   status: CrmEnquiryStatus;
-  subject: string;
   tasks: CrmEnquiryTask[];
   title: string;
   updatedAt: string;
@@ -122,7 +135,6 @@ export type CrmEnquirySavePayload = {
   priority: CrmEnquiryPriority;
   schedules: Array<{ scheduledOn: string }>;
   status: CrmEnquiryStatus;
-  subject: string;
   title: string;
   workspace: string;
 };
@@ -135,6 +147,7 @@ export type CrmEnquiryResyncResult = {
 export type CrmEnquiryMessageCreatePayload = {
   comment: string;
   messageType: "comment" | "reply";
+  parentMessageId?: string | null | undefined;
 };
 export type CrmEnquiryMessageUpdatePayload = {
   comment: string;

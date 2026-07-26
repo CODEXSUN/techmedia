@@ -48,7 +48,7 @@ export class CrmService {
     await this.requireAnyView();
     const record = await this.gateway.get(name);
     await this.authorizeRecord(record);
-    return this.map(record);
+    return { ...(await this.map(record)), jobs: await this.gateway.jobs(name) };
   }
 
   async overview(): Promise<CrmEnquiryOverview> {
@@ -130,15 +130,24 @@ export class CrmService {
     await this.context.authorize("crm.enquiry.update");
     const current = await this.gateway.get(name);
     await this.authorizeRecord(current);
-    const messages: Array<{ comment: string; name?: string }> = current.messages.map(
-      ({ comment, name: childName }) => ({
+    const messages: Array<{ comment: string; name?: string; parentMessage?: string | null }> =
+      current.messages.map(({ comment, name: childName, parentMessage }) => ({
         comment,
-        name: childName
-      })
-    );
-    const comment = plainMessage(input.comment);
-    if (!comment) throw AppError.validation("Comment cannot be empty.");
-    messages.push({ comment });
+        name: childName,
+        parentMessage
+      }));
+    const comment = input.comment.trim();
+    if (!plainText(comment)) throw AppError.validation("Comment cannot be empty.");
+    const parentMessage =
+      input.messageType === "reply"
+        ? input.parentMessageId ||
+          [...current.messages].reverse().find((message) => !message.parentMessage)?.name ||
+          null
+        : null;
+    if (input.messageType === "reply" && !parentMessage) {
+      throw AppError.validation("Add a comment before adding a reply.");
+    }
+    messages.push({ comment, parentMessage });
     return this.map(await this.gateway.updateMessages(name, messages));
   }
 
@@ -151,15 +160,17 @@ export class CrmService {
     if (index !== current.messages.length - 1) {
       throw AppError.conflict("Only the latest conversation entry can be edited.");
     }
-    const messages = current.messages.map(({ comment, name: childName }) => ({
+    const messages = current.messages.map(({ comment, name: childName, parentMessage }) => ({
       comment,
-      name: childName
+      name: childName,
+      parentMessage
     }));
-    const comment = plainMessage(input.comment);
-    if (!comment) throw AppError.validation("Comment cannot be empty.");
+    const comment = input.comment.trim();
+    if (!plainText(comment)) throw AppError.validation("Comment cannot be empty.");
     messages[index] = {
       comment,
-      name: messages[index]!.name
+      name: messages[index]!.name,
+      parentMessage: messages[index]!.parentMessage
     };
     return this.map(await this.gateway.updateMessages(name, messages));
   }
@@ -175,8 +186,32 @@ export class CrmService {
     }
     const messages = current.messages
       .filter((_, messageIndex) => messageIndex !== index)
-      .map(({ comment, name: childName }) => ({ comment, name: childName }));
+      .map(({ comment, name: childName, parentMessage }) => ({
+        comment,
+        name: childName,
+        parentMessage
+      }));
     return this.map(await this.gateway.updateMessages(name, messages));
+  }
+
+  async startJob(name: string) {
+    await this.context.authorize("crm.enquiry.update");
+    const current = await this.gateway.get(name);
+    await this.authorizeRecord(current);
+    const jobs = await this.gateway.jobs(name);
+    if (jobs.filter((job) => job.status === "Running").length > 0) {
+      throw AppError.conflict("A job is already running for this enquiry.");
+    }
+    await this.gateway.startJob(name);
+    return this.get(name);
+  }
+
+  async stopJob(name: string, jobName: string) {
+    await this.context.authorize("crm.enquiry.update");
+    const current = await this.gateway.get(name);
+    await this.authorizeRecord(current);
+    await this.gateway.stopJob(name, jobName);
+    return this.get(name);
   }
 
   async userReferences() {
@@ -235,31 +270,34 @@ export class CrmService {
       emails: [],
       frappeName: record.name,
       id: numericId(record.name),
+      jobs: [],
       lifecycleStatus: "active" as const,
       messages: record.messages.map((message, index) => ({
         canDelete:
-          message.createdBy === this.context.actorEmail && index === record.messages.length - 1,
+          message.createdBy === this.context.actorEmail &&
+          index === record.messages.length - 1 &&
+          !record.messages.some((candidate) => candidate.parentMessage === message.name),
         canEdit:
           message.createdBy === this.context.actorEmail && index === record.messages.length - 1,
         comment: message.comment,
         createdAt: message.createdAt ?? record.modifiedAt,
         createdByUserId: message.createdBy,
         id: message.name,
-        messageType: index === 0 ? ("comment" as const) : ("reply" as const)
+        messageType: message.parentMessage ? ("reply" as const) : ("comment" as const),
+        parentMessageId: message.parentMessage
       })),
       mobile: record.mobile,
       notes: [],
-      priority: "normal" as const,
+      priority: record.priority,
       schedules: record.enquiryDate
         ? [{ id: `${record.name}-due`, scheduledOn: record.enquiryDate }]
         : [],
       status: fromFrappeStatus(record.status),
-      subject: plainText(record.subject),
       tasks: [],
       title: displayTitle(record),
       updatedAt: record.modifiedAt,
       uuid: record.name,
-      workspace: record.enquiryMessage || record.statusDetails
+      workspace: record.enquiryMessage
     } satisfies CrmEnquiry;
   }
 
@@ -330,12 +368,11 @@ function toLivePayload(input: CrmEnquirySavePayload) {
     enquiryGroup: input.enquiryGroup.trim(),
     enquiryMessage: input.workspace.trim() || input.title.trim(),
     messages: input.messages
-      .map(({ comment }) => ({ comment: plainMessage(comment) }))
-      .filter(({ comment }) => comment),
+      .map(({ comment }) => ({ comment: comment.trim() }))
+      .filter(({ comment }) => plainText(comment)),
     mobile: input.mobile.trim(),
-    status: input.status,
-    statusDetails: input.workspace.trim(),
-    subject: input.subject.trim()
+    priority: input.priority,
+    status: input.status
   };
 }
 
@@ -352,8 +389,8 @@ function employeeReference(employee: {
   };
 }
 
-function displayTitle(record: Pick<LiveRecord, "enquiryMessage" | "name" | "subject">) {
-  return plainText(record.subject) || plainText(record.enquiryMessage) || record.name;
+function displayTitle(record: Pick<LiveRecord, "enquiryMessage" | "name">) {
+  return plainText(record.enquiryMessage) || record.name;
 }
 
 function plainText(value: string) {
@@ -368,25 +405,6 @@ function plainText(value: string) {
     .replace(/&quot;/giu, '"')
     .replace(/&#39;|&apos;/giu, "'")
     .replace(/\s+/gu, " ")
-    .trim();
-}
-
-function plainMessage(value: string) {
-  return value
-    .replace(/\r/gu, "")
-    .replace(/<br\s*\/?\s*>/giu, "\n")
-    .replace(/<li(?:\s[^>]*)?>/giu, "- ")
-    .replace(/<\/(?:blockquote|div|h[1-6]|li|p)\s*>/giu, "\n")
-    .replace(/<[^>]*>/gu, "")
-    .replace(/&nbsp;/giu, " ")
-    .replace(/&amp;/giu, "&")
-    .replace(/&lt;/giu, "<")
-    .replace(/&gt;/giu, ">")
-    .replace(/&quot;/giu, '"')
-    .replace(/&#39;|&apos;/giu, "'")
-    .replace(/[ \t]+\n/gu, "\n")
-    .replace(/\n[ \t]+/gu, "\n")
-    .replace(/\n{3,}/gu, "\n\n")
     .trim();
 }
 
@@ -432,7 +450,7 @@ export function crmEnquirySyncContract(database: CrmContext["database"]) {
         priority: input.priority,
         schedules: input.schedules,
         status: input.status,
-        subject: input.subject.trim(),
+        subject: "",
         title: input.title.trim(),
         workspace: input.workspace.trim()
       };

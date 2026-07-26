@@ -67,11 +67,14 @@ canonical CORS origin for direct API clients. Wildcard credentialed CORS is proh
 
 ## Repository-owned container stack
 
-Techmedia owns `.container/` and `install.sh`. Its independent stack publishes API host port
-`18050` and Web host port `18060`. MariaDB, Redis, and media are provided once by CODEXSUN on
-`codexsun-network`. The Web
-router owns `app.techmedia.in`. The default tenant seeder provisions the matching tenant and
-database; Billing, Mail, CMS, and Sites do not participate in this lifecycle.
+TechMedia owns `.container/`, root `setup.sh`, and root `update.sh`. Its TMApp stack publishes API
+host port `18050` and Web host port `18060`. MariaDB, Redis, Media, the backend
+network, and the Cloudflare Tunnel edge network are provided once by the
+CODEXSUN CXApp infrastructure layer and discovered from its protected
+environment. TMApp never changes their lifecycle. Cloudflare maps
+`logicx.tmnext.in` to `http://tmapp-web:80`; the Web Nginx keeps same-origin API
+proxying. The default tenant seeder provisions the matching tenant and database; Billing, Mail, and Sites
+do not participate in this lifecycle.
 
 ## Tenant Deployment Options
 

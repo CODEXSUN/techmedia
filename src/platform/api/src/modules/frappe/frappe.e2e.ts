@@ -26,6 +26,17 @@ let lifecycleMessages: Array<{
   creation: string;
   name: string;
   owner: string;
+  parent_message?: string;
+}> = [];
+let jobs: Array<{
+  creation: string;
+  employee: string;
+  employee_cost_per_hour: number;
+  enquiry: string;
+  name: string;
+  start_time: string;
+  status: "Completed" | "Running";
+  stop_time?: string;
 }> = [];
 const frappeUserEmail = `frappe-user-${Date.now()}@example.test`;
 const frappeServer = createServer(async (request, response) => {
@@ -47,6 +58,10 @@ const frappeServer = createServer(async (request, response) => {
   }
   if (receivedPath.startsWith("/api/resource/Employee?")) {
     response.end(JSON.stringify({ data: [{ name: "EMP-CREATOR" }] }));
+    return;
+  }
+  if (receivedPath.startsWith("/api/resource/Employee/EMP-CREATOR?")) {
+    response.end(JSON.stringify({ data: { cost_per_hour: 100, name: "EMP-CREATOR" } }));
     return;
   }
   if (receivedPath.startsWith("/api/method/frappe.desk.form.load.get_docinfo?")) {
@@ -87,10 +102,47 @@ const frappeServer = createServer(async (request, response) => {
     );
     return;
   }
+  if (receivedPath === "/api/v2/method/frappe.client.get_list" && receivedMethod === "POST") {
+    response.end(JSON.stringify({ message: jobs }));
+    return;
+  }
+  if (receivedPath === "/api/v2/document/Job%20Execution" && receivedMethod === "POST") {
+    const body = JSON.parse(receivedBody) as {
+      employee: string;
+      enquiry: string;
+      start_time: string;
+    };
+    const job = {
+      creation: "2026-07-25 05:00:00",
+      employee: body.employee,
+      employee_cost_per_hour: 100,
+      enquiry: body.enquiry,
+      name: "JOBEXE.E2E.1",
+      start_time: body.start_time,
+      status: "Running" as const
+    };
+    jobs = [job, ...jobs];
+    response.end(JSON.stringify({ data: job }));
+    return;
+  }
+  if (
+    receivedPath === "/api/v2/document/Job%20Execution/JOBEXE.E2E.1" &&
+    receivedMethod === "PUT"
+  ) {
+    const current = jobs.find((job) => job.name === "JOBEXE.E2E.1")!;
+    const completed = {
+      ...current,
+      status: "Completed" as const,
+      stop_time: (JSON.parse(receivedBody) as { stop_time: string }).stop_time
+    };
+    jobs = jobs.map((job) => (job.name === completed.name ? completed : job));
+    response.end(JSON.stringify({ data: completed }));
+    return;
+  }
   if (receivedPath === "/api/resource/Enquiry" && receivedMethod === "POST") {
     lastEnquiryWriteBody = receivedBody;
     const body = JSON.parse(receivedBody) as {
-      enquiry_messages?: Array<{ comment?: string }>;
+      enquiry_messages?: Array<{ comment?: string; parent_message?: string }>;
       user_employee?: string;
     };
     if (!body.user_employee) {
@@ -102,7 +154,8 @@ const frappeServer = createServer(async (request, response) => {
       comment: message.comment ?? "",
       creation: "2026-07-24 05:00:00",
       name: `ENQ-MSG-${index + 1}`,
-      owner: "integration@frappe.test"
+      owner: "integration@frappe.test",
+      ...(message.parent_message ? { parent_message: message.parent_message } : {})
     }));
     response.end(
       JSON.stringify({
@@ -121,14 +174,15 @@ const frappeServer = createServer(async (request, response) => {
     lastEnquiryWriteBody = receivedBody;
     lastUpdatePath = receivedPath;
     const body = JSON.parse(receivedBody) as {
-      enquiry_messages?: Array<{ comment?: string; name?: string }>;
+      enquiry_messages?: Array<{ comment?: string; name?: string; parent_message?: string }>;
     };
     if (body.enquiry_messages) {
       lifecycleMessages = body.enquiry_messages.map((message, index) => ({
         comment: message.comment ?? "",
         creation: "2026-07-24 05:06:00",
         name: message.name ?? `ENQ-MSG-${index + 1}`,
-        owner: "integration@frappe.test"
+        owner: "integration@frappe.test",
+        ...(message.parent_message ? { parent_message: message.parent_message } : {})
       }));
     }
     response.end(
@@ -155,8 +209,8 @@ const frappeServer = createServer(async (request, response) => {
           mobile: "9888888888",
           modified: "2026-07-24 05:05:00",
           name: lifecycleFrappeEnquiryName,
+          priority: "High",
           status: "Open",
-          status_details: "Live gateway subject",
           user_employee: "EMP-CREATOR"
         }
       })
@@ -580,16 +634,56 @@ try {
   assert.equal(childTableWrite.enquiry_messages?.[0]?.name, "ENQ-MSG-1");
   assert.equal(
     childTableWrite.enquiry_messages?.at(-1)?.comment,
-    "Saved in the Enquiry Message child table.\nPlain second line."
+    "<p>Saved in the Enquiry Message child table.</p><p>Plain second line.</p>"
   );
   assert.ok(
     withLiveComment.data.messages.some(
       (message) =>
-        message.comment === "Saved in the Enquiry Message child table.\nPlain second line."
+        message.comment ===
+        "<p>Saved in the Enquiry Message child table.</p><p>Plain second line.</p>"
     )
   );
-  assert.ok(!childTableWrite.enquiry_messages?.at(-1)?.comment.includes("<p>"));
+  assert.ok(childTableWrite.enquiry_messages?.at(-1)?.comment.includes("<p>"));
   assert.ok(!receivedPath.includes("/api/resource/Comment"));
+
+  const parentId = withLiveComment.data.messages.at(-1)!.id;
+  const withLiveReply = await request<{
+    messages: Array<{ id: string; messageType: string; parentMessageId: string | null }>;
+  }>(
+    "POST",
+    `/tenant/crm/enquiries/${encodeURIComponent(lifecycleFrappeEnquiryName)}/messages`,
+    {
+      comment: "<p>Rich reply in Frappe.</p>",
+      messageType: "reply",
+      parentMessageId: parentId
+    },
+    liveHeaders
+  );
+  const replyWrite = JSON.parse(lastEnquiryWriteBody) as {
+    enquiry_messages?: Array<{ comment: string; parent_message?: string }>;
+  };
+  assert.equal(replyWrite.enquiry_messages?.at(-1)?.parent_message, parentId);
+  assert.equal(withLiveReply.data.messages.at(-1)?.messageType, "reply");
+  assert.equal(withLiveReply.data.messages.at(-1)?.parentMessageId, parentId);
+
+  const startedJob = await request<{ jobs: Array<{ name: string; status: string }> }>(
+    "POST",
+    `/tenant/crm/enquiries/${encodeURIComponent(lifecycleFrappeEnquiryName)}/jobs/start`,
+    {},
+    liveHeaders
+  );
+  assert.equal(startedJob.data.jobs[0]?.status, "Running");
+  assert.equal(
+    (startedJob.data.jobs[0] as { employeeCostPerHour?: number }).employeeCostPerHour,
+    100
+  );
+  const stoppedJob = await request<{ jobs: Array<{ name: string; status: string }> }>(
+    "POST",
+    `/tenant/crm/enquiries/${encodeURIComponent(lifecycleFrappeEnquiryName)}/jobs/JOBEXE.E2E.1/stop`,
+    {},
+    liveHeaders
+  );
+  assert.equal(stoppedJob.data.jobs[0]?.status, "Completed");
 
   await request(
     "DELETE",

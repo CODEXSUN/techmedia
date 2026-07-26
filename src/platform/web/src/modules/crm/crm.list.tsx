@@ -123,7 +123,7 @@ export function CrmList({
                       onClick={() => onView(record)}
                       type="button"
                     >
-                      {plainText(record.subject) || plainText(record.title)}
+                      {plainText(record.workspace) || plainText(record.title)}
                     </button>
                   </td>
                 ) : null}

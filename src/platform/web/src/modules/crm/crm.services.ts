@@ -72,6 +72,18 @@ export function deleteCrmEnquiryMessage(id: string, messageId: string) {
   return apiDelete<CrmEnquiry>(`${path}/${id}/messages/${messageId}`, "tenant");
 }
 
+export function startCrmEnquiryJob(id: string) {
+  return apiPost<CrmEnquiry>(`${path}/${id}/jobs/start`, {}, "tenant");
+}
+
+export function stopCrmEnquiryJob(id: string, jobName: string) {
+  return apiPost<CrmEnquiry>(
+    `${path}/${id}/jobs/${encodeURIComponent(jobName)}/stop`,
+    {},
+    "tenant"
+  );
+}
+
 export function addCrmEnquiryEmail(id: string, payload: CrmEnquiryEmailCreatePayload) {
   return apiPost<CrmEnquiry>(`${path}/${id}/emails`, payload, "tenant");
 }

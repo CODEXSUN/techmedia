@@ -1,0 +1,147 @@
+name: tmapp
+
+x-api-env: &api-env
+  NODE_ENV: production
+  CODEXSUN_ALLOW_MISSING_ENV: "1"
+  AUTH_MODE: ${AUTH_MODE:-jwt}
+  PLATFORM_API_PORT: ${PLATFORM_API_PORT:-7050}
+  PLATFORM_WEB_PORT: ${PLATFORM_WEB_PORT:-7060}
+  PLATFORM_API_URL: ${PLATFORM_API_URL:-http://platform-api:7050}
+  PLATFORM_WEB_ORIGIN: ${PLATFORM_WEB_ORIGIN:?PLATFORM_WEB_ORIGIN is required}
+  PLATFORM_WEB_ORIGINS: ${PLATFORM_WEB_ORIGINS:-}
+  PLATFORM_WEB_HEALTH_URL: ${PLATFORM_WEB_HEALTH_URL:-http://platform-web:80}
+  DB_DRIVER: mariadb
+  DB_HOST: ${DB_HOST:-cxapp-mariadb}
+  DB_PORT: ${DB_PORT:-3306}
+  DB_USER: ${DB_USER:?DB_USER is required}
+  DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+  DB_MASTER_NAME: ${DB_MASTER_NAME:-techmedia_master}
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+  TECHMEDIA_DB_FRESH_ON_START: "0"
+  TECHMEDIA_ALLOW_PRODUCTION_DB_RESET: "0"
+  TECHMEDIA_BACKUP_DIR: /storage/backups/database
+  TECHMEDIA_VERIFIED_BACKUP_ID: ${TECHMEDIA_VERIFIED_BACKUP_ID:-}
+  TECHMEDIA_QUEUE_BACKEND: ${TECHMEDIA_QUEUE_BACKEND:-bullmq-redis}
+  TECHMEDIA_REDIS_URL: ${TECHMEDIA_REDIS_URL:?TECHMEDIA_REDIS_URL is required}
+  TECHMEDIA_QUEUE_WORKER_ENABLED: ${TECHMEDIA_QUEUE_WORKER_ENABLED:-1}
+  TECHMEDIA_QUEUE_WORKER_INTERVAL_MS: ${TECHMEDIA_QUEUE_WORKER_INTERVAL_MS:-5000}
+  TECHMEDIA_QUEUE_COMPLETED_RETENTION_DAYS: ${TECHMEDIA_QUEUE_COMPLETED_RETENTION_DAYS:-14}
+  TECHMEDIA_QUEUE_FAILED_RETENTION_DAYS: ${TECHMEDIA_QUEUE_FAILED_RETENTION_DAYS:-30}
+  TECHMEDIA_ALLOW_LIVE_RESTORE: "0"
+  TECHMEDIA_LIVE_RESTORE_CONFIRM: ""
+  TECHMEDIA_RESTORE_TEST_DB_NAME: ${TECHMEDIA_RESTORE_TEST_DB_NAME:-}
+  STORAGE_ROOT: /storage/app
+  STORAGE_PUBLIC_ROOT: /storage/public
+  ENABLE_DEFAULT_TENANT_SEED: ${ENABLE_DEFAULT_TENANT_SEED:-1}
+  DEFAULT_TENANT_CORPORATE_ID: ${DEFAULT_TENANT_CORPORATE_ID:-TECHMEDIA}
+  DEFAULT_TENANT_DB_NAME: ${DEFAULT_TENANT_DB_NAME:-techmedia_tenant_default}
+  DEFAULT_TENANT_DOMAIN: ${DEFAULT_TENANT_DOMAIN:-logicx.tmnext.in}
+  DEFAULT_TENANT_NAME: ${DEFAULT_TENANT_NAME:-TechMedia}
+  DEFAULT_TENANT_SLUG: ${DEFAULT_TENANT_SLUG:-techmedia}
+  DEFAULT_TENANT_ADMIN_NAME: ${DEFAULT_TENANT_ADMIN_NAME:-}
+  DEFAULT_TENANT_ADMIN_EMAIL: ${DEFAULT_TENANT_ADMIN_EMAIL:-}
+  DEFAULT_TENANT_ADMIN_PASSWORD: ${DEFAULT_TENANT_ADMIN_PASSWORD:-}
+  TENANT_DOMAIN_BASE: ${TENANT_DOMAIN_BASE:-tmnext.in}
+  SUPER_ADMIN_NAME: ${SUPER_ADMIN_NAME:-}
+  SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+  SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
+  SOFTWARE_ADMIN_NAME: ${SOFTWARE_ADMIN_NAME:-}
+  SOFTWARE_ADMIN_EMAIL: ${SOFTWARE_ADMIN_EMAIL:-}
+  SOFTWARE_ADMIN_PASSWORD: ${SOFTWARE_ADMIN_PASSWORD:-}
+  TENANT_ADMIN_NAME: ${TENANT_ADMIN_NAME:-}
+  TENANT_ADMIN_EMAIL: ${TENANT_ADMIN_EMAIL:-}
+  TENANT_ADMIN_PASSWORD: ${TENANT_ADMIN_PASSWORD:-}
+
+x-api-service: &api-service
+  image: ${TMAPP_IMAGE_REGISTRY:-tmapp}/tmapp-api:${TMAPP_API_IMAGE_TAG:-1.0.9}
+  restart: unless-stopped
+  volumes:
+    - tmapp-data:/storage
+  networks:
+    - shared
+
+x-web-service: &web-service
+  image: ${TMAPP_IMAGE_REGISTRY:-tmapp}/tmapp-web:${TMAPP_WEB_IMAGE_TAG:-1.0.9}
+  restart: unless-stopped
+  networks:
+    - shared
+    - edge
+
+services:
+  storage-init:
+    image: ${TMAPP_IMAGE_REGISTRY:-tmapp}/tmapp-api:${TMAPP_API_IMAGE_TAG:-1.0.9}
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mkdir -p /storage/app /storage/public /storage/tenants /storage/backups/database
+        chown -R 1000:1000 /storage/app /storage/public /storage/tenants /storage/backups
+    volumes:
+      - tmapp-data:/storage
+    networks:
+      - shared
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  platform-api:
+    <<: *api-service
+    build:
+      context: ../../..
+      dockerfile: techmedia/.container/tmapp/Dockerfile.api
+      target: runtime
+      args:
+        TMAPP_VERSION: ${TMAPP_VERSION:-1.0.9}
+        NODE_RUNTIME_VERSION: ${NODE_RUNTIME_VERSION:-26.5.0}
+        NPM_RUNTIME_VERSION: ${NPM_RUNTIME_VERSION:-12.0.1}
+        PLATFORM_API_PORT: ${PLATFORM_API_PORT:-7050}
+    container_name: tmapp-api
+    depends_on:
+      storage-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *api-env
+    ports:
+      - "${TMAPP_BIND_ADDRESS:-127.0.0.1}:${PLATFORM_API_HOST_PORT:-18050}:${PLATFORM_API_PORT:-7050}"
+
+  platform-web:
+    <<: *web-service
+    build:
+      context: ../../..
+      dockerfile: techmedia/.container/tmapp/Dockerfile.web
+      args:
+        TMAPP_VERSION: ${TMAPP_VERSION:-1.0.9}
+        NODE_RUNTIME_VERSION: ${NODE_RUNTIME_VERSION:-26.5.0}
+        NPM_RUNTIME_VERSION: ${NPM_RUNTIME_VERSION:-12.0.1}
+        DEFAULT_TENANT_NAME: ${DEFAULT_TENANT_NAME:-TechMedia}
+    container_name: tmapp-web
+    depends_on:
+      platform-api:
+        condition: service_healthy
+    ports:
+      - "${TMAPP_BIND_ADDRESS:-127.0.0.1}:${PLATFORM_WEB_HOST_PORT:-18060}:80"
+
+  platform-migrate:
+    image: ${TMAPP_IMAGE_REGISTRY:-tmapp}/tmapp-api:${TMAPP_API_IMAGE_TAG:-1.0.9}
+    entrypoint: ["npm"]
+    command: ["run", "db:migrations:run"]
+    profiles:
+      - tools
+    environment:
+      <<: *api-env
+    volumes:
+      - tmapp-data:/storage
+    networks:
+      - shared
+
+volumes:
+  tmapp-data:
+    name: ${TMAPP_DATA_VOLUME:-tmapp-data}
+
+networks:
+  shared:
+    name: ${SHARED_DOCKER_NETWORK:-cxapp-network}
+    external: true
+  edge:
+    name: ${SHARED_EDGE_NETWORK:-cxapp-edge}
+    external: true

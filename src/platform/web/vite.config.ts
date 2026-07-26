@@ -27,10 +27,77 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     build: {
-      chunkSizeWarningLimit: 900,
       emptyOutDir: true,
       outDir: "../../../dist/platform/web",
-      reportCompressedSize: false
+      reportCompressedSize: false,
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [
+              {
+                name: "react-vendor",
+                priority: 100,
+                test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/
+              },
+              {
+                name: "query-vendor",
+                priority: 90,
+                test: /node_modules[\\/]@tanstack[\\/]/
+              },
+              {
+                name: "radix-vendor",
+                priority: 80,
+                test: /node_modules[\\/]@radix-ui[\\/]/
+              },
+              {
+                name: "icons-vendor",
+                priority: 70,
+                test: /node_modules[\\/]lucide-react[\\/]/
+              },
+              {
+                name: "motion-vendor",
+                priority: 60,
+                test: /node_modules[\\/]framer-motion[\\/]/
+              },
+              {
+                name: "canvas-vendor",
+                priority: 50,
+                test: /node_modules[\\/]html2canvas[\\/]/
+              },
+              {
+                name: "jspdf-vendor",
+                priority: 40,
+                test: /node_modules[\\/]jspdf[\\/]/
+              },
+              {
+                name: "vector-vendor",
+                priority: 39,
+                test: /node_modules[\\/]canvg[\\/]/
+              },
+              {
+                name: "pdf-support-vendor",
+                priority: 38,
+                test: /node_modules[\\/](?:dompurify|fast-png|fflate|pdfjs-dist)[\\/]/
+              },
+              {
+                name: "editor-vendor",
+                priority: 30,
+                test: /node_modules[\\/](?:@tiptap|highlight\.js|lowlight|prosemirror-)[\\/]/
+              },
+              {
+                name: "chart-vendor",
+                priority: 20,
+                test: /node_modules[\\/](?:d3-|recharts|victory-vendor)[\\/]/
+              },
+              {
+                name: "schema-vendor",
+                priority: 10,
+                test: /node_modules[\\/](?:date-fns|zod)[\\/]/
+              }
+            ]
+          }
+        }
+      }
     },
     cacheDir: "../../../node_modules/.vite/platform-web",
     envDir: "../../..",

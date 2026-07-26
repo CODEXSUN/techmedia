@@ -18,8 +18,8 @@ const enquiryFields = [
   "user_employee",
   "date",
   "assigned_to_employee",
+  "priority",
   "status",
-  "status_details",
   "creation",
   "modified"
 ];
@@ -49,6 +49,24 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       );
     }
     return value;
+  }
+
+  async function loadJobs(name: string) {
+    const target = await connection();
+    const enquiryName = requiredName(name);
+    const response = await frappeRequest<{
+      data?: FrappeJobExecutionDocument[];
+      message?: FrappeJobExecutionDocument[];
+    }>(target, "/api/v2/method/frappe.client.get_list", {
+      body: JSON.stringify({
+        doctype: "Job Execution",
+        fields: jobExecutionFields,
+        filters: [["enquiry", "=", enquiryName]],
+        order_by: "creation desc"
+      }),
+      method: "POST"
+    });
+    return (response.data ?? response.message ?? []).map(toJobExecution);
   }
 
   return {
@@ -81,6 +99,10 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       return hydrate(await connection(), requiredName(name));
     },
 
+    async jobs(name) {
+      return loadJobs(name);
+    },
+
     async create(input) {
       const target = await connection();
       const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
@@ -111,9 +133,10 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         `/api/resource/Enquiry/${encodeURIComponent(enquiryName)}`,
         {
           body: JSON.stringify({
-            enquiry_messages: messages.map(({ comment, name: childName }) => ({
-              comment: plainMessage(comment),
-              ...(childName ? { name: childName } : {})
+            enquiry_messages: messages.map(({ comment, name: childName, parentMessage }) => ({
+              comment: richText(comment),
+              ...(childName ? { name: childName } : {}),
+              ...(parentMessage ? { parent_message: parentMessage } : {})
             }))
           }),
           method: "PUT"
@@ -144,9 +167,82 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         `/api/resource/Employee?${query}`
       );
       return (response.data ?? []).map(toEmployee).filter(Boolean) as FrappeLiveEmployee[];
+    },
+
+    async startJob(name) {
+      const target = await connection();
+      const employeeName = employee();
+      const employeeDocument = await frappeRequest<{
+        data?: { cost_per_hour?: number | string };
+      }>(
+        target,
+        `/api/resource/Employee/${encodeURIComponent(employeeName)}?fields=${encodeURIComponent(
+          JSON.stringify(["name", "cost_per_hour"])
+        )}`
+      );
+      const costPerHour = Number(employeeDocument.data?.cost_per_hour ?? 0);
+      if (!Number.isFinite(costPerHour) || costPerHour < 0) {
+        throw AppError.validation(
+          "The Frappe Employee Cost Per Hour must be a valid non-negative amount."
+        );
+      }
+      const response = await frappeRequest<{ data?: FrappeJobExecutionDocument }>(
+        target,
+        "/api/v2/document/Job Execution",
+        {
+          body: JSON.stringify({
+            employee: employeeName,
+            enquiry: requiredName(name),
+            start_time: frappeTime(new Date())
+          }),
+          method: "POST"
+        }
+      );
+      if (!response.data) throw AppError.conflict("Frappe did not return the started job.");
+      const job = toJobExecution(response.data);
+      return {
+        ...job,
+        employeeCostPerHour: job.employeeCostPerHour || costPerHour
+      };
+    },
+
+    async stopJob(name, jobName) {
+      const target = await connection();
+      const enquiryName = requiredName(name);
+      const jobs = await loadJobs(enquiryName);
+      const running = jobs.filter((job) => job.status === "Running");
+      if (running.length > 1) {
+        throw AppError.conflict("Frappe has more than one running job for this enquiry.");
+      }
+      if (running[0]?.name !== jobName) {
+        throw AppError.conflict("The selected job is no longer running.");
+      }
+      const response = await frappeRequest<{ data?: FrappeJobExecutionDocument }>(
+        target,
+        `/api/v2/document/Job Execution/${encodeURIComponent(requiredName(jobName))}`,
+        {
+          body: JSON.stringify({ status: "Completed", stop_time: frappeTime(new Date()) }),
+          method: "PUT"
+        }
+      );
+      if (!response.data) throw AppError.conflict("Frappe did not return the completed job.");
+      return toJobExecution(response.data);
     }
   };
 };
+
+const jobExecutionFields = [
+  "name",
+  "creation",
+  "enquiry",
+  "employee",
+  "start_time",
+  "stop_time",
+  "status",
+  "employee_cost_per_hour",
+  "hours",
+  "total_cost"
+];
 
 async function hydrate(
   connection: FrappeConnectionCredentials,
@@ -184,14 +280,14 @@ function toPayload(
     ...(includeMessages
       ? {
           enquiry_messages: input.messages.map(({ comment }) => ({
-            comment: plainMessage(comment)
+            comment: richText(comment)
           }))
         }
       : {}),
     group: input.enquiryGroup || null,
     mobile: input.mobile,
+    priority: toFrappePriority(input.priority),
     status: toFrappeStatus(input.status),
-    status_details: input.subject || input.statusDetails,
     user_employee: userEmployee
   };
 }
@@ -209,17 +305,17 @@ function toEnquiry(
     enquiryGroup: document.group?.trim() ?? "",
     enquiryMessage: document.enquiry_details?.trim() ?? "",
     messages: (document.enquiry_messages ?? []).map((message, index) => ({
-      comment: plainMessage(message.comment ?? ""),
+      comment: richText(message.comment ?? ""),
       createdAt: message.creation ? timestamp(message.creation) : null,
       createdBy: message.owner?.trim() || null,
-      name: message.name?.trim() || `${document.name}-message-${index + 1}`
+      name: message.name?.trim() || `${document.name}-message-${index + 1}`,
+      parentMessage: message.parent_message?.trim() || null
     })),
     mobile: document.mobile?.trim() ?? "",
     modifiedAt: timestamp(document.modified ?? document.creation),
     name: document.name,
+    priority: fromFrappePriority(document.priority),
     status: document.status?.trim() || "Open",
-    statusDetails: document.status_details?.trim() ?? "",
-    subject: document.subject?.trim() || document.status_details?.trim() || "",
     userEmployee: document.user_employee?.trim() ?? ""
   };
 }
@@ -386,6 +482,59 @@ function toFrappeStatus(value: string) {
   return "Open";
 }
 
+function fromFrappePriority(value?: string) {
+  const priority = value?.trim().toLowerCase();
+  if (priority === "low" || priority === "high" || priority === "urgent") return priority;
+  return "normal" as const;
+}
+
+function toFrappePriority(value: string) {
+  const priority = fromFrappePriority(value);
+  return priority.charAt(0).toUpperCase() + priority.slice(1);
+}
+
+function richText(value: string) {
+  return value.replace(/\r/gu, "").trim();
+}
+
+function frappeTime(date: Date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: "Asia/Kolkata"
+  }).format(date);
+}
+
+function toJobExecution(
+  document: FrappeJobExecutionDocument
+): import("./frappe.types.js").FrappeLiveJobExecution {
+  return {
+    createdAt: jobTimestamp(document.creation),
+    employee: document.employee?.trim() ?? "",
+    employeeCostPerHour: Number(document.employee_cost_per_hour ?? 0),
+    enquiry: document.enquiry?.trim() ?? "",
+    hours: Number(document.hours ?? 0),
+    name: document.name,
+    startTime: document.start_time?.trim() ?? "",
+    status:
+      document.status === "Completed" || document.status === "Cancelled"
+        ? document.status
+        : ("Running" as const),
+    stopTime: document.stop_time?.trim() || null,
+    totalCost: Number(document.total_cost ?? 0)
+  };
+}
+
+function jobTimestamp(value?: string) {
+  if (!value) return new Date(0).toISOString();
+  const normalized = value.includes("T") ? value : value.replace(" ", "T");
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/u.test(normalized)) return timestamp(normalized);
+  const date = new Date(`${normalized}+05:30`);
+  return Number.isNaN(date.valueOf()) ? new Date(0).toISOString() : date.toISOString();
+}
+
 function plainMessage(value: string) {
   return value
     .replace(/\r/gu, "")
@@ -422,16 +571,29 @@ type FrappeEnquiryDocument = {
     creation?: string;
     name?: string;
     owner?: string;
+    parent_message?: string;
   }>;
   group?: string;
   mobile?: string;
   modified?: string;
   modified_by?: string;
   name: string;
+  priority?: string;
   status?: string;
-  status_details?: string;
-  subject?: string;
   user_employee?: string;
+};
+
+type FrappeJobExecutionDocument = {
+  creation?: string;
+  employee?: string;
+  employee_cost_per_hour?: number | string;
+  enquiry?: string;
+  hours?: number | string;
+  name: string;
+  start_time?: string;
+  status?: string;
+  stop_time?: string;
+  total_cost?: number | string;
 };
 
 type FrappeDocInfoResponse = { docinfo?: FrappeDocumentInfo };

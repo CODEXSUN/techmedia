@@ -109,6 +109,20 @@ export type FrappeLiveEnquiryMessage = {
   createdAt: string | null;
   createdBy: string | null;
   name: string;
+  parentMessage: string | null;
+};
+
+export type FrappeLiveJobExecution = {
+  createdAt: string;
+  employee: string;
+  employeeCostPerHour: number;
+  enquiry: string;
+  hours: number;
+  name: string;
+  startTime: string;
+  status: "Cancelled" | "Completed" | "Running";
+  stopTime: string | null;
+  totalCost: number;
 };
 
 export type FrappeLiveEnquiryActivity = {
@@ -131,9 +145,8 @@ export type FrappeLiveEnquiry = {
   mobile: string;
   modifiedAt: string;
   name: string;
+  priority: "high" | "low" | "normal" | "urgent";
   status: string;
-  statusDetails: string;
-  subject: string;
   userEmployee: string;
 };
 
@@ -145,14 +158,14 @@ export type FrappeLiveEnquirySavePayload = {
   enquiryMessage: string;
   messages: Array<{ comment: string }>;
   mobile: string;
+  priority: "high" | "low" | "normal" | "urgent";
   status: string;
-  statusDetails: string;
-  subject: string;
 };
 
 export type FrappeLiveEnquiryMessageSavePayload = {
   comment: string;
   name?: string;
+  parentMessage?: string | null;
 };
 
 export type FrappeLiveEnquiryGateway = {
@@ -160,6 +173,7 @@ export type FrappeLiveEnquiryGateway = {
   delete: (name: string) => Promise<void>;
   employees: () => Promise<FrappeLiveEmployee[]>;
   get: (name: string) => Promise<FrappeLiveEnquiry>;
+  jobs: (name: string) => Promise<FrappeLiveJobExecution[]>;
   list: (input: {
     employee: string;
     search?: string;
@@ -170,6 +184,8 @@ export type FrappeLiveEnquiryGateway = {
     name: string,
     messages: FrappeLiveEnquiryMessageSavePayload[]
   ) => Promise<FrappeLiveEnquiry>;
+  startJob: (name: string) => Promise<FrappeLiveJobExecution>;
+  stopJob: (name: string, jobName: string) => Promise<FrappeLiveJobExecution>;
 };
 
 export type FrappeLiveEnquiryGatewayFactory = (context: {
