@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  Check,
   CornerUpLeft,
   Ellipsis,
   ListChecks,
@@ -20,7 +21,8 @@ import {
   Square,
   Star,
   Timer,
-  Trash2
+  Trash2,
+  X
 } from "lucide-react";
 import {
   AlertDialog,
@@ -44,23 +46,29 @@ import { toast } from "@codexsun/ui/components/sonner";
 import { Textarea } from "@codexsun/ui/components/textarea";
 import { WorkspaceAnimatedTabs } from "@codexsun/ui/workspace/animated-tabs";
 import { WorkspaceDatePicker } from "@codexsun/ui/workspace/date-picker";
+import { WorkspaceLookup } from "@codexsun/ui/workspace/lookup";
 import { WorkspaceMinimalEditor } from "@codexsun/ui/workspace/minimal-editor";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";
+import { WorkspaceSelect } from "@codexsun/ui/workspace/select";
 import { WorkspaceDetailTable, WorkspaceShowCard } from "@codexsun/ui/workspace/show";
 import { WorkspaceStatusBadge } from "@codexsun/ui/workspace/status";
 import { WorkspaceTableEmptyState, WorkspaceTableHeaderCell } from "@codexsun/ui/workspace/table";
-import { useCrmEnquiryChildMutations } from "./crm.hooks";
-import type { CrmEnquiry } from "./crm.types";
+import { useCrmEnquiryChildMutations, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
+import type { CrmEnquiry, CrmEnquirySavePayload, CrmUserReference } from "./crm.types";
 
 type CrmShowTab =
   "activity" | "attachments" | "calls" | "comments" | "emails" | "jobs" | "notes" | "tasks";
 
 export function CrmShow({
+  canAssign,
+  canUpdate,
   onBack,
   onNext,
   onRecordChange,
   record
 }: {
+  canAssign: boolean;
+  canUpdate: boolean;
   onBack: () => void;
   onNext?: () => void;
   onRecordChange: (record: CrmEnquiry) => void;
@@ -68,6 +76,8 @@ export function CrmShow({
 }) {
   const [activeTab, setActiveTab] = useState<CrmShowTab>("comments");
   const childMutations = useCrmEnquiryChildMutations(onRecordChange);
+  const enquiryMutations = useCrmEnquiryMutations();
+  const users = useCrmUsersQuery();
   async function saveChild(label: string, operation: () => Promise<CrmEnquiry>, action = "added") {
     try {
       await operation();
@@ -86,6 +96,27 @@ export function CrmShow({
       () => childMutations.jobStop.mutateAsync([record.frappeName, jobName]),
       "stopped"
     );
+  async function updateProperties(
+    patch: Partial<
+      Pick<CrmEnquirySavePayload, "assignedToUserId" | "enquiryGroup" | "priority" | "status">
+    >
+  ) {
+    try {
+      const saved = await enquiryMutations.update.mutateAsync({
+        id: record.frappeName,
+        payload: enquiryPayload(record, patch)
+      });
+      onRecordChange(saved);
+      toast.success("Enquiry properties updated", {
+        description: "The change was saved to Frappe and added to the activity feed."
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "The enquiry properties could not be updated."
+      );
+      throw error;
+    }
+  }
   const tabs = [
     {
       content: (
@@ -260,8 +291,13 @@ export function CrmShow({
         </div>
 
         <EnquiryProperties
+          canAssign={canAssign}
+          canUpdate={canUpdate}
           jobLoading={jobLoading}
+          loading={enquiryMutations.update.isPending}
           record={record}
+          users={users.data ?? []}
+          onSave={updateProperties}
           onStartJob={startJob}
           onStopJob={stopJob}
         />
@@ -513,7 +549,7 @@ function CommentsTab({
       <div className="min-h-0 flex-1 overflow-y-auto bg-card px-5 pb-5 pt-2">
         <div>
           {record.messages.map((message, messageIndex) => {
-            const author = messageAuthor(record, message.createdByUserId);
+            const author = messageAuthorDetails(record, message.createdByUserId);
             const isReply = message.messageType === "reply";
             const isStarred = starredMessageIds.has(message.id);
             const nextMessage = record.messages[messageIndex + 1];
@@ -544,117 +580,124 @@ function CommentsTab({
                     )}
                   </div>
                   <div className="bg-card px-2 py-0.5">
-                    <div className="flex min-w-0 items-center gap-1.5">
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground/80">
-                        {author.charAt(0).toUpperCase()}
-                      </span>
-                      <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground/75">
-                        <span className="font-medium text-foreground/60">{author}</span>{" "}
-                        <span>{isReply ? "added a reply" : "added a comment"}</span>
-                      </p>
-                      <time
-                        className="shrink-0 text-[10px] text-muted-foreground/75"
-                        dateTime={message.createdAt}
-                      >
-                        {formatDateTime(message.createdAt)}
-                      </time>
-                      <Button
-                        aria-label={
-                          isStarred ? "Unstar conversation entry" : "Star conversation entry"
-                        }
-                        aria-pressed={isStarred}
-                        className="size-6 shrink-0"
-                        size="icon"
-                        title={isStarred ? "Unstar" : "Star"}
-                        type="button"
-                        variant="ghost"
-                        onClick={() => toggleStar(message.id)}
-                      >
-                        <Star
-                          className={`size-3 ${isStarred ? "fill-current text-amber-500" : ""}`}
-                        />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            aria-label={`${isReply ? "Reply" : "Comment"} options`}
-                            className="size-6 shrink-0"
-                            size="icon"
-                            title="More options"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Ellipsis className="size-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36">
-                          <DropdownMenuItem
-                            disabled={loading || !message.canEdit}
-                            onSelect={() => {
-                              setEditingMessageId(message.id);
-                              setEditingComment(message.comment);
-                            }}
-                          >
-                            <Pencil className="mr-2 size-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            disabled={loading || !message.canDelete}
-                            onSelect={() => setDeletingMessage(message)}
-                          >
-                            <Trash2 className="mr-2 size-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                    {editingMessageId === message.id ? (
-                      <div className="mt-2 rounded-md border border-border bg-card p-2">
-                        <WorkspaceMinimalEditor
-                          className="!bg-background shadow-none [&_.tiptap]:min-h-20"
-                          content={editingComment}
-                          placeholder={`Edit ${isReply ? "reply" : "comment"}…`}
-                          onChange={setEditingComment}
-                        />
-                        <div className="mt-2 flex justify-end gap-2">
-                          <Button
-                            className="h-7 text-xs"
-                            disabled={loading}
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingMessageId(null);
-                              setEditingComment("");
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            className="h-7 text-xs"
-                            disabled={loading || !plainText(editingComment)}
-                            size="sm"
-                            type="button"
-                            onClick={() =>
-                              void onUpdate(message, editingComment.trim())
-                                .then(() => {
+                    <div className="flex min-w-0 items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        {editingMessageId === message.id ? (
+                          <div className="rounded-md border border-border bg-card p-2">
+                            <WorkspaceMinimalEditor
+                              className="!bg-background shadow-none [&_.tiptap]:min-h-20"
+                              content={editingComment}
+                              placeholder={`Edit ${isReply ? "reply" : "comment"}…`}
+                              onChange={setEditingComment}
+                            />
+                            <div className="mt-2 flex justify-end gap-2">
+                              <Button
+                                className="h-7 text-xs"
+                                disabled={loading}
+                                size="sm"
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
                                   setEditingMessageId(null);
                                   setEditingComment("");
-                                })
-                                .catch(() => undefined)
-                            }
-                          >
-                            Save
-                          </Button>
-                        </div>
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                className="h-7 text-xs"
+                                disabled={loading || !plainText(editingComment)}
+                                size="sm"
+                                type="button"
+                                onClick={() =>
+                                  void onUpdate(message, editingComment.trim())
+                                    .then(() => {
+                                      setEditingMessageId(null);
+                                      setEditingComment("");
+                                    })
+                                    .catch(() => undefined)
+                                }
+                              >
+                                Save
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            className="prose prose-sm max-w-none rounded-md bg-muted/20 px-3 py-2 text-sm leading-5 text-foreground [&_p]:my-0 [&_p+p]:mt-2"
+                            dangerouslySetInnerHTML={{ __html: sanitizeRichText(message.comment) }}
+                          />
+                        )}
                       </div>
-                    ) : (
-                      <div
-                        className="prose prose-sm mt-1.5 max-w-none rounded-md bg-muted/20 px-3 py-2 text-sm leading-5 text-foreground [&_p]:my-0 [&_p+p]:mt-2"
-                        dangerouslySetInnerHTML={{ __html: sanitizeRichText(message.comment) }}
-                      />
-                    )}
+                      <div className="flex shrink-0 items-center gap-1">
+                        <time
+                          className="shrink-0 text-[10px] text-muted-foreground/75"
+                          dateTime={message.createdAt}
+                        >
+                          {formatDateTime(message.createdAt)}
+                        </time>
+                        <Button
+                          aria-label={
+                            isStarred ? "Unstar conversation entry" : "Star conversation entry"
+                          }
+                          aria-pressed={isStarred}
+                          className="size-6 shrink-0"
+                          size="icon"
+                          title={isStarred ? "Unstar" : "Star"}
+                          type="button"
+                          variant="ghost"
+                          onClick={() => toggleStar(message.id)}
+                        >
+                          <Star
+                            className={`size-3 ${isStarred ? "fill-current text-amber-500" : ""}`}
+                          />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              aria-label={`${isReply ? "Reply" : "Comment"} options`}
+                              className="size-6 shrink-0"
+                              size="icon"
+                              title="More options"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <Ellipsis className="size-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-36">
+                            <DropdownMenuItem
+                              disabled={loading || !message.canEdit}
+                              onSelect={() => {
+                                setEditingMessageId(message.id);
+                                setEditingComment(message.comment);
+                              }}
+                            >
+                              <Pencil className="mr-2 size-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              disabled={loading || !message.canDelete}
+                              onSelect={() => setDeletingMessage(message)}
+                            >
+                              <Trash2 className="mr-2 size-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                    <div className="mt-1 flex min-w-0 items-center justify-end gap-1.5 pr-1">
+                      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-medium text-muted-foreground/80">
+                        {author.name.charAt(0).toUpperCase()}
+                      </span>
+                      <p className="min-w-0 truncate text-[11px] text-muted-foreground/75">
+                        <span className="font-medium text-foreground/60">{author.name}</span>
+                        {author.email ? <span> - {author.email}</span> : null}{" "}
+                        <span>{isReply ? "added a reply" : "added a comment"}</span>
+                      </p>
+                    </div>
                   </div>
                 </article>
               </div>
@@ -1115,27 +1158,151 @@ function ActivityTab({ record }: { record: CrmEnquiry }) {
 }
 
 function EnquiryProperties({
+  canAssign,
+  canUpdate,
   jobLoading,
+  loading,
+  onSave,
   onStartJob,
   onStopJob,
-  record
+  record,
+  users
 }: {
+  canAssign: boolean;
+  canUpdate: boolean;
   jobLoading: boolean;
+  loading: boolean;
+  onSave: (
+    patch: Partial<
+      Pick<CrmEnquirySavePayload, "assignedToUserId" | "enquiryGroup" | "priority" | "status">
+    >
+  ) => Promise<void>;
   onStartJob: () => Promise<unknown>;
   onStopJob: (jobName: string) => Promise<unknown>;
   record: CrmEnquiry;
+  users: CrmUserReference[];
 }) {
   const runningJobs = record.jobs.filter((job) => job.status === "Running");
+  const [editing, setEditing] = useState<
+    "assignedToUserId" | "enquiryGroup" | "priority" | "status" | null
+  >(null);
+  const [assignedToUserId, setAssignedToUserId] = useState(record.assignedToUserId ?? "");
+  const [enquiryGroup, setEnquiryGroup] = useState(record.enquiryGroup);
+  const [priority, setPriority] = useState(record.priority);
+  const [status, setStatus] = useState(record.status);
+
+  useEffect(() => {
+    setAssignedToUserId(record.assignedToUserId ?? "");
+    setEnquiryGroup(record.enquiryGroup);
+    setPriority(record.priority);
+    setStatus(record.status);
+  }, [record]);
+
+  const groupOptions = Array.from(
+    new Set([
+      record.enquiryGroup,
+      "Stores",
+      "DELL",
+      "ASUS",
+      "Spares",
+      "MBO",
+      "Service",
+      "On-site",
+      "Remote - AnyDesk",
+      "Follow",
+      "Escalation",
+      "Admin"
+    ])
+  )
+    .filter(Boolean)
+    .map((value) => ({ label: value, value }));
+
+  function cancelEdit() {
+    setAssignedToUserId(record.assignedToUserId ?? "");
+    setEnquiryGroup(record.enquiryGroup);
+    setPriority(record.priority);
+    setStatus(record.status);
+    setEditing(null);
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    const patch =
+      editing === "assignedToUserId"
+        ? { assignedToUserId: assignedToUserId || null }
+        : editing === "enquiryGroup"
+          ? { enquiryGroup }
+          : editing === "priority"
+            ? { priority }
+            : { status };
+    await onSave(patch);
+    setEditing(null);
+  }
+
   return (
     <aside className="space-y-4 xl:sticky xl:top-4 xl:[&_td]:whitespace-nowrap xl:[&_th]:whitespace-nowrap">
       <WorkspaceShowCard title="Properties">
-        <WorkspaceDetailTable
-          rows={[
-            ["List in", record.enquiryGroup || "—"],
-            ["Priority", capitalize(record.priority)],
-            ["Assigned to", record.assignedTo?.name ?? "Unassigned"]
-          ]}
-        />
+        <EditablePropertyRow
+          disabled={!canUpdate}
+          editing={editing === "enquiryGroup"}
+          label="List in"
+          loading={loading}
+          value={record.enquiryGroup || "—"}
+          onCancel={cancelEdit}
+          onEdit={() => setEditing("enquiryGroup")}
+          onSave={saveEdit}
+        >
+          <WorkspaceSelect
+            options={groupOptions}
+            placeholder="Choose list"
+            value={enquiryGroup}
+            onValueChange={setEnquiryGroup}
+          />
+        </EditablePropertyRow>
+        <EditablePropertyRow
+          disabled={!canUpdate}
+          editing={editing === "priority"}
+          label="Priority"
+          loading={loading}
+          value={capitalize(record.priority)}
+          onCancel={cancelEdit}
+          onEdit={() => setEditing("priority")}
+          onSave={saveEdit}
+        >
+          <WorkspaceSelect
+            options={[
+              { label: "Low", swatchClassName: "bg-sky-500", value: "low" },
+              { label: "Normal", swatchClassName: "bg-teal-500", value: "normal" },
+              { label: "High", swatchClassName: "bg-amber-500", value: "high" },
+              { label: "Urgent", swatchClassName: "bg-red-500", value: "urgent" }
+            ]}
+            value={priority}
+            onValueChange={(value) => setPriority(value as CrmEnquirySavePayload["priority"])}
+          />
+        </EditablePropertyRow>
+        <EditablePropertyRow
+          disabled={!canUpdate || !canAssign}
+          editing={editing === "assignedToUserId"}
+          label="Assigned to"
+          loading={loading}
+          value={record.assignedTo?.name ?? "Unassigned"}
+          onCancel={cancelEdit}
+          onEdit={() => setEditing("assignedToUserId")}
+          onSave={saveEdit}
+        >
+          <WorkspaceLookup
+            allowTextValue={false}
+            options={users.map((user) => ({
+              description: user.email,
+              label: user.name,
+              value: user.id
+            }))}
+            placeholder="Unassigned"
+            showAllOptionsOnFocus
+            value={assignedToUserId}
+            onValueChange={setAssignedToUserId}
+          />
+        </EditablePropertyRow>
         <div className="border-y border-border/70 p-3">
           <JobControlButton
             active={runningJobs[0]}
@@ -1146,12 +1313,29 @@ function EnquiryProperties({
             onStop={onStopJob}
           />
         </div>
-        <WorkspaceDetailTable
-          rows={[
-            ["Status", capitalize(record.status)],
-            ["Updated", formatDateTime(record.updatedAt)]
-          ]}
-        />
+        <EditablePropertyRow
+          disabled={!canUpdate}
+          editing={editing === "status"}
+          label="Status"
+          loading={loading}
+          value={capitalize(record.status)}
+          onCancel={cancelEdit}
+          onEdit={() => setEditing("status")}
+          onSave={saveEdit}
+        >
+          <WorkspaceSelect
+            options={[
+              { label: "Open", value: "open" },
+              { label: "Follow", value: "follow" },
+              { label: "Escalation", value: "escalation" },
+              { label: "Won", value: "won" },
+              { label: "Lost", value: "lost" }
+            ]}
+            value={status}
+            onValueChange={(value) => setStatus(value as CrmEnquirySavePayload["status"])}
+          />
+        </EditablePropertyRow>
+        <WorkspaceDetailTable rows={[["Updated", formatDateTime(record.updatedAt)]]} />
       </WorkspaceShowCard>
 
       <WorkspaceShowCard title="Customer">
@@ -1170,6 +1354,80 @@ function EnquiryProperties({
         />
       </WorkspaceShowCard>
     </aside>
+  );
+}
+
+function EditablePropertyRow({
+  children,
+  disabled = false,
+  editing,
+  label,
+  loading,
+  onCancel,
+  onEdit,
+  onSave,
+  value
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+  editing: boolean;
+  label: string;
+  loading: boolean;
+  onCancel: () => void;
+  onEdit: () => void;
+  onSave: () => Promise<void>;
+  value: string;
+}) {
+  return (
+    <div className="grid grid-cols-[10rem_minmax(0,1fr)] border-b border-border/70 text-sm last:border-b-0">
+      <div className="bg-muted/30 px-3 py-3 text-xs uppercase text-muted-foreground">{label}</div>
+      <div className="min-w-0 px-2 py-1.5">
+        {editing ? (
+          <div className="flex min-w-0 items-center gap-1.5">
+            <div className="min-w-0 flex-1">{children}</div>
+            <Button
+              aria-label={`Save ${label}`}
+              className="size-8 shrink-0"
+              disabled={loading}
+              size="icon"
+              title="Save"
+              type="button"
+              onClick={() => void onSave().catch(() => undefined)}
+            >
+              <Check className="size-4" />
+            </Button>
+            <Button
+              aria-label={`Cancel editing ${label}`}
+              className="size-8 shrink-0"
+              disabled={loading}
+              size="icon"
+              title="Cancel"
+              type="button"
+              variant="ghost"
+              onClick={onCancel}
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex min-h-10 min-w-0 items-center gap-2">
+            <span className="min-w-0 flex-1 truncate font-medium text-foreground">{value}</span>
+            <Button
+              aria-label={`Edit ${label}`}
+              className="size-8 shrink-0"
+              disabled={disabled}
+              size="icon"
+              title={disabled ? "Update permission is required" : `Edit ${label}`}
+              type="button"
+              variant="ghost"
+              onClick={onEdit}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1286,14 +1544,31 @@ function formatDateTime(value: string) {
   return format(new Date(value), "dd MMM yyyy, hh:mm a");
 }
 
-function messageAuthor(record: CrmEnquiry, userId: string | null) {
-  if (userId === record.createdBy.id) {
-    return record.createdBy.name;
+function messageAuthorDetails(record: CrmEnquiry, userId: string | null) {
+  const normalizedUserId = userId?.trim().toLowerCase() ?? "";
+  const knownUsers = [record.createdBy, record.assignedTo].filter(
+    (user): user is CrmUserReference => user !== null
+  );
+  const knownUser = knownUsers.find(
+    (user) =>
+      user.id.toLowerCase() === normalizedUserId || user.email.toLowerCase() === normalizedUserId
+  );
+  if (knownUser) {
+    return { email: knownUser.email, name: knownUser.name };
   }
-  if (userId && userId === record.assignedTo?.id) {
-    return record.assignedTo.name;
+  if (!userId) {
+    return { email: "", name: "System" };
   }
-  return userId ? `User ${userId}` : "System";
+  if (userId.includes("@")) {
+    const localName = userId
+      .split("@")[0]!
+      .split(/[._-]+/u)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+    return { email: userId, name: localName || userId };
+  }
+  return { email: "", name: userId };
 }
 
 function plainText(value: string) {
@@ -1303,6 +1578,28 @@ function plainText(value: string) {
     .replace(/&amp;/gu, "&")
     .replace(/\s+/gu, " ")
     .trim();
+}
+
+function enquiryPayload(
+  record: CrmEnquiry,
+  patch: Partial<
+    Pick<CrmEnquirySavePayload, "assignedToUserId" | "enquiryGroup" | "priority" | "status">
+  >
+): CrmEnquirySavePayload {
+  return {
+    assignedToUserId: record.assignedToUserId,
+    customer: record.customer,
+    enquiryDate: record.enquiryDate,
+    enquiryGroup: record.enquiryGroup,
+    messages: record.messages.map(({ comment }) => ({ comment })),
+    mobile: record.mobile,
+    priority: record.priority,
+    schedules: record.schedules.map(({ scheduledOn }) => ({ scheduledOn })),
+    status: record.status,
+    title: record.title,
+    workspace: record.workspace,
+    ...patch
+  };
 }
 
 function enquiryDisplayTitle(record: Pick<CrmEnquiry, "title" | "workspace">) {

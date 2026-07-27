@@ -233,10 +233,10 @@ function CrmFormBody({
               <WorkspaceFormField label="Priority" required>
                 <WorkspaceSelect
                   options={[
-                    { label: "Low", value: "low" },
-                    { label: "Normal", value: "normal" },
-                    { label: "High", value: "high" },
-                    { label: "Urgent", value: "urgent" }
+                    { label: "Low", swatchClassName: "bg-sky-500", value: "low" },
+                    { label: "Normal", swatchClassName: "bg-teal-500", value: "normal" },
+                    { label: "High", swatchClassName: "bg-amber-500", value: "high" },
+                    { label: "Urgent", swatchClassName: "bg-red-500", value: "urgent" }
                   ]}
                   value={value.priority}
                   onValueChange={(priority) =>

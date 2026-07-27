@@ -22,8 +22,9 @@ import type { CrmEnquiry, CrmEnquirySavePayload, CrmEnquiryView } from "./crm.ty
 
 export const crmEnquiryQueryKey = ["tenant", "crm", "enquiries"] as const;
 
-export function useCrmOverviewQuery() {
+export function useCrmOverviewQuery(enabled = true) {
   return useQuery({
+    enabled,
     queryFn: getCrmEnquiryOverview,
     queryKey: [...crmEnquiryQueryKey, "overview"]
   });

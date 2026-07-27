@@ -32,6 +32,7 @@ import { listFinancialYears } from "@codexsun/core-web/modules/organisation/fina
 import { getToken, logout } from "../../shared/api/platform-api";
 import { setPlatformDocumentTitle } from "../../shared/document/PageTitle";
 import { useTenantUserProfileQuery } from "../../modules/tenant-user/tenant-user.hooks";
+import { useCrmOverviewQuery } from "../../modules/crm/crm.hooks";
 
 function lazyWorkspace<Props>(loader: () => Promise<ComponentType<Props>>) {
   return lazy(async () => ({ default: await loader() }));
@@ -448,11 +449,13 @@ export function AppDesk() {
 
   const activeWorkspaceTitle =
     activeApp === "crm" ? "CRM" : activeApp === "frappe" ? "Frappe" : "Application";
+  const crmOverviewQuery = useCrmOverviewQuery(activeApp === "crm");
   const menuItems = appMenuItemsFor(
     activeApp,
     safePage,
     (nextPage) => selectPage(nextPage as AppPage),
-    signedInUser.permissions
+    signedInUser.permissions,
+    crmOverviewQuery.data?.viewCounts
   );
   const workspaceItems = appWorkspaceItems(switchableApps, activeApp).map((item) => ({
     ...item,

@@ -59,6 +59,7 @@ const enquiryColumnOptions: Array<{ id: CrmEnquiryColumnId; label: string }> = [
   { id: "dueDate", label: "Due date" },
   { id: "createdBy", label: "User" },
   { id: "assignedTo", label: "Assigned to" },
+  { id: "priority", label: "Priority" },
   { id: "status", label: "Status" }
 ];
 
@@ -66,6 +67,13 @@ function allEnquiryColumnsVisible(): CrmEnquiryColumnVisibility {
   return Object.fromEntries(
     enquiryColumnOptions.map((column) => [column.id, true])
   ) as CrmEnquiryColumnVisibility;
+}
+
+function defaultEnquiryColumnVisibility(): CrmEnquiryColumnVisibility {
+  return {
+    ...allEnquiryColumnsVisible(),
+    mobile: false
+  };
 }
 
 export function CrmWorkspace({
@@ -85,8 +93,9 @@ export function CrmWorkspace({
   const [search, setSearch] = useState("");
   const [enquiryId, setEnquiryId] = useState<string | undefined>();
   const [listInFilter, setListInFilter] = useState("all");
-  const [visibleColumns, setVisibleColumns] =
-    useState<CrmEnquiryColumnVisibility>(allEnquiryColumnsVisible);
+  const [visibleColumns, setVisibleColumns] = useState<CrmEnquiryColumnVisibility>(
+    defaultEnquiryColumnVisibility
+  );
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(100);
   const [editing, setEditing] = useState<CrmEnquiry | null | undefined>(undefined);
@@ -177,6 +186,8 @@ export function CrmWorkspace({
   if (viewing) {
     return (
       <CrmShow
+        canAssign={canAssign}
+        canUpdate={canUpdate}
         onBack={() => setViewing(null)}
         {...(nextViewing ? { onNext: () => void loadRecord(nextViewing, "view") } : {})}
         onRecordChange={setViewing}

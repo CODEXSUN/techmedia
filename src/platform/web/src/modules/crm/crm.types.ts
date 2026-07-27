@@ -10,6 +10,7 @@ export type CrmEnquiryColumnId =
   | "enquiryGroup"
   | "id"
   | "mobile"
+  | "priority"
   | "status"
   | "title";
 export type CrmEnquiryColumnVisibility = Record<CrmEnquiryColumnId, boolean>;
@@ -189,4 +190,5 @@ export type CrmEnquiryOverview = {
     open: number;
     total: number;
   };
+  viewCounts: Record<CrmEnquiryView, number>;
 };

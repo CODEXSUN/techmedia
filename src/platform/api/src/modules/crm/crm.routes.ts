@@ -107,6 +107,11 @@ const overview = z.object({
     inProgress: z.number().int().nonnegative(),
     open: z.number().int().nonnegative(),
     total: z.number().int().nonnegative()
+  }),
+  viewCounts: z.object({
+    assigned: z.number().int().nonnegative(),
+    created: z.number().int().nonnegative(),
+    open: z.number().int().nonnegative()
   })
 });
 

@@ -12,6 +12,7 @@ import {
 import type { SidemenuItem } from "@codexsun/ui/blocks/menu/sidemenu/sub/sidemenu-section";
 
 export type PlatformAppId = "application" | "crm" | "frappe";
+export type CrmMenuCounts = Partial<Record<"assigned" | "created" | "open", number>>;
 
 export type PlatformAppDefinition = {
   accentClass: string;
@@ -124,9 +125,10 @@ export function appMenuItemsFor(
   appId: PlatformAppId,
   activePage: string,
   onSelect: (page: string) => void,
-  permissions: string[] = []
+  permissions: string[] = [],
+  crmCounts: CrmMenuCounts = {}
 ): SidemenuItem[] {
-  if (appId === "crm") return crmMenuItems(activePage, onSelect, permissions);
+  if (appId === "crm") return crmMenuItems(activePage, onSelect, permissions, crmCounts);
   if (appId === "frappe") return frappeMenuItems(activePage, onSelect, permissions);
   return applicationMenuItems(activePage, onSelect);
 }
@@ -189,18 +191,20 @@ function crmMenuItems(
     "crm.enquiry.assigned.view",
     "crm.enquiry.created.view",
     "crm.enquiry.open.view"
-  ]
+  ],
+  counts: CrmMenuCounts = {}
 ): SidemenuItem[] {
   const allowed = new Set(permissions);
   const enquiryItems = (
     [
-      ["My Enquiry", "crm.enquiry.assigned", "crm.enquiry.assigned.view"],
-      ["Enquiry created by me", "crm.enquiry.created", "crm.enquiry.created.view"],
-      ["Open Enquiry", "crm.enquiry.open", "crm.enquiry.open.view"]
+      ["My Enquiry", "crm.enquiry.assigned", "crm.enquiry.assigned.view", "assigned"],
+      ["Enquiry created by me", "crm.enquiry.created", "crm.enquiry.created.view", "created"],
+      ["Open Enquiry", "crm.enquiry.open", "crm.enquiry.open.view", "open"]
     ] as const
   )
     .filter(([, , permission]) => allowed.has(permission))
-    .map(([title, page]) => ({
+    .map(([title, page, , countKey]) => ({
+      ...(counts[countKey] !== undefined ? { badge: counts[countKey] } : {}),
       icon: MessagesSquareIcon,
       isActive: activePage === page,
       onSelect: () => onSelect(page),

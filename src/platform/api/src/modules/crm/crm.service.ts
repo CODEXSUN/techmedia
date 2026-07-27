@@ -93,6 +93,11 @@ export class CrmService {
         inProgress: records.length - closed - open,
         open,
         total: records.length
+      },
+      viewCounts: {
+        assigned: visible[0]?.length ?? 0,
+        created: visible[1]?.length ?? 0,
+        open: visible[2]?.length ?? 0
       }
     };
   }
@@ -115,7 +120,7 @@ export class CrmService {
     await this.validateAssignment(input.assignedToUserId);
     const record = await this.gateway.update(name, toLivePayload(input));
     await this.audit("updated", record);
-    return this.map(record);
+    return { ...(await this.map(record)), jobs: await this.gateway.jobs(name) };
   }
 
   async forceDelete(name: string) {

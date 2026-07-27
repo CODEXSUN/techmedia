@@ -212,6 +212,7 @@ export type CrmEnquiryOverview = {
     open: number;
     total: number;
   };
+  viewCounts: Record<CrmEnquiryView, number>;
 };
 
 export type CrmActor = {

@@ -2,16 +2,35 @@
 
 ## Version State
 
-Current version: 1.0.10
+Current version: 1.0.11
 
-Release tag: v-1.0.10
+Release tag: v-1.0.11
 
-Changelog label: v 1.0.10
+Changelog label: v 1.0.11
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.11
+
+### [v 1.0.11] 2026-07-27 10:10 am - Refine live CRM enquiry workspace
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Added inline show-page editing for List in, Priority, Assigned to, and Status, with updates saved
+  directly to Frappe and refreshed job data returned with the enquiry response.
+- Reworked the comments presentation around message-first rows, compact right-aligned timestamps and
+  author identity, and clearer threaded replies.
+- Refined every enquiry list with Mobile hidden by default, behaviour-specific status icons and
+  colours, a compact colour-only Priority indicator with accessible hover tooltips, and matching
+  bright priority swatches in the upsert and show-page selectors.
+- Bumped the repository, Platform API, Platform Web, and lockfile versions to 1.0.11.
 
 ## v-1.0.10
 
