@@ -1,50 +1,37 @@
 import { z } from "zod";
 
-const frappeBaseUrlSchema = z
+const credential = z.string().trim().max(2_000);
+const baseUrl = z
   .string()
   .trim()
   .min(1, "Frappe URL is required.")
   .max(500)
-  .refine(isHttpUrl, "Enter a valid HTTP or HTTPS Frappe URL.");
+  .url("Enter a valid Frappe URL.");
 
 export const frappeConnectionSchema = z
   .object({
-    appKey: z.string().trim().max(2_000).optional(),
-    appSecret: z.string().trim().max(2_000).optional(),
-    baseUrl: frappeBaseUrlSchema,
-    connectionName: z.string().trim().min(2, "Connection name is required.").max(160),
+    appKey: credential,
+    appSecret: credential,
+    baseUrl,
+    connectionName: z
+      .string()
+      .trim()
+      .min(2, "Connection name must contain at least 2 characters.")
+      .max(160),
     enabled: z.boolean()
   })
-  .strict()
-  .superRefine(validateCredentialPair);
+  .refine((value) => Boolean(value.appKey) === Boolean(value.appSecret), {
+    message: "Enter both the app key and app secret, or leave both blank to keep them.",
+    path: ["appKey"]
+  });
 
 export const frappeConnectionVerificationSchema = z
   .object({
-    appKey: z.string().trim().max(2_000).optional(),
-    appSecret: z.string().trim().max(2_000).optional(),
-    baseUrl: frappeBaseUrlSchema
+    appKey: credential,
+    appSecret: credential,
+    baseUrl
   })
-  .strict()
-  .superRefine(validateCredentialPair);
-
-function validateCredentialPair(
-  value: { appKey?: string | undefined; appSecret?: string | undefined },
-  context: z.RefinementCtx
-) {
-  if (Boolean(value.appKey) === Boolean(value.appSecret)) return;
-  const missingField = value.appKey ? "appSecret" : "appKey";
-  context.addIssue({
-    code: "custom",
-    message: `Frappe ${missingField === "appKey" ? "app key" : "app secret"} is required.`,
-    path: [missingField]
+  .refine((value) => Boolean(value.appKey) === Boolean(value.appSecret), {
+    message: "Enter both the app key and app secret, or leave both blank to use the saved values.",
+    path: ["appKey"]
   });
-}
-
-function isHttpUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password;
-  } catch {
-    return false;
-  }
-}

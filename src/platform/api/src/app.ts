@@ -1,90 +1,51 @@
 import { createApiApp, registerHealthRoute, registerRequestLogging } from "@codexsun/framework/api";
-import { registerModules } from "@codexsun/framework/modules";
-import { closeCoreDatabase, coreApiModuleKeys, registerCoreApi } from "@codexsun/core-api";
 import type { HealthCheck } from "@codexsun/framework/health";
+import { registerModules } from "@codexsun/framework/modules";
 import { registerAuthRoutes } from "./auth/auth.routes.js";
-import { appRegistryModule } from "./modules/app-registry/index.js";
-import { tenantDomainModule } from "./modules/tenant-domain/index.js";
-import { tenantModule } from "./modules/tenant/index.js";
-import { tenantUserModule } from "./modules/tenant-user/index.js";
-import { tenantRoleModule } from "./modules/tenant-role/index.js";
-import { tenantPermissionModule } from "./modules/tenant-permission/index.js";
-import { tenantUserRoleModule } from "./modules/tenant-user-role/index.js";
-import { tenantRolePermissionModule } from "./modules/tenant-role-permission/index.js";
-import { planModule } from "./modules/plan/index.js";
-import { subscriptionModule } from "./modules/subscription/index.js";
-import { industryModule } from "./modules/industry/index.js";
-import { entitlementModule } from "./modules/entitlement/index.js";
-import { accessControlModule } from "./modules/access-control/index.js";
-import { platformActivityModule } from "./modules/platform-activity/index.js";
-import { databaseMaintenanceModule } from "./modules/database-maintenance/index.js";
-import { queueManagerModule } from "./modules/queue-manager/index.js";
-import { storageManagerModule } from "./modules/storage-manager/index.js";
-import { appOrchestrationModule } from "./modules/app-orchestration/index.js";
-import { crmModule } from "./modules/crm/index.js";
-import { frappeLiveEnquiryGatewayContract, frappeModule } from "./modules/frappe/index.js";
-import { startQueueManagerWorker } from "./modules/queue-manager/queue-manager.runtime.js";
-import { QueueManagerService } from "./modules/queue-manager/queue-manager.service.js";
-import { seedDefaultTenant } from "./modules/tenant/tenant.seed.js";
+import {
+  bootstrapTechMediaDatabase,
+  closeTechMediaDatabase
+} from "./database/techmedia-database.js";
 import { env } from "./env.js";
-import { bootstrapPlatformDatabase, closePlatformDatabase } from "./database/platform-database.js";
-import { closeAllTenantDatabases } from "./database/tenant-database.js";
+import { crmModule } from "./modules/crm/index.js";
+import { estimateModule } from "./modules/estimate/index.js";
+import { frappeLiveEnquiryGatewayContract, frappeModule } from "./modules/frappe/index.js";
+import { permissionModule } from "./modules/permission/index.js";
+import { rolePermissionModule } from "./modules/role-permission/index.js";
+import { roleModule } from "./modules/role/index.js";
+import { userRoleModule } from "./modules/user-role/index.js";
+import { userModule } from "./modules/user/index.js";
+
+const modules = [
+  userModule,
+  roleModule,
+  permissionModule,
+  userRoleModule,
+  rolePermissionModule,
+  frappeModule,
+  crmModule,
+  estimateModule
+];
 
 export async function createApp() {
-  console.info("[platform.boot] bootstrap started");
-  await bootstrapPlatformDatabase();
-  await seedDefaultTenant();
+  console.info("[techmedia.boot] bootstrap started");
+  await bootstrapTechMediaDatabase();
 
   const app = await createApiApp({
-    appName: "TechMedia Platform API",
+    appName: "TechMedia API",
     cookieSecret: env.JWT_SECRET,
     corsOrigins: platformWebOrigins(),
     environment: env.NODE_ENV,
-    shutdownHooks: [
-      async () => {
-        console.info("[shutdown] closing Core tenant MariaDB pools");
-        await closeCoreDatabase();
-      },
-      async () => {
-        console.info("[shutdown] closing tenant MariaDB pools");
-        await closeAllTenantDatabases();
-      },
-      async () => {
-        console.info("[shutdown] closing platform MariaDB pools");
-        await closePlatformDatabase();
-      }
-    ]
+    shutdownHooks: [closeTechMediaDatabase]
   });
-  const queueService = new QueueManagerService();
   const healthChecks: HealthCheck[] = [
     {
-      name: "platform-api",
+      name: "techmedia-api",
       check: () => ({
         details: {
-          modules: [
-            ...coreApiModuleKeys,
-            appRegistryModule.key,
-            tenantModule.key,
-            tenantUserModule.key,
-            tenantRoleModule.key,
-            tenantPermissionModule.key,
-            tenantUserRoleModule.key,
-            tenantRolePermissionModule.key,
-            tenantDomainModule.key,
-            planModule.key,
-            subscriptionModule.key,
-            industryModule.key,
-            entitlementModule.key,
-            accessControlModule.key,
-            platformActivityModule.key,
-            databaseMaintenanceModule.key,
-            queueManagerModule.key,
-            storageManagerModule.key,
-            appOrchestrationModule.key,
-            crmModule.key,
-            frappeModule.key
-          ],
-          runtime: "platform-foundation"
+          database: env.DB_NAME,
+          modules: modules.map((module) => module.key),
+          runtime: "single-client"
         },
         status: "ok"
       })
@@ -93,46 +54,16 @@ export async function createApp() {
 
   registerRequestLogging(app);
   registerHealthRoute(app, healthChecks);
-  console.info("[platform.routes] health ready");
   await registerAuthRoutes(app);
-  console.info("[platform.routes] auth ready");
-  await registerCoreApi(app);
-  console.info("[platform.routes] Core package ready");
   await registerModules(
-    [
-      appRegistryModule,
-      tenantModule,
-      tenantUserModule,
-      tenantRoleModule,
-      tenantPermissionModule,
-      tenantUserRoleModule,
-      tenantRolePermissionModule,
-      tenantDomainModule,
-      planModule,
-      subscriptionModule,
-      industryModule,
-      entitlementModule,
-      accessControlModule,
-      platformActivityModule,
-      databaseMaintenanceModule,
-      queueManagerModule,
-      storageManagerModule,
-      appOrchestrationModule,
-      crmModule,
-      frappeModule
-    ],
-    {
-      app,
-      frappeLiveEnquiryGateway: frappeLiveEnquiryGatewayContract
-    },
+    modules,
+    { app, frappeLiveEnquiryGateway: frappeLiveEnquiryGatewayContract },
     {
       onRegister: (module) => console.info(`[module.register] ${module.key}`),
       onReady: (module) => console.info(`[module.ready] ${module.key}`)
     }
   );
-  startQueueManagerWorker(app, queueService);
-  console.info("[platform.worker] queue manager ready");
-  console.info("[platform.boot] bootstrap completed");
+  console.info("[techmedia.boot] bootstrap completed");
 
   return app;
 }

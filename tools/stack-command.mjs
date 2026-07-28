@@ -12,7 +12,7 @@ if (!command || !supported.has(command)) {
   process.exit(1);
 }
 
-const repositories = ["framework", "ui", "core"];
+const repositories = ["framework", "ui"];
 
 for (const repository of repositories) {
   runNpm(["run", command, "--if-present", "--prefix", resolve(root, "..", repository)]);

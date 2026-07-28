@@ -8,7 +8,7 @@ description: Enforce CODEXSUN's strict module-owned architecture and verificatio
 ## Load project rules
 
 1. Read `assist/AGENT-GUIDE.md` completely.
-2. Read `assist/governance/rules.md` completely.
+2. Read `assist/governance/engineering-rules.md` completely.
 3. Read the owning backend and frontend module files and their public composition points.
 4. Open specialized Assist documents only when routed by `assist/AGENT-GUIDE.md`.
 
@@ -94,7 +94,7 @@ Run as applicable:
 2. Focused ESLint.
 3. Backend TypeScript.
 4. Frontend TypeScript.
-5. `node tools/check-module-boundaries.mjs <app>`.
+5. `node tools/check-module-boundaries.mjs`.
 6. Relevant production builds using the configured root environment.
 7. `npm run dependencies:check`.
 8. Database/E2E or browser verification when configured and required.

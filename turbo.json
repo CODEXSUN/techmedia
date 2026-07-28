@@ -5,15 +5,14 @@
     "PLATFORM_WEB_PORT",
     "PLATFORM_API_URL",
     "PLATFORM_WEB_ORIGIN",
-    "DEFAULT_TENANT_NAME",
-    "DEV_AUTO_TENANT_LOGIN",
+    "DEV_AUTO_LOGIN",
     "DB_HOST",
     "DB_PORT",
     "DB_USER",
     "DB_PASSWORD",
-    "DB_MASTER_NAME",
+    "DB_NAME",
     "JWT_SECRET",
-    "TECHMEDIA_REDIS_URL"
+    "TECHMEDIA_INTEGRATION_ENCRYPTION_KEY"
   ],
   "tasks": {
     "build": {

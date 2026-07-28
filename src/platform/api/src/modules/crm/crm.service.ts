@@ -1,7 +1,6 @@
-import { randomBytes } from "node:crypto";
 import { AppError } from "@codexsun/framework/errors";
 import type { PlatformModuleDependencies } from "../../module-dependencies.js";
-import { recordTenantAccessAudit } from "../../database/tenant-access-audit.js";
+import { recordAuditEvent } from "../../database/audit.js";
 import type {
   CrmContext,
   CrmEnquiry,
@@ -10,11 +9,9 @@ import type {
   CrmEnquiryMessageUpdatePayload,
   CrmEnquiryOverview,
   CrmEnquirySavePayload,
-  CrmEnquirySyncInput,
   CrmEnquiryView,
   CrmUserReference
 } from "./crm.types.js";
-import { CrmRepository } from "./crm.repository.js";
 
 type LiveGateway = ReturnType<PlatformModuleDependencies["frappeLiveEnquiryGateway"]>;
 type LiveRecord = Awaited<ReturnType<LiveGateway["get"]>>;
@@ -346,21 +343,14 @@ export class CrmService {
     return employee;
   }
 
-  private async actor() {
-    const actor = await this.context.actorUser();
-    if (!actor) throw AppError.unauthorized("Active tenant user is required.");
-    return actor;
-  }
-
   private async audit(action: string, record: LiveRecord) {
-    await recordTenantAccessAudit({
+    await recordAuditEvent({
       action,
       actorEmail: this.context.actorEmail,
       moduleKey: "crm.enquiry.live",
       recordId: numericId(record.name),
       recordLabel: displayTitle(record),
-      recordUuid: record.name.slice(-8).padStart(8, "0"),
-      tenantId: this.context.tenantId
+      recordUuid: record.name
     });
   }
 }
@@ -436,32 +426,4 @@ function isClosed(status: string) {
 
 function uniqueByName(records: LiveRecord[]) {
   return [...new Map(records.map((record) => [record.name, record])).values()];
-}
-
-/** @deprecated Read-only transition support for pre-cutover Frappe code. Not routed by CRM. */
-export function crmEnquirySyncContract(database: CrmContext["database"]) {
-  const repository = new CrmRepository(database);
-  return {
-    find: (id: number) => repository.find(id),
-    list: () => repository.listAll(),
-    async upsert(id: number | null, input: CrmEnquirySyncInput) {
-      const value = {
-        assignedToUserId: input.assignedToUserId,
-        customer: input.customer.trim(),
-        enquiryDate: input.enquiryDate,
-        enquiryGroup: input.enquiryGroup.trim(),
-        messages: input.messages,
-        mobile: input.mobile.trim(),
-        priority: input.priority,
-        schedules: input.schedules,
-        status: input.status,
-        subject: "",
-        title: input.title.trim(),
-        workspace: input.workspace.trim()
-      };
-      return id
-        ? repository.update(id, value as never, true)
-        : repository.create(value as never, input.createdByUserId, randomBytes(4).toString("hex"));
-    }
-  };
 }

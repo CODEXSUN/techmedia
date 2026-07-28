@@ -4,47 +4,30 @@ import type {
   FrappeConnectionSettings,
   FrappeConnectionVerificationPayload,
   FrappeConnectionVerificationResult,
-  FrappeSyncResult,
-  FrappeSyncSettings,
-  FrappeSyncSettingsSavePayload,
   FrappeUserImportResult,
   FrappeUserPreview
 } from "./frappe.types";
 
-const path = "/tenant/frappe/settings";
+const path = "/settings/frappe";
 
 export function getFrappeConnectionSettings() {
-  return apiGet<FrappeConnectionSettings | null>(path, "tenant");
+  return apiGet<FrappeConnectionSettings | null>(path);
 }
 
 export function saveFrappeConnectionSettings(payload: FrappeConnectionSavePayload) {
-  return apiPut<FrappeConnectionSettings>(path, payload, "tenant");
+  return apiPut<FrappeConnectionSettings>(path, payload);
 }
 
 export function verifyFrappeConnection(payload: FrappeConnectionVerificationPayload) {
-  return apiPost<FrappeConnectionVerificationResult>(`${path}/verify`, payload, "tenant");
+  return apiPost<FrappeConnectionVerificationResult>(`${path}/verify`, payload);
 }
 
-const syncPath = "/tenant/frappe/enquiry-sync";
-
-export function getFrappeSyncSettings() {
-  return apiGet<FrappeSyncSettings | null>(syncPath, "tenant");
-}
-
-export function saveFrappeSyncSettings(payload: FrappeSyncSettingsSavePayload) {
-  return apiPut<FrappeSyncSettings>(syncPath, payload, "tenant");
-}
-
-export function runFrappeEnquirySync(direction: "pull" | "push") {
-  return apiPost<FrappeSyncResult>(`${syncPath}/${direction}`, {}, "tenant");
-}
-
-const userSyncPath = "/tenant/frappe/user-sync";
+const userSyncPath = "/settings/frappe/users";
 
 export function previewFrappeUsers() {
-  return apiGet<FrappeUserPreview[]>(`${userSyncPath}/preview`, "tenant");
+  return apiGet<FrappeUserPreview[]>(`${userSyncPath}/preview`);
 }
 
 export function importFrappeUser(frappeUserId: string) {
-  return apiPost<FrappeUserImportResult>(`${userSyncPath}/import`, { frappeUserId }, "tenant");
+  return apiPost<FrappeUserImportResult>(`${userSyncPath}/import`, { frappeUserId });
 }

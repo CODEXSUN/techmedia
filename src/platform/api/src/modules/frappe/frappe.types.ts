@@ -1,5 +1,5 @@
 import type { Kysely } from "kysely";
-import type { TenantDatabase } from "../../database/schema.js";
+import type { TechMediaDatabase } from "../../database/schema.js";
 
 export type FrappeConnectionSettings = {
   appKeyConfigured: boolean;
@@ -51,50 +51,6 @@ export type FrappeConnectionVerificationResult = {
 export type FrappeUserVerificationResult = FrappeConnectionVerificationResult & {
   employeeCode: string;
 };
-
-export type FrappeSyncSettings = {
-  enquiryDoctype: string;
-  lastPullAt: string | null;
-  lastPushAt: string | null;
-  pullEnquiriesEnabled: boolean;
-  pushEnquiriesEnabled: boolean;
-  updatedAt: string;
-};
-
-export type FrappeSyncSettingsSavePayload = {
-  pullEnquiriesEnabled: boolean;
-  pushEnquiriesEnabled: boolean;
-};
-
-export type FrappeSyncResult = {
-  created: number;
-  direction: "pull" | "push";
-  failed: number;
-  processed: number;
-  updated: number;
-};
-
-export type FrappeEnquiryLifecycleResult = {
-  action: "created" | "deleted" | "skipped" | "updated";
-  frappeName: string | null;
-};
-
-export type FrappeEnquiryResyncResult = {
-  action: "created" | "updated";
-  frappeName: string;
-};
-
-export type FrappeEnquiryLifecycleContract = {
-  delete: (enquiryId: number, userId: number) => Promise<FrappeEnquiryLifecycleResult>;
-  resync: (enquiryId: number, userId: number) => Promise<FrappeEnquiryResyncResult>;
-  upsert: (enquiryId: number, userId: number) => Promise<FrappeEnquiryLifecycleResult>;
-};
-
-export type FrappeEnquiryLifecycleFactory = (context: {
-  actorEmail: string;
-  database: Kysely<TenantDatabase>;
-  tenantId: string;
-}) => FrappeEnquiryLifecycleContract;
 
 export type FrappeLiveEnquiryView = "assigned" | "created" | "open";
 
@@ -189,7 +145,7 @@ export type FrappeLiveEnquiryGateway = {
 };
 
 export type FrappeLiveEnquiryGatewayFactory = (context: {
-  database: Kysely<TenantDatabase>;
+  database: Kysely<TechMediaDatabase>;
   employee: string | null;
   userId: number;
 }) => FrappeLiveEnquiryGateway;
@@ -231,6 +187,5 @@ export type FrappeContext = {
     | undefined
   >;
   authorize: (permission: string) => Promise<void>;
-  database: Kysely<TenantDatabase>;
-  tenantId: string;
+  database: Kysely<TechMediaDatabase>;
 };

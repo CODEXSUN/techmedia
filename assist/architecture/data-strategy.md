@@ -1,132 +1,38 @@
 # Data Strategy
 
-## Goal
+## Database
 
-TECHMEDIA data design must support tenant isolation, industry customization, offline sync, reporting, accounting correctness, and long-term migration safety.
+TechMedia uses one MariaDB database selected only by `DB_NAME`.
 
-## Database Direction
+Local tables are limited to:
 
-Primary database:
+- `users`
+- `roles`
+- `permissions`
+- `user_roles`
+- `role_permissions`
+- `schema_migrations`
 
-- MariaDB.
+Per-user Frappe credentials and verification metadata are columns on `users`. Application-level
+Frappe connection values come only from `.env`; Settings owns no tables.
 
-Preferred tenant data model:
+## CRM
 
-- Dedicated database per tenant where practical.
-- Shared platform database for global metadata.
-- Clear separation between platform data and tenant business data.
+Frappe is the source of truth for CRM enquiries and related records. TechMedia must not create,
+seed, mirror, synchronize, or cache CRM business tables locally. API requests resolve the signed-in
+user and call the live gateway with that user's verified Frappe identity.
 
-## Data Categories
+## Estimate
 
-### Platform Data
+Frappe is the source of truth for Estimate records and the linked Enquiry and Supplier options.
+TechMedia must not create, seed, mirror, synchronize, or cache Estimate business tables locally.
+List, reference, create, read, and update requests use the signed-in user's verified Frappe identity.
 
-Examples:
+## Safety
 
-- Tenants.
-- Plans.
-- Global feature catalog.
-- Platform users where required.
-- System configuration.
-- Deployment metadata.
-
-### Tenant Business Data
-
-Examples:
-
-- Customers.
-- Vendors.
-- Items.
-- Invoices.
-- Vouchers.
-- Ledgers.
-- Stock.
-- Tasks.
-- Files.
-- Reports.
-
-### Tenant Configuration Data
-
-Examples:
-
-- Enabled modules.
-- Feature flags.
-- Print templates.
-- Custom fields.
-- Numbering settings.
-- Workflow settings.
-- Integration credentials.
-
-### File Data
-
-Files should be stored through a switchable storage adapter.
-
-Supported direction:
-
-- Local filesystem for development and simple local use.
-- S3-compatible storage for cloud.
-- MinIO for self-hosted S3-compatible storage.
-- FileBrowser.org for managed/self-hosted file browsing where appropriate.
-- MinIO and FileBrowser.org can be bundled into one custom storage utility container.
-
-Examples:
-
-- Public product images should use S3-compatible storage in cloud.
-- Invoice documents should use S3-compatible storage in cloud.
-- Compliance documents should use durable object storage.
-- Queue jobs, events, and logs should reference files instead of carrying file blobs.
-
-## Data Rules
-
-- Business tables must include audit metadata.
-- Tenant-specific records must never be stored without tenant ownership.
-- Financial records should avoid hard deletes.
-- Compliance records should preserve source data used during generation.
-- Imports must support validation before final commit.
-- Large reports should use read models where needed.
-- Offline records need sync metadata.
-
-## Audit Metadata
-
-Important records should track:
-
-- Created by.
-- Created at.
-- Updated by.
-- Updated at.
-- Deleted by if soft deleted.
-- Deleted at if soft deleted.
-- Tenant ID or tenant database identity.
-- Source device where offline is supported.
-- Correlation ID for events and jobs.
-
-## Migration Safety
-
-Migrations must be:
-
-- Ordered.
-- Repeatable in deployment flow.
-- Tested with tenant databases.
-- Documented when data risk exists.
-- Backed by rollback or recovery notes where possible.
-
-## Reporting Direction
-
-Reports should not weaken module boundaries.
-
-Use:
-
-- Read models.
-- Reporting views.
-- Export jobs.
-- Permission-aware query services.
-- Cached report snapshots for heavy reports.
-
-# Enforced database ownership
-
-The Platform master database is restricted to global Platform and Super Admin state. Core masters/common data, Billing, tenant users, tenant roles, and tenant permissions belong only to the selected tenant database.
-
-Core Common tables inside a dedicated tenant database must not add redundant `tenant_id` columns or accept a second tenant selector. Their tenant identity is the validated database context. Cross-tenant or shared-database tables in other application boundaries may still require explicit tenant keys when their storage model calls for them.
-
-Business APIs must require an explicit validated tenant database context and must reject `DB_MASTER_NAME`. They must not bootstrap business tables into the master database during application startup.
-
-Project Manager and Task Manager retain their existing JSON stores and are outside this SQL database split.
+- Database names and endpoints come from `.env`.
+- Encrypted integration credentials require `TECHMEDIA_INTEGRATION_ENCRYPTION_KEY`.
+- Destructive reset requires `TECHMEDIA_DB_RESET_CONFIRM=DROP_DATABASE`.
+- Production reset additionally requires `TECHMEDIA_ALLOW_PRODUCTION_DB_RESET=1`.
+- Forward migrations must tolerate compatible legacy identity data without recreating removed
+  platform tables.

@@ -1,115 +1,54 @@
-#!/usr/bin/env node
-
-import { readFileSync, readdirSync } from "node:fs";
-import { extname, join, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const workspace = resolve(root, "..");
+const databaseFile = "src/platform/api/src/database/techmedia-database.ts";
+const schemaFile = "src/platform/api/src/database/schema.ts";
+const database = readFileSync(resolve(root, databaseFile), "utf8");
+const schema = readFileSync(resolve(root, schemaFile), "utf8");
 
-assertOrdered("../core/api/src/modules/common/location/location.migration.ts", [
-  "{ ...countryMigration",
-  "{ ...stateMigration",
-  "{ ...districtMigration",
-  "{ ...cityMigration",
-  "{ ...pincodeMigration"
+assertOrdered(databaseFile, database, [
+  "migrateRoleModule(db)",
+  "migratePermissionModule(db)",
+  "migrateUserModule(db)",
+  "migrateUserRoleModule(db)",
+  "migrateRolePermissionModule(db)"
 ]);
-assertOrdered("../core/api/src/modules/common/location/location.seed.ts", [
-  "seedCountryModule();",
-  "seedStateModule();",
-  "seedDistrictModule();",
-  "seedCityModule();",
-  "seedPincodeModule();"
-]);
-assertOrdered("../core/api/src/modules/organisation/organisation.migration.ts", [
-  "{ ...companyMigration",
-  "{ ...financialYearMigration",
-  "{ ...defaultCompanyMigration"
-]);
-assertOrdered("../core/api/src/modules/organisation/organisation.seed.ts", [
-  "seedCompanyModule();",
-  "seedFinancialYearModule();",
-  "seedDefaultCompanyModule();"
-]);
-assertOrdered("../core/api/src/modules/master/master.migration.ts", [
-  "{ ...contactMigration",
-  "{ ...productMigration",
-  "{ ...workOrderMigration"
-]);
-assertOrdered("../core/api/src/modules/master/master.seed.ts", [
-  "seedContactModule();",
-  "seedProductModule();",
-  "seedWorkOrderModule();"
-]);
-assertOrdered("../core/api/src/database/core-database.ts", [
-  "seedCommonModule();",
-  "seedOrganisationModule();",
-  "seedMasterModule();",
-  "seedCoreTenantPermissions("
-]);
-assertOrdered("src/platform/api/src/modules/tenant/tenant.seed.ts", [
-  "seedTenantRoleModule(",
-  "seedTenantPermissionModule(",
-  "seedTenantUserModule(",
-  "seedTenantUserRoleModule(",
-  "seedTenantRolePermissionModule("
-]);
-assertOrdered("src/platform/api/src/database/tenant-app-database.ts", [
-  "migrateCoreTenantDatabase(",
-  "migrateCrmModule(",
-  "migrateFrappeModule("
-]);
-assertOrdered("src/platform/api/src/database/tenant-app-database.ts", [
-  "seedCoreTenantDatabase(",
-  "seedCrmModule(",
-  "seedFrappeModule("
+assertOrdered(databaseFile, database, [
+  "seedRoleModule(db)",
+  "seedPermissionModule(db)",
+  "seedUserModule(db)",
+  "seedUserRoleModule(db)",
+  "seedRolePermissionModule(db)"
 ]);
 
-const privateLifecycleImports = [];
-for (const repository of ["core", "framework", "ui"]) {
-  for (const file of sourceFiles(join(workspace, repository))) {
-    const content = readFileSync(file, "utf8");
-    if (
-      /(?:from|import\()\s*["'][^"']*@codexsun\/core[^"']*(?:migration|seed|repository|service)[^"']*["']/u.test(
-        content
-      ) ||
-      /(?:from|import\()\s*["']\.\.[^"']*core[^"']*(?:migration|seed|repository|service)[^"']*["']/u.test(
-        content
-      )
-    ) {
-      privateLifecycleImports.push(relative(workspace, file));
-    }
-  }
+const expectedTables = [
+  "permissions",
+  "role_permissions",
+  "roles",
+  "schema_migrations",
+  "user_roles",
+  "users"
+];
+const declaredTables = Array.from(
+  schema.matchAll(/^  ([a-z_]+): [A-Za-z]+Table;$/gmu),
+  (match) => match[1]
+).sort();
+if (declaredTables.join(",") !== expectedTables.join(",")) {
+  throw new Error(`${schemaFile}: unexpected table ownership: ${declaredTables.join(", ")}`);
+}
+if (!database.includes("techMediaDatabaseName()")) {
+  throw new Error(`${databaseFile}: single database selection is missing`);
 }
 
-if (privateLifecycleImports.length) {
-  throw new Error(
-    `Private cross-repository lifecycle imports found:\n${privateLifecycleImports.map((file) => `- ${file}`).join("\n")}`
-  );
-}
+console.info("Database lifecycle verified: one database with Identity-owned tables only.");
 
-console.log(
-  "Database lifecycle verified: module-owned migrations/seeds, dependency order, and repository boundaries."
-);
-
-function assertOrdered(file, tokens) {
-  const absolute = resolve(root, file);
-  const content = readFileSync(absolute, "utf8");
+function assertOrdered(file, source, tokens) {
   let previous = -1;
   for (const token of tokens) {
-    const index = content.indexOf(token, previous + 1);
-    if (index < 0) throw new Error(`${file}: missing lifecycle token ${token}`);
-    if (index <= previous) throw new Error(`${file}: lifecycle token out of order: ${token}`);
+    const index = source.indexOf(token, previous + 1);
+    if (index < 0) throw new Error(`${file}: missing ${token}`);
+    if (index <= previous) throw new Error(`${file}: out of order ${token}`);
     previous = index;
   }
-}
-
-function sourceFiles(directory) {
-  const files = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if ([".git", ".idea", "assist", "dist", "node_modules"].includes(entry.name)) continue;
-    const path = join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...sourceFiles(path));
-    else if ([".js", ".mjs", ".ts", ".tsx"].includes(extname(entry.name))) files.push(path);
-  }
-  return files;
 }

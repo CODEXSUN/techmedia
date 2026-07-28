@@ -1,18 +1,15 @@
-import { Building2, Crown, Headphones } from "lucide-react";
+import { Building2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 type TechMediaAuthLayoutProps = {
   children: ReactNode;
-  surface: "admin" | "sa" | "tenant";
+  surface: "app";
   title: string;
 };
 
 export function TechMediaAuthLayout({ children, surface, title }: TechMediaAuthLayoutProps) {
-  const Icon = surface === "sa" ? Crown : surface === "admin" ? Headphones : Building2;
-  const description =
-    surface === "tenant"
-      ? "Access your workspace with your registered credentials."
-      : "Use your admin email and password for this desk.";
+  const Icon = Building2;
+  const description = "Access TechMedia with your registered credentials.";
 
   return (
     <main className="auth-page">

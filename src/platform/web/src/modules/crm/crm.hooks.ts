@@ -20,7 +20,7 @@ import {
 } from "./crm.services";
 import type { CrmEnquiry, CrmEnquirySavePayload, CrmEnquiryView } from "./crm.types";
 
-export const crmEnquiryQueryKey = ["tenant", "crm", "enquiries"] as const;
+export const crmEnquiryQueryKey = ["crm", "enquiries"] as const;
 
 export function useCrmOverviewQuery(enabled = true) {
   return useQuery({

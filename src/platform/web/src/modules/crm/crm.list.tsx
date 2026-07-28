@@ -14,11 +14,14 @@ import { WorkspaceStatusBadge } from "@codexsun/ui/workspace/status";
 import {
   WorkspaceTableEmptyState,
   WorkspaceTableHeaderCell,
+  WorkspaceTableLoadingState,
   WorkspaceTablePanel
 } from "@codexsun/ui/workspace/table";
 import type { CrmEnquiry, CrmEnquiryColumnVisibility, CrmEnquiryPriority } from "./crm.types";
 
 export function CrmList({
+  error,
+  loading,
   onForceDelete,
   onRestore,
   onSelect,
@@ -27,6 +30,8 @@ export function CrmList({
   records,
   visibleColumns
 }: {
+  error: boolean;
+  loading: boolean;
   onForceDelete?: (record: CrmEnquiry) => void;
   onRestore?: (record: CrmEnquiry) => void;
   onSelect?: (record: CrmEnquiry) => void;
@@ -229,7 +234,15 @@ export function CrmList({
           </table>
         </div>
         {records.length === 0 ? (
-          <WorkspaceTableEmptyState>No enquiries found.</WorkspaceTableEmptyState>
+          loading ? (
+            <WorkspaceTableLoadingState />
+          ) : (
+            <WorkspaceTableEmptyState>
+              {error
+                ? "Enquiries could not be loaded. Use Refresh to try again."
+                : "No enquiries found."}
+            </WorkspaceTableEmptyState>
+          )
         ) : null}
       </WorkspaceTablePanel>
     </TooltipProvider>

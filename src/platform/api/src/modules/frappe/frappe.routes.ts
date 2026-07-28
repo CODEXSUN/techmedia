@@ -1,12 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { registerContractRoute } from "@codexsun/framework/http";
-import { tenantAccessContext } from "../../auth/tenant-access-context.js";
+import { identityContext } from "../../auth/identity-context.js";
 import { FrappeService } from "./frappe.service.js";
 
-const path = "/tenant/frappe/settings";
+const path = "/settings/frappe";
 const verificationPath = `${path}/verify`;
-const userSyncPath = "/tenant/frappe/user-sync";
+const userSyncPath = "/settings/frappe/users";
 const payload = z
   .object({
     appKey: z.string().trim().min(1).max(2_000).optional(),
@@ -72,14 +72,14 @@ export async function registerFrappeRoutes(app: FastifyInstance) {
     method: "GET",
     url: path,
     schemas: { response: record.nullable() },
-    handler: ({ request }) => new FrappeService(tenantAccessContext(request)).get()
+    handler: ({ request }) => new FrappeService(identityContext(request)).get()
   });
   registerContractRoute(app, {
     method: "PUT",
     url: path,
     schemas: { body: payload, response: record },
     handler: ({ body, request }) =>
-      new FrappeService(tenantAccessContext(request)).save({
+      new FrappeService(identityContext(request)).save({
         ...(body.appKey ? { appKey: body.appKey } : {}),
         ...(body.appSecret ? { appSecret: body.appSecret } : {}),
         baseUrl: body.baseUrl,
@@ -92,7 +92,7 @@ export async function registerFrappeRoutes(app: FastifyInstance) {
     url: verificationPath,
     schemas: { body: verificationPayload, response: verificationResult },
     handler: ({ body, request }) =>
-      new FrappeService(tenantAccessContext(request)).verify({
+      new FrappeService(identityContext(request)).verify({
         ...(body.appKey ? { appKey: body.appKey } : {}),
         ...(body.appSecret ? { appSecret: body.appSecret } : {}),
         baseUrl: body.baseUrl
@@ -106,19 +106,19 @@ export async function registerFrappeRoutes(app: FastifyInstance) {
       response: userVerificationResult
     },
     handler: ({ params, request }) =>
-      new FrappeService(tenantAccessContext(request)).verifyUser(params.id)
+      new FrappeService(identityContext(request)).verifyUser(params.id)
   });
   registerContractRoute(app, {
     method: "GET",
     url: `${userSyncPath}/preview`,
     schemas: { response: z.array(userPreview) },
-    handler: ({ request }) => new FrappeService(tenantAccessContext(request)).previewUsers()
+    handler: ({ request }) => new FrappeService(identityContext(request)).previewUsers()
   });
   registerContractRoute(app, {
     method: "POST",
     url: `${userSyncPath}/import`,
     schemas: { body: userImportPayload, response: userImportResult },
     handler: ({ body, request }) =>
-      new FrappeService(tenantAccessContext(request)).importUser(body.frappeUserId)
+      new FrappeService(identityContext(request)).importUser(body.frappeUserId)
   });
 }

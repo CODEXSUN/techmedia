@@ -1,9 +1,9 @@
 ﻿import { useEffect } from "react";
 
-const tenantDisplayName = import.meta.env.VITE_TENANT_NAME ?? "TechMedia";
+const applicationName = "TechMedia";
 
 export function setPlatformDocumentTitle(pageTitle: string) {
-  document.title = `${tenantDisplayName} | ${pageTitle}`;
+  document.title = `${applicationName} | ${pageTitle}`;
 }
 
 const pageTitles: Record<string, string> = {

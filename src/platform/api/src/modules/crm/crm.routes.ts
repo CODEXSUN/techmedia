@@ -1,11 +1,11 @@
 import { registerContractRoute } from "@codexsun/framework/http";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { tenantAccessContext } from "../../auth/tenant-access-context.js";
+import { identityContext } from "../../auth/identity-context.js";
 import type { PlatformModuleDependencies } from "../../module-dependencies.js";
 import { CrmService } from "./crm.service.js";
 
-const path = "/tenant/crm/enquiries";
+const path = "/crm/enquiries";
 const priority = z.enum(["low", "normal", "high", "urgent"]);
 const status = z.enum(["open", "follow", "escalation", "won", "lost"]);
 const userReference = z.object({
@@ -207,15 +207,19 @@ export async function registerCrmRoutes(
     handler: async ({ params, request }) => (await service(request)).forceDelete(params.id)
   });
 
-  async function service(request: Parameters<typeof tenantAccessContext>[0]) {
-    const context = tenantAccessContext(request);
+  async function service(request: Parameters<typeof identityContext>[0]) {
+    const context = identityContext(request);
     const actor = await context.actorUser();
-    if (!actor) throw new Error("Active tenant user is required.");
+    if (!actor) throw new Error("Active user is required.");
+    const crmContext = {
+      ...context,
+      frappeEmployeeCode: actor.frappeEmployeeCode
+    };
     return new CrmService(
-      context,
+      crmContext,
       frappeLiveEnquiryGateway({
         database: context.database,
-        employee: context.frappeEmployeeCode,
+        employee: actor.frappeEmployeeCode,
         userId: actor.id
       })
     );

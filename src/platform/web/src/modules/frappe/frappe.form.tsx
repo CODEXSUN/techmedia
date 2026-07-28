@@ -47,93 +47,66 @@ export function FrappeForm({
 }) {
   const [value, setValue] = useState<FormValue>(() => valueFor(settings));
   const [validationError, setValidationError] = useState("");
-  const [validationTitle, setValidationTitle] = useState("Unable to save connection");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => setValue(valueFor(settings)), [settings]);
 
-  function submit() {
-    const parsed = frappeConnectionSchema.safeParse(value);
-    const nextErrors: Record<string, string> = {};
-    if (!parsed.success) {
-      for (const issue of parsed.error.issues) {
-        const field = String(issue.path[0] ?? "");
-        if (field && !nextErrors[field]) nextErrors[field] = issue.message;
-      }
+  function validate(
+    mode: "save" | "verify"
+  ): FrappeConnectionSavePayload | FrappeConnectionVerificationPayload | null {
+    const parsed =
+      mode === "save"
+        ? frappeConnectionSchema.safeParse(value)
+        : frappeConnectionVerificationSchema.safeParse(value);
+    if (parsed.success) {
+      setFieldErrors({});
+      setValidationError("");
+      return {
+        ...(parsed.data.appKey ? { appKey: parsed.data.appKey } : {}),
+        ...(parsed.data.appSecret ? { appSecret: parsed.data.appSecret } : {}),
+        baseUrl: parsed.data.baseUrl,
+        ...(mode === "save"
+          ? { connectionName: value.connectionName.trim(), enabled: value.enabled }
+          : {})
+      };
     }
-    if (!parsed.success || Object.keys(nextErrors).length) {
-      setFieldErrors(nextErrors);
-      setValidationError(Object.values(nextErrors)[0] ?? "Check the connection details.");
-      setValidationTitle("Unable to save connection");
-      return;
+    const errors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] ?? "");
+      if (field && !errors[field]) errors[field] = issue.message;
     }
-    setFieldErrors({});
-    setValidationError("");
-    onSubmit({
-      ...(parsed.data.appKey ? { appKey: parsed.data.appKey } : {}),
-      ...(parsed.data.appSecret ? { appSecret: parsed.data.appSecret } : {}),
-      baseUrl: parsed.data.baseUrl,
-      connectionName: parsed.data.connectionName,
-      enabled: parsed.data.enabled
-    });
-  }
-
-  function verify() {
-    const parsed = frappeConnectionVerificationSchema.safeParse({
-      appKey: value.appKey,
-      appSecret: value.appSecret,
-      baseUrl: value.baseUrl
-    });
-    const nextErrors: Record<string, string> = {};
-    if (!parsed.success) {
-      for (const issue of parsed.error.issues) {
-        const field = String(issue.path[0] ?? "");
-        if (field && !nextErrors[field]) nextErrors[field] = issue.message;
-      }
-    }
-    if (!parsed.success || Object.keys(nextErrors).length) {
-      setFieldErrors(nextErrors);
-      setValidationError(Object.values(nextErrors)[0] ?? "Check the connection details.");
-      setValidationTitle("Unable to verify connection");
-      return;
-    }
-    setFieldErrors({});
-    setValidationError("");
-    onVerify({
-      ...(parsed.data.appKey ? { appKey: parsed.data.appKey } : {}),
-      ...(parsed.data.appSecret ? { appSecret: parsed.data.appSecret } : {}),
-      baseUrl: parsed.data.baseUrl
-    });
+    setFieldErrors(errors);
+    setValidationError(Object.values(errors)[0] ?? "Check the connection details.");
+    return null;
   }
 
   const shownError = validationError || verificationError || error;
-  const shownErrorTitle = validationError
-    ? validationTitle
-    : verificationError
-      ? "Unable to verify connection"
-      : "Unable to save connection";
+  const disabled = !canUpdate || loading || verifying;
   return (
     <form
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
-        submit();
+        const parsed = validate("save");
+        if (parsed) onSubmit(parsed as FrappeConnectionSavePayload);
       }}
     >
       <WorkspaceFormSurface>
         <WorkspaceFormBody>
           {shownError ? (
-            <WorkspaceFormBanner title={shownErrorTitle}>{shownError}</WorkspaceFormBanner>
+            <WorkspaceFormBanner title="Frappe connection could not be updated">
+              {shownError}
+            </WorkspaceFormBanner>
           ) : null}
           <div className="mb-5 flex items-start gap-3 rounded-md border bg-muted/25 p-4">
             <span className="grid size-10 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
               <KeyRoundIcon className="size-5" />
             </span>
             <div>
-              <p className="text-sm font-medium">Tenant app authentication</p>
+              <p className="text-sm font-medium">Application connection</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Save an encrypted app key and secret for connection testing. Individual user
-                credentials remain configured from the Users page.
+                Settings are saved to the TechMedia environment. Secrets are never returned to the
+                browser; leave them blank to keep the configured values.
               </p>
             </div>
           </div>
@@ -141,10 +114,8 @@ export function FrappeForm({
             <WorkspaceFormField label="Connection name" required>
               <Input
                 aria-invalid={Boolean(fieldErrors.connectionName)}
-                className={fieldErrors.connectionName ? "border-destructive" : undefined}
-                disabled={!canUpdate || loading || verifying}
+                disabled={disabled}
                 maxLength={160}
-                placeholder="Primary Frappe CRM"
                 value={value.connectionName}
                 onChange={(event) =>
                   setValue((current) => ({ ...current, connectionName: event.target.value }))
@@ -155,8 +126,7 @@ export function FrappeForm({
             <WorkspaceFormField label="Frappe URL" required>
               <Input
                 aria-invalid={Boolean(fieldErrors.baseUrl)}
-                className={fieldErrors.baseUrl ? "border-destructive" : undefined}
-                disabled={!canUpdate || loading || verifying}
+                disabled={disabled}
                 inputMode="url"
                 maxLength={500}
                 placeholder="https://crm.example.com"
@@ -167,15 +137,11 @@ export function FrappeForm({
               />
               <FieldError message={fieldErrors.baseUrl} />
             </WorkspaceFormField>
-            <WorkspaceFormField
-              label="Frappe app key"
-              required={!settings?.appKeyConfigured && Boolean(value.appSecret)}
-            >
+            <WorkspaceFormField label="Frappe app key">
               <Input
                 aria-invalid={Boolean(fieldErrors.appKey)}
                 autoComplete="off"
-                className={fieldErrors.appKey ? "border-destructive" : undefined}
-                disabled={!canUpdate || loading || verifying}
+                disabled={disabled}
                 maxLength={2_000}
                 placeholder={
                   settings?.appKeyConfigured
@@ -190,15 +156,11 @@ export function FrappeForm({
               />
               <FieldError message={fieldErrors.appKey} />
             </WorkspaceFormField>
-            <WorkspaceFormField
-              label="Frappe app secret"
-              required={!settings?.appSecretConfigured && Boolean(value.appKey)}
-            >
+            <WorkspaceFormField label="Frappe app secret">
               <Input
                 aria-invalid={Boolean(fieldErrors.appSecret)}
                 autoComplete="new-password"
-                className={fieldErrors.appSecret ? "border-destructive" : undefined}
-                disabled={!canUpdate || loading || verifying}
+                disabled={disabled}
                 maxLength={2_000}
                 placeholder={
                   settings?.appSecretConfigured
@@ -218,8 +180,8 @@ export function FrappeForm({
               ariaLabel="Enable Frappe connection"
               checked={value.enabled}
               className="md:col-span-2"
-              description="Enquiry pull and push actions use this connection only while it is enabled."
-              disabled={!canUpdate || loading || verifying}
+              description="Live CRM requests use this connection only while it is enabled."
+              disabled={disabled}
               fieldLabel="Connection status"
               inactiveLabel="Connection disabled"
               onCheckedChange={(enabled) => setValue((current) => ({ ...current, enabled }))}
@@ -230,7 +192,10 @@ export function FrappeForm({
           <WorkspaceFormActions>
             <Button
               disabled={loading || verifying}
-              onClick={verify}
+              onClick={() => {
+                const parsed = validate("verify");
+                if (parsed) onVerify(parsed as FrappeConnectionVerificationPayload);
+              }}
               type="button"
               variant="outline"
             >
@@ -239,7 +204,7 @@ export function FrappeForm({
             </Button>
             <Button disabled={loading || verifying} type="submit">
               <SaveIcon className="size-4" />
-              {loading ? "Saving…" : settings ? "Update connection" : "Save connection"}
+              {loading ? "Saving…" : "Save connection"}
             </Button>
           </WorkspaceFormActions>
         ) : null}
@@ -253,8 +218,8 @@ function valueFor(settings: FrappeConnectionSettings | null): FormValue {
     appKey: "",
     appSecret: "",
     baseUrl: settings?.baseUrl ?? "",
-    connectionName: settings?.connectionName ?? "",
-    enabled: settings?.enabled ?? false
+    connectionName: settings?.connectionName ?? "Frappe",
+    enabled: settings?.enabled ?? true
   };
 }
 

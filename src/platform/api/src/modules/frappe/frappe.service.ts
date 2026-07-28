@@ -1,143 +1,108 @@
-import { createHash, randomBytes } from "node:crypto";
 import { AppError } from "@codexsun/framework/errors";
-import { recordTenantAccessAudit } from "../../database/tenant-access-audit.js";
-import {
-  decryptIntegrationCredential,
-  encryptIntegrationCredential
-} from "../../security/integration-credential.js";
-import { crmEnquirySyncContract } from "../crm/index.js";
-import {
-  tenantUserFrappeCredentialContract,
-  tenantUserFrappeImportContract,
-  tenantUserReferenceContract
-} from "../tenant-user/index.js";
-import { tenantUserRoleStandardAccessContract } from "../tenant-user-role/index.js";
-import { FrappeRepository, type StoredFrappeConnection } from "./frappe.repository.js";
+import { recordAuditEvent } from "../../database/audit.js";
+import { env } from "../../env.js";
+import { userFrappeCredentialContract, userFrappeImportContract } from "../user/index.js";
+import { userRoleStandardAccessContract } from "../user-role/index.js";
 import type {
   FrappeConnectionCredentials,
   FrappeConnectionSavePayload,
   FrappeConnectionSettings,
   FrappeConnectionVerificationPayload,
   FrappeConnectionVerificationResult,
+  FrappeConnectionVerificationStatus,
   FrappeContext,
-  FrappeEnquiryLifecycleFactory,
-  FrappeEnquiryLifecycleResult,
-  FrappeSyncResult,
-  FrappeSyncSettingsSavePayload,
   FrappeUserImportResult,
   FrappeUserPreview,
   FrappeUserVerificationResult
 } from "./frappe.types.js";
+import { updateFrappeEnvironment } from "./frappe.env-store.js";
 
 const handshakePath = "/api/method/frappe.auth.get_logged_user";
 const maximumHandshakeResponseBytes = 64 * 1024;
 
 export class FrappeService {
-  private readonly repository: FrappeRepository;
-
-  constructor(private readonly context: FrappeContext) {
-    this.repository = new FrappeRepository(context.database);
-  }
+  constructor(private readonly context: FrappeContext) {}
 
   async get() {
-    await this.context.authorize("frappe.connection.view");
-    const record = await this.repository.find();
-    return record ? publicSettings(record) : null;
+    await this.context.authorize("settings.frappe.view");
+    return publicSettings();
   }
 
-  async save(input: FrappeConnectionSavePayload) {
-    await this.context.authorize("frappe.connection.update");
-    const current = await this.repository.find();
+  async save(input: FrappeConnectionSavePayload): Promise<FrappeConnectionSettings> {
+    await this.context.authorize("settings.frappe.update");
     const baseUrl = normalizeBaseUrl(input.baseUrl);
-    const appCredentials = appCredentialsForSave(input, current);
-    const resetVerification =
-      !current || current.baseUrl !== baseUrl || appCredentials.credentialsChanged;
-    const record = await this.repository.save({
-      appKeyCiphertext: appCredentials.appKeyCiphertext,
-      appSecretCiphertext: appCredentials.appSecretCiphertext,
-      baseUrl,
-      connectionName: input.connectionName.trim(),
-      enabled: input.enabled,
-      lastCheckedAt: resetVerification ? null : (current?.lastCheckedAt ?? null),
-      lastVerifiedAt: resetVerification ? null : (current?.lastVerifiedAt ?? null),
-      verificationStatus: resetVerification
-        ? "unverified"
-        : (current?.verificationStatus ?? "unverified"),
-      uuid: current?.uuid ?? randomBytes(4).toString("hex")
-    });
-    if (resetVerification) {
-      if (!current || current.baseUrl !== baseUrl) {
-        await tenantUserFrappeCredentialContract(this.context.database).resetVerification();
-      }
-    }
-    await recordTenantAccessAudit({
-      action: current ? "updated" : "created",
+    const connectionName = input.connectionName.trim();
+    const now = new Date().toISOString();
+    const values = {
+      ...(input.appKey ? { FRAPPE_APP_KEY: input.appKey.trim() } : {}),
+      ...(input.appSecret ? { FRAPPE_APP_SECRET: input.appSecret.trim() } : {}),
+      FRAPPE_BASE_URL: baseUrl,
+      FRAPPE_CONNECTION_NAME: connectionName,
+      FRAPPE_ENABLED: input.enabled ? ("1" as const) : ("0" as const),
+      FRAPPE_LAST_CHECKED_AT: "",
+      FRAPPE_LAST_VERIFIED_AT: "",
+      FRAPPE_UPDATED_AT: now,
+      FRAPPE_VERIFICATION_STATUS: "unverified" as const
+    };
+    await updateFrappeEnvironment(values);
+    Object.assign(env, values);
+    await recordAuditEvent({
+      action: "saved",
       actorEmail: this.context.actorEmail,
-      moduleKey: "frappe.connection",
-      recordId: record.id,
-      recordLabel: record.connectionName,
-      recordUuid: record.uuid,
-      tenantId: this.context.tenantId
+      moduleKey: "settings.frappe",
+      recordLabel: connectionName
     });
-    return publicSettings(record);
+    return publicSettings()!;
   }
 
   async verify(
     input: FrappeConnectionVerificationPayload
   ): Promise<FrappeConnectionVerificationResult> {
-    await this.context.authorize("frappe.connection.update");
-    const current = await this.repository.find();
-    const baseUrl = normalizeBaseUrl(input.baseUrl);
-    const credentials = appCredentialsForVerification(input, current);
+    await this.context.authorize("settings.frappe.update");
+    const connection = environmentConnection();
+    const baseUrl = normalizeBaseUrl(input.baseUrl || connection.baseUrl);
+    const appKey = input.appKey?.trim() || env.FRAPPE_APP_KEY.trim();
+    const appSecret = input.appSecret?.trim() || env.FRAPPE_APP_SECRET.trim();
+    if (!appKey || !appSecret) {
+      throw AppError.validation("Configure FRAPPE_APP_KEY and FRAPPE_APP_SECRET in .env.");
+    }
 
     let result: FrappeConnectionVerificationResult;
     try {
       result = await verifyFrappeHandshake({
-        apiKey: credentials.appKey,
-        apiSecret: credentials.appSecret,
+        apiKey: appKey,
+        apiSecret: appSecret,
         baseUrl
       });
-    } catch (error) {
-      const checkedAt = new Date();
-      if (current && current.baseUrl === baseUrl) {
-        await this.repository.recordVerification("offline", checkedAt);
+      if (matchesSavedConnection(input, baseUrl)) {
+        await saveVerificationState("live", result.checkedAt, result.checkedAt);
       }
-      await recordTenantAccessAudit({
+    } catch (error) {
+      if (matchesSavedConnection(input, baseUrl)) {
+        await saveVerificationState("offline", new Date().toISOString());
+      }
+      await recordAuditEvent({
         action: "verification_failed",
         actorEmail: this.context.actorEmail,
-        moduleKey: "frappe.connection",
-        recordId: current?.id ?? 0,
-        recordLabel: current?.connectionName ?? baseUrl,
-        recordUuid: current?.uuid ?? createHash("sha256").update(baseUrl).digest("hex").slice(0, 8),
-        tenantId: this.context.tenantId
+        moduleKey: "settings.frappe",
+        recordLabel: baseUrl
       });
       throw error;
     }
-    if (current && current.baseUrl === baseUrl) {
-      await this.repository.recordVerification("live", new Date(result.checkedAt));
-    }
-    await recordTenantAccessAudit({
+    await recordAuditEvent({
       action: "verified",
       actorEmail: this.context.actorEmail,
-      moduleKey: "frappe.connection",
-      recordId: current?.id ?? 0,
-      recordLabel: current?.connectionName ?? baseUrl,
-      recordUuid: current?.uuid ?? createHash("sha256").update(baseUrl).digest("hex").slice(0, 8),
-      tenantId: this.context.tenantId
+      moduleKey: "settings.frappe",
+      recordLabel: baseUrl
     });
     return result;
   }
 
   async verifyUser(userId: number): Promise<FrappeUserVerificationResult> {
-    await this.context.authorize("platform.application.user.update");
-    const connection = await this.repository.find();
-    if (!connection?.enabled) {
-      throw AppError.conflict("Enable the Frappe connection before verifying user credentials.");
-    }
+    await this.context.authorize("identity.user.update");
+    const connection = environmentConnection();
     const verified = await verifyUserAgainstConnection(this.context.database, userId, connection);
-    const credentials = await tenantUserFrappeCredentialContract(this.context.database).find(
-      userId
-    );
+    const credentials = await userFrappeCredentialContract(this.context.database).find(userId);
     if (!credentials) throw missingUserCredentials();
     const employeeCode = await requiredFrappeEmployeeName({
       apiKey: credentials.apiKey,
@@ -147,7 +112,7 @@ export class FrappeService {
       connectionName: connection.connectionName,
       enabled: connection.enabled
     });
-    await tenantUserFrappeCredentialContract(this.context.database).recordVerification(
+    await userFrappeCredentialContract(this.context.database).recordVerification(
       userId,
       "live",
       new Date(verified.checkedAt),
@@ -157,65 +122,10 @@ export class FrappeService {
     return { ...verified, employeeCode };
   }
 
-  async getSyncSettings() {
-    await this.context.authorize("frappe.connection.view");
-    return this.repository.findSyncSettings();
-  }
-
-  async saveSyncSettings(input: FrappeSyncSettingsSavePayload) {
-    await this.context.authorize("frappe.connection.update");
-    const settings = await this.repository.saveSyncSettings(input);
-    await recordTenantAccessAudit({
-      action: "sync_settings_updated",
-      actorEmail: this.context.actorEmail,
-      moduleKey: "frappe.enquiry-sync",
-      recordId: 0,
-      recordLabel: "Enquiry sync",
-      recordUuid: "f0sync01",
-      tenantId: this.context.tenantId
-    });
-    return settings;
-  }
-
-  async sync(direction: "pull" | "push"): Promise<FrappeSyncResult> {
-    await this.context.authorize("frappe.connection.update");
-    const actor = await this.actor();
-    const [connection, settings] = await Promise.all([
-      frappeConnectionContract({ database: this.context.database, userId: actor.id }).get(),
-      this.repository.findSyncSettings()
-    ]);
-    if (!connection?.enabled) {
-      throw AppError.conflict("Enable the Frappe connection before running sync.");
-    }
-    if (!settings) throw AppError.conflict("Frappe enquiry sync settings are unavailable.");
-    if (direction === "pull" && !settings.pullEnquiriesEnabled) {
-      throw AppError.conflict("Enable pull from Frappe before running this sync.");
-    }
-    if (direction === "push" && !settings.pushEnquiriesEnabled) {
-      throw AppError.conflict("Enable push to Frappe before running this sync.");
-    }
-
-    const result =
-      direction === "pull"
-        ? await this.pullEnquiries(connection, settings.enquiryDoctype)
-        : await this.pushEnquiries(connection, settings.enquiryDoctype);
-    await this.repository.recordSync(direction);
-    await recordTenantAccessAudit({
-      action: `${direction}_completed`,
-      actorEmail: this.context.actorEmail,
-      moduleKey: "frappe.enquiry-sync",
-      recordId: 0,
-      recordLabel: `${direction} enquiry sync`,
-      recordUuid: "f0sync01",
-      tenantId: this.context.tenantId
-    });
-    return result;
-  }
-
   async previewUsers(): Promise<FrappeUserPreview[]> {
-    await this.context.authorize("frappe.connection.view");
-    await this.context.authorize("platform.application.user.view");
-    const connection = await this.connectionForActor();
+    await this.context.authorize("settings.frappe.view");
+    await this.context.authorize("identity.user.view");
+    const connection = this.applicationConnection();
     const fields = JSON.stringify([
       "name",
       "full_name",
@@ -233,10 +143,9 @@ export class FrappeService {
       connection,
       `/api/resource/User?fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}&limit_page_length=500&order_by=full_name%20asc`
     );
-    const localUsers = await tenantUserFrappeImportContract({
+    const localUsers = await userFrappeImportContract({
       actorEmail: this.context.actorEmail,
-      database: this.context.database,
-      tenantId: this.context.tenantId
+      database: this.context.database
     }).listExisting();
     const localByEmail = new Map(localUsers.map((user) => [user.email.toLowerCase(), user]));
 
@@ -248,204 +157,67 @@ export class FrappeService {
   }
 
   async importUser(frappeUserId: string): Promise<FrappeUserImportResult> {
-    await this.context.authorize("frappe.connection.update");
-    await this.context.authorize("platform.application.user.create");
-    const connection = await this.connectionForActor();
-    const response = await frappeRequest<{ data?: FrappeUserDocument }>(
+    await this.context.authorize("settings.frappe.update");
+    await this.context.authorize("identity.user.create");
+    const connection = this.applicationConnection();
+    const fields = JSON.stringify([
+      "name",
+      "full_name",
+      "email",
+      "username",
+      "enabled",
+      "user_type"
+    ]);
+    const filters = JSON.stringify([
+      ["name", "=", frappeUserId.trim()],
+      ["enabled", "=", 1],
+      ["user_type", "=", "System User"]
+    ]);
+    const response = await frappeRequest<{ data?: FrappeUserDocument[] }>(
       connection,
-      `/api/resource/User/${encodeURIComponent(frappeUserId.trim())}`
+      `/api/resource/User?fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}&limit_page_length=1`
     );
-    const remote = response.data;
-    if (!remote || !remote.enabled || remote.user_type !== "System User") {
+    const remote = response.data?.[0];
+    if (!remote) {
       throw AppError.validation("Only enabled Frappe System Users can be added.");
     }
     const email = frappeUserEmail(remote);
     if (!email) throw AppError.validation("Frappe user must have a valid email address.");
-    const result = await tenantUserFrappeImportContract({
+    const result = await userFrappeImportContract({
       actorEmail: this.context.actorEmail,
-      database: this.context.database,
-      tenantId: this.context.tenantId
+      database: this.context.database
     }).importUser({
       email,
       name: remote.full_name?.trim() || remote.username?.trim() || email
     });
-    await tenantUserRoleStandardAccessContract({
+    await userRoleStandardAccessContract({
       actorEmail: this.context.actorEmail,
-      database: this.context.database,
-      tenantId: this.context.tenantId
+      database: this.context.database
     }).ensureForUser(result.user.id);
-    await recordTenantAccessAudit({
+    await recordAuditEvent({
       action: result.created ? "user_imported" : "user_already_exists",
       actorEmail: this.context.actorEmail,
       moduleKey: "frappe.user-sync",
       recordId: result.user.id,
       recordLabel: remote.name,
-      recordUuid: result.user.uuid,
-      tenantId: this.context.tenantId
+      recordUuid: result.user.uuid
     });
     return result;
   }
 
-  private async actor() {
-    const actor = await this.context.actorUser();
-    if (!actor) throw AppError.unauthorized("Active tenant user is required.");
-    return actor;
-  }
-
-  private async connectionForActor() {
-    const actor = await this.actor();
-    const connection = await frappeConnectionContract({
-      database: this.context.database,
-      userId: actor.id
-    }).get();
-    if (!connection?.enabled) {
+  private applicationConnection() {
+    const connection = environmentConnection();
+    if (!connection.enabled) {
       throw AppError.conflict("Enable the Frappe connection before loading users.");
+    }
+    if (!connection.apiKey || !connection.apiSecret) {
+      throw AppError.validation(
+        "Save and verify the application Frappe API key and secret before loading users."
+      );
     }
     return connection;
   }
-
-  private async pullEnquiries(
-    connection: FrappeConnectionCredentials,
-    doctype: string
-  ): Promise<FrappeSyncResult> {
-    const names = await frappeRequest<{ data?: Array<{ name?: string }> }>(
-      connection,
-      `/api/resource/${encodeURIComponent(doctype)}?fields=${encodeURIComponent('["name"]')}&limit_page_length=500&order_by=modified%20asc`
-    );
-    const users = await tenantUserReferenceContract(this.context.database).list();
-    const fallback =
-      users.find((user) => user.email.toLowerCase() === this.context.actorEmail.toLowerCase()) ??
-      users[0];
-    if (!fallback) throw AppError.conflict("An active tenant user is required for enquiry sync.");
-    const crm = crmEnquirySyncContract(this.context.database);
-    const employeeEmails = new Map<string, string>();
-    let created = 0;
-    let updated = 0;
-    let failed = 0;
-    for (const item of names.data ?? []) {
-      if (!item.name) continue;
-      try {
-        const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
-          connection,
-          `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(item.name)}`
-        );
-        const document = response.data;
-        if (!document) throw new Error("Frappe returned an empty enquiry.");
-        const employeeName = document.assigned_to_employee || document.user_employee || "";
-        let employeeEmail = employeeEmails.get(employeeName);
-        if (employeeName && employeeEmail === undefined) {
-          const employee = await frappeRequest<{ data?: { user_id?: string } }>(
-            connection,
-            `/api/resource/Employee/${encodeURIComponent(employeeName)}`
-          ).catch(() => ({ data: undefined }));
-          employeeEmail = employee.data?.user_id ?? "";
-          employeeEmails.set(employeeName, employeeEmail);
-        }
-        const assigned =
-          users.find((user) => user.email.toLowerCase() === employeeEmail?.toLowerCase()) ??
-          fallback;
-        const link = await this.repository.findLinkByFrappeName(document.name);
-        const current = link ? await crm.find(Number(link.crm_enquiry_id)) : null;
-        const record = await crm.upsert(link ? Number(link.crm_enquiry_id) : null, {
-          assignedToUserId: employeeEmail ? assigned.id : (current?.assignedToUserId ?? null),
-          createdByUserId: current?.createdByUserId ?? fallback.id,
-          customer: document.customer ?? "",
-          enquiryDate: document.date ?? null,
-          enquiryGroup: document.group ?? "",
-          messages: (document.enquiry_messages ?? [])
-            .filter(({ comment }) => Boolean(comment?.trim()))
-            .map(({ comment }) => ({ comment: comment!.trim() })),
-          mobile: document.mobile ?? "",
-          priority: current?.priority ?? "normal",
-          schedules: current?.schedules.map(({ scheduledOn }) => ({ scheduledOn })) ?? [],
-          status: fromFrappeStatus(document.status),
-          subject: document.enquiry_details ?? "",
-          title: document.enquiry_details || document.name,
-          workspace: document.status_details ?? ""
-        });
-        if (!record) throw new Error("CRM enquiry could not be saved.");
-        await this.repository.saveLink({
-          crmEnquiryId: record.id,
-          frappeModifiedAt: document.modified ?? null,
-          frappeName: document.name
-        });
-        if (link) updated++;
-        else created++;
-      } catch {
-        failed++;
-      }
-    }
-    return { created, direction: "pull", failed, processed: created + updated + failed, updated };
-  }
-
-  private async pushEnquiries(
-    connection: FrappeConnectionCredentials,
-    doctype: string
-  ): Promise<FrappeSyncResult> {
-    const userEmployeeName = await requiredFrappeEmployeeName(connection);
-    const crm = crmEnquirySyncContract(this.context.database);
-    const records = await crm.list();
-    const users = await tenantUserReferenceContract(this.context.database).list();
-    const employeeNames = new Map<string, string>();
-    let created = 0;
-    let updated = 0;
-    let failed = 0;
-    for (const record of records) {
-      try {
-        const assigned = users.find((user) => user.id === record.assignedToUserId);
-        let employeeName = assigned ? employeeNames.get(assigned.email) : "";
-        if (assigned && employeeName === undefined) {
-          const filters = JSON.stringify([["user_id", "=", assigned.email]]);
-          const employees = await frappeRequest<{ data?: Array<{ name?: string }> }>(
-            connection,
-            `/api/resource/Employee?fields=${encodeURIComponent('["name"]')}&filters=${encodeURIComponent(filters)}&limit_page_length=1`
-          );
-          employeeName = employees.data?.[0]?.name ?? "";
-          employeeNames.set(assigned.email, employeeName);
-        }
-        const payload = frappeEnquiryPayload(record, userEmployeeName, employeeName ?? "");
-        const link = await this.repository.findLinkByCrmId(record.id);
-        const response = link
-          ? await frappeRequest<{ data?: FrappeEnquiryDocument }>(
-              connection,
-              `/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(link.frappe_name)}`,
-              { body: JSON.stringify(payload), method: "PUT" }
-            )
-          : await frappeRequest<{ data?: FrappeEnquiryDocument }>(
-              connection,
-              `/api/resource/${encodeURIComponent(doctype)}`,
-              { body: JSON.stringify(payload), method: "POST" }
-            );
-        if (!response.data?.name) throw new Error("Frappe did not return an enquiry name.");
-        await this.repository.saveLink({
-          crmEnquiryId: record.id,
-          frappeModifiedAt: response.data.modified ?? null,
-          frappeName: response.data.name
-        });
-        if (link) updated++;
-        else created++;
-      } catch {
-        failed++;
-      }
-    }
-    return { created, direction: "push", failed, processed: created + updated + failed, updated };
-  }
 }
-
-type FrappeEnquiryDocument = {
-  assigned_to_employee?: string;
-  customer?: string;
-  date?: string;
-  enquiry_details?: string;
-  enquiry_messages?: Array<{ comment?: string }>;
-  group?: string;
-  mobile?: string;
-  modified?: string;
-  name: string;
-  status?: string;
-  status_details?: string;
-  user_employee?: string;
-};
 
 type FrappeUserDocument = {
   email?: string;
@@ -461,257 +233,44 @@ export function frappeConnectionContract(context: {
   database: FrappeContext["database"];
   userId: number;
 }) {
-  const repository = new FrappeRepository(context.database);
   return {
     async get(): Promise<FrappeConnectionCredentials | null> {
-      const [record, credentials] = await Promise.all([
-        repository.find(),
-        tenantUserFrappeCredentialContract(context.database).find(context.userId)
-      ]);
-      if (!record || !credentials) return null;
+      const connection = environmentConnection();
+      const credentials = await userFrappeCredentialContract(context.database).find(context.userId);
+      if (!credentials) return null;
       return {
         apiKey: credentials.apiKey,
         apiSecret: credentials.apiSecret,
         authenticatedUser: credentials.authenticatedUser,
-        baseUrl: record.baseUrl,
-        connectionName: record.connectionName,
-        enabled: record.enabled
+        baseUrl: connection.baseUrl,
+        connectionName: connection.connectionName,
+        enabled: connection.enabled
       };
     }
   };
 }
 
-export const frappeEnquiryLifecycleContract: FrappeEnquiryLifecycleFactory = (context) => {
-  const repository = new FrappeRepository(context.database);
-  const crm = crmEnquirySyncContract(context.database);
-
-  async function upsert(
-    enquiryId: number,
-    userId: number,
-    required: boolean
-  ): Promise<FrappeEnquiryLifecycleResult> {
-    const target = await lifecycleTarget(context.database, repository, userId, required);
-    if (!target) return { action: "skipped", frappeName: null };
-    const record = await crm.find(enquiryId);
-    if (!record) throw AppError.notFound("Enquiry was not found for Frappe synchronization.");
-    if (record.lifecycleStatus === "suspended") {
-      throw AppError.conflict("Suspended enquiries cannot be synchronized with Frappe.");
-    }
-
-    const assigned = record.assignedToUserId
-      ? await tenantUserReferenceContract(context.database).find(record.assignedToUserId)
-      : null;
-    const employeeName = assigned
-      ? await findFrappeEmployeeName(context.database, userId, target.connection, assigned.email)
-      : "";
-    const userEmployeeName = await requiredFrappeEmployeeName(
-      target.connection,
-      context.database,
-      userId
-    );
-    const payload = frappeEnquiryPayload(record, userEmployeeName, employeeName);
-    const link = await repository.findLinkByCrmId(enquiryId);
-    const response = link
-      ? await frappeLifecycleRequest<{ data?: FrappeEnquiryDocument }>(
-          context.database,
-          userId,
-          target.connection,
-          `/api/resource/${encodeURIComponent(target.doctype)}/${encodeURIComponent(link.frappe_name)}`,
-          { body: JSON.stringify(payload), method: "PUT" }
-        )
-      : await frappeLifecycleRequest<{ data?: FrappeEnquiryDocument }>(
-          context.database,
-          userId,
-          target.connection,
-          `/api/resource/${encodeURIComponent(target.doctype)}`,
-          { body: JSON.stringify(payload), method: "POST" }
-        );
-    const document = response.data;
-    if (!document?.name) throw new Error("Frappe did not return an enquiry name.");
-    await repository.saveLink({
-      crmEnquiryId: enquiryId,
-      frappeModifiedAt: document.modified ?? null,
-      frappeName: document.name
-    });
-    await repository.recordSync("push");
-    await recordFrappeEnquiryAudit(context, link ? "updated" : "created", record);
-    return { action: link ? "updated" : "created", frappeName: document.name };
-  }
-
-  return {
-    async upsert(enquiryId, userId): Promise<FrappeEnquiryLifecycleResult> {
-      return upsert(enquiryId, userId, false);
-    },
-
-    async resync(enquiryId, userId) {
-      const result = await upsert(enquiryId, userId, true);
-      if (result.action === "skipped" || !result.frappeName) {
-        throw AppError.conflict("The enquiry could not be synchronized with Frappe.");
-      }
-      if (result.action !== "created" && result.action !== "updated") {
-        throw AppError.conflict("The enquiry could not be synchronized with Frappe.");
-      }
-      return { action: result.action, frappeName: result.frappeName };
-    },
-
-    async delete(enquiryId, userId): Promise<FrappeEnquiryLifecycleResult> {
-      const link = await repository.findLinkByCrmId(enquiryId);
-      if (!link) return { action: "skipped", frappeName: null };
-      const target = await lifecycleTarget(context.database, repository, userId, true);
-      if (!target) throw AppError.conflict("Enable push to Frappe before deleting this enquiry.");
-      const record = await crm.find(enquiryId);
-      if (!record) throw AppError.notFound("Enquiry was not found for Frappe deletion.");
-      await frappeLifecycleRequest<{ message?: string }>(
-        context.database,
-        userId,
-        target.connection,
-        `/api/resource/${encodeURIComponent(target.doctype)}/${encodeURIComponent(link.frappe_name)}`,
-        { method: "DELETE" },
-        [404]
-      );
-      await repository.recordSync("push");
-      await recordFrappeEnquiryAudit(context, "deleted", record);
-      return { action: "deleted", frappeName: link.frappe_name };
-    }
-  };
-};
-
-async function lifecycleTarget(
-  database: FrappeContext["database"],
-  repository: FrappeRepository,
-  userId: number,
-  required: boolean
-) {
-  const [record, settings, credentials] = await Promise.all([
-    repository.find(),
-    repository.findSyncSettings(),
-    tenantUserFrappeCredentialContract(database).find(userId)
-  ]);
-  if (!settings?.pushEnquiriesEnabled) {
-    if (required)
-      throw AppError.conflict("Enable push to Frappe before synchronizing this enquiry.");
-    return null;
-  }
-  if (!record?.enabled)
-    throw AppError.conflict("Enable the Frappe connection before saving enquiries.");
-  if (!credentials) {
-    throw AppError.conflict(
-      "Configure this user's Frappe API key and secret before saving enquiries."
-    );
-  }
-  if (credentials.verificationStatus !== "live") {
-    throw AppError.conflict("Verify this user's Frappe connection before saving enquiries.");
-  }
-  return {
-    connection: {
-      apiKey: credentials.apiKey,
-      apiSecret: credentials.apiSecret,
-      authenticatedUser: credentials.authenticatedUser,
-      baseUrl: record.baseUrl,
-      connectionName: record.connectionName,
-      enabled: record.enabled
-    } satisfies FrappeConnectionCredentials,
-    doctype: settings.enquiryDoctype
-  };
-}
-
-async function findFrappeEmployeeName(
-  database: FrappeContext["database"],
-  userId: number,
-  connection: FrappeConnectionCredentials,
-  userEmail: string
-) {
-  const filters = JSON.stringify([["user_id", "=", userEmail]]);
-  const employees = await frappeLifecycleRequest<{ data?: Array<{ name?: string }> }>(
-    database,
-    userId,
-    connection,
-    `/api/resource/Employee?fields=${encodeURIComponent('["name"]')}&filters=${encodeURIComponent(filters)}&limit_page_length=1`
-  );
-  return employees.data?.[0]?.name ?? "";
-}
-
-async function requiredFrappeEmployeeName(
-  connection: FrappeConnectionCredentials,
-  database?: FrappeContext["database"],
-  userId?: number
-) {
+async function requiredFrappeEmployeeName(connection: FrappeConnectionCredentials) {
   const authenticatedUser = connection.authenticatedUser?.trim();
   if (!authenticatedUser) {
-    throw AppError.conflict(
-      "Verify this user's Frappe API credentials once before synchronizing enquiries."
-    );
+    throw AppError.conflict("Verify this user's Frappe API credentials before using CRM.");
   }
   const filters = JSON.stringify([["user_id", "=", authenticatedUser]]);
   const path = `/api/resource/Employee?fields=${encodeURIComponent('["name"]')}&filters=${encodeURIComponent(filters)}&limit_page_length=1`;
-  const employees =
-    database && userId
-      ? await frappeLifecycleRequest<{ data?: Array<{ name?: string }> }>(
-          database,
-          userId,
-          connection,
-          path
-        )
-      : await frappeRequest<{ data?: Array<{ name?: string }> }>(connection, path);
+  const employees = await frappeRequest<{ data?: Array<{ name?: string }> }>(connection, path);
   const employeeName = employees.data?.[0]?.name?.trim();
   if (!employeeName) {
     throw AppError.validation(
-      `Frappe user ${authenticatedUser} must be linked to an Employee before synchronizing enquiries.`
+      `Frappe user ${authenticatedUser} must be linked to an Employee before using CRM.`
     );
   }
   return employeeName;
 }
 
-function frappeEnquiryPayload(
-  record: {
-    createdAt: string;
-    customer: string;
-    enquiryDate: string | null;
-    enquiryGroup: string;
-    messages: Array<{ comment: string }>;
-    mobile: string;
-    status: string;
-    subject: string;
-    title: string;
-    workspace: string;
-  },
-  userEmployeeName: string,
-  assignedEmployeeName: string
-) {
-  return {
-    ...(assignedEmployeeName ? { assigned_to_employee: assignedEmployeeName } : {}),
-    ...(record.customer ? { customer: record.customer } : {}),
-    date: record.enquiryDate ?? record.createdAt.slice(0, 10),
-    enquiry_details: record.subject.trim() || record.title,
-    enquiry_messages: record.messages.map(({ comment }) => ({ comment })),
-    group: record.enquiryGroup,
-    mobile: record.mobile,
-    status: toFrappeStatus(record.status),
-    status_details: record.workspace,
-    user_employee: userEmployeeName
-  };
-}
-
-function recordFrappeEnquiryAudit(
-  context: Parameters<FrappeEnquiryLifecycleFactory>[0],
-  action: "created" | "deleted" | "updated",
-  record: { id: number; title: string; uuid: string }
-) {
-  return recordTenantAccessAudit({
-    action: `frappe_${action}`,
-    actorEmail: context.actorEmail,
-    moduleKey: "frappe.enquiry-sync",
-    recordId: record.id,
-    recordLabel: record.title,
-    recordUuid: record.uuid,
-    tenantId: context.tenantId
-  });
-}
-
 export function frappeUserAuthenticationContract(database: FrappeContext["database"]) {
   return {
     async statusForLogin(userId: number) {
-      const connection = await new FrappeRepository(database).find();
+      const connection = optionalEnvironmentConnection();
       if (!connection?.enabled) {
         return {
           authenticatedUser: null,
@@ -719,7 +278,7 @@ export function frappeUserAuthenticationContract(database: FrappeContext["databa
           status: connection ? ("disabled" as const) : ("not_configured" as const)
         };
       }
-      const credentials = await tenantUserFrappeCredentialContract(database).find(userId);
+      const credentials = await userFrappeCredentialContract(database).find(userId);
       if (!credentials) {
         return { authenticatedUser: null, employeeCode: null, status: "not_configured" as const };
       }
@@ -739,60 +298,65 @@ export function frappeUserAuthenticationContract(database: FrappeContext["databa
   };
 }
 
-function publicSettings(record: StoredFrappeConnection): FrappeConnectionSettings {
+function publicSettings(): FrappeConnectionSettings | null {
+  const connection = optionalEnvironmentConnection();
+  if (!connection) return null;
   return {
-    appKeyConfigured: Boolean(record.appKeyCiphertext),
-    appSecretConfigured: Boolean(record.appSecretCiphertext),
-    baseUrl: record.baseUrl,
-    connectionName: record.connectionName,
-    enabled: record.enabled,
-    id: record.id,
-    lastCheckedAt: record.lastCheckedAt,
-    lastVerifiedAt: record.lastVerifiedAt,
-    updatedAt: record.updatedAt,
-    uuid: record.uuid,
-    verificationStatus: record.verificationStatus
+    appKeyConfigured: Boolean(env.FRAPPE_APP_KEY.trim()),
+    appSecretConfigured: Boolean(env.FRAPPE_APP_SECRET.trim()),
+    baseUrl: connection.baseUrl,
+    connectionName: connection.connectionName,
+    enabled: connection.enabled,
+    id: 1,
+    lastCheckedAt: env.FRAPPE_LAST_CHECKED_AT || null,
+    lastVerifiedAt: env.FRAPPE_LAST_VERIFIED_AT || null,
+    updatedAt: env.FRAPPE_UPDATED_AT || new Date(0).toISOString(),
+    uuid: "frappe01",
+    verificationStatus: env.FRAPPE_VERIFICATION_STATUS
   };
 }
 
-function appCredentialsForSave(
-  input: FrappeConnectionSavePayload,
-  current: StoredFrappeConnection | null
-) {
-  const appKey = input.appKey?.trim();
-  const appSecret = input.appSecret?.trim();
-  if (Boolean(appKey) !== Boolean(appSecret)) {
-    throw AppError.validation("Frappe app key and app secret must both be configured.");
-  }
-  return {
-    appKeyCiphertext: appKey
-      ? encryptIntegrationCredential(appKey, "frappe-app")
-      : (current?.appKeyCiphertext ?? null),
-    appSecretCiphertext: appSecret
-      ? encryptIntegrationCredential(appSecret, "frappe-app")
-      : (current?.appSecretCiphertext ?? null),
-    credentialsChanged: Boolean(appKey && appSecret)
-  };
+function matchesSavedConnection(input: FrappeConnectionVerificationPayload, baseUrl: string) {
+  return (
+    baseUrl === optionalEnvironmentConnection()?.baseUrl &&
+    (!input.appKey || input.appKey.trim() === env.FRAPPE_APP_KEY.trim()) &&
+    (!input.appSecret || input.appSecret.trim() === env.FRAPPE_APP_SECRET.trim())
+  );
 }
 
-function appCredentialsForVerification(
-  input: FrappeConnectionVerificationPayload,
-  current: StoredFrappeConnection | null
+async function saveVerificationState(
+  status: FrappeConnectionVerificationStatus,
+  checkedAt: string,
+  verifiedAt = env.FRAPPE_LAST_VERIFIED_AT
 ) {
-  const appKey = input.appKey?.trim();
-  const appSecret = input.appSecret?.trim();
-  if (Boolean(appKey) !== Boolean(appSecret)) {
-    throw AppError.validation("Frappe app key and app secret must both be provided for testing.");
+  const values = {
+    FRAPPE_LAST_CHECKED_AT: checkedAt,
+    FRAPPE_LAST_VERIFIED_AT: verifiedAt,
+    FRAPPE_UPDATED_AT: checkedAt,
+    FRAPPE_VERIFICATION_STATUS: status
+  };
+  await updateFrappeEnvironment(values);
+  Object.assign(env, values);
+}
+
+function environmentConnection(): FrappeConnectionCredentials {
+  const connection = optionalEnvironmentConnection();
+  if (!connection) {
+    throw AppError.conflict("Configure FRAPPE_BASE_URL in .env before using Frappe.");
   }
-  if (appKey && appSecret) return { appKey, appSecret };
-  if (!current?.appKeyCiphertext || !current.appSecretCiphertext) {
-    throw AppError.validation(
-      "Enter a Frappe app key and app secret, or save them before verifying."
-    );
-  }
+  return connection;
+}
+
+function optionalEnvironmentConnection(): FrappeConnectionCredentials | null {
+  const baseUrl = env.FRAPPE_BASE_URL.trim();
+  if (!baseUrl) return null;
   return {
-    appKey: decryptIntegrationCredential(current.appKeyCiphertext, "frappe-app"),
-    appSecret: decryptIntegrationCredential(current.appSecretCiphertext, "frappe-app")
+    apiKey: env.FRAPPE_APP_KEY.trim(),
+    apiSecret: env.FRAPPE_APP_SECRET.trim(),
+    authenticatedUser: null,
+    baseUrl: normalizeBaseUrl(baseUrl),
+    connectionName: env.FRAPPE_CONNECTION_NAME.trim() || "Frappe",
+    enabled: env.FRAPPE_ENABLED === "1"
   };
 }
 
@@ -877,9 +441,9 @@ async function verifyFrappeHandshake(input: {
 async function verifyUserAgainstConnection(
   database: FrappeContext["database"],
   userId: number,
-  connection: StoredFrappeConnection
+  connection: FrappeConnectionCredentials
 ) {
-  const credentialContract = tenantUserFrappeCredentialContract(database);
+  const credentialContract = userFrappeCredentialContract(database);
   const credentials = await credentialContract.find(userId);
   if (!credentials) throw missingUserCredentials();
   try {
@@ -939,29 +503,6 @@ function invalidHandshakeResponse() {
   });
 }
 
-async function frappeLifecycleRequest<T>(
-  database: FrappeContext["database"],
-  userId: number,
-  connection: FrappeConnectionCredentials,
-  path: string,
-  init: RequestInit = {},
-  acceptedStatuses: number[] = []
-) {
-  try {
-    return await frappeRequest<T>(connection, path, init, acceptedStatuses);
-  } catch (error) {
-    if (error instanceof AppError && error.code === "FRAPPE_AUTHENTICATION_FAILED") {
-      await tenantUserFrappeCredentialContract(database).recordVerification(
-        userId,
-        "offline",
-        new Date(),
-        null
-      );
-    }
-    throw error;
-  }
-}
-
 export async function frappeRequest<T = unknown>(
   connection: FrappeConnectionCredentials,
   path: string,
@@ -994,8 +535,9 @@ export async function frappeRequest<T = unknown>(
     if (response.status === 401 || response.status === 403) {
       throw new AppError({
         code: "FRAPPE_AUTHENTICATION_FAILED",
-        message:
-          "Frappe rejected this user's saved API key or secret. Update the credentials and verify them once.",
+        message: connection.authenticatedUser
+          ? "Frappe rejected this user's saved API key or secret. Update the credentials and verify them once."
+          : "Frappe rejected the application API key or secret. Update and verify the connection in Settings.",
         statusCode: 422
       });
     }
@@ -1084,16 +626,4 @@ function toFrappeUserPreview(
     name: user.full_name?.trim() || user.username?.trim() || email,
     userType: user.user_type?.trim() || "System User"
   };
-}
-
-function fromFrappeStatus(value: string | undefined) {
-  const status = value?.trim().toLowerCase();
-  if (status === "follow" || status === "escalation" || status === "won" || status === "lost") {
-    return status;
-  }
-  return "open" as const;
-}
-
-function toFrappeStatus(value: string) {
-  return value[0]!.toUpperCase() + value.slice(1);
 }

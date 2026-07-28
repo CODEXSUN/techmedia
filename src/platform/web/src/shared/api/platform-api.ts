@@ -1,276 +1,110 @@
-﻿import { requiredClientEnv } from "../env/client-env";
+import { requiredClientEnv } from "../env/client-env";
 
 const apiBaseUrl = requiredClientEnv("VITE_PLATFORM_API_URL");
+const TOKEN_KEY = "techmedia_session";
 
-export type Desk = "sa" | "admin" | "tenant";
-
-const TOKEN_KEYS: Record<Desk, string> = {
-  admin: "techmedia_session_admin",
-  sa: "techmedia_session_sa",
-  tenant: "techmedia_session_tenant"
-};
-
-const TENANT_ID_KEY = "techmedia_tenant_id";
-const TENANT_DB_NAME_KEY = "techmedia_tenant_db_name";
-const CORE_TENANT_KEYS = {
-  database: "codexsun_tenant_db_name",
-  id: "codexsun_tenant_id",
-  token: "codexsun_session_tenant"
-} as const;
-const TENANT_RUNTIME_KEYS = [
-  "techmedia.tenant.landing-app.live",
-  "codexsun.tenant.company-id",
-  "codexsun.tenant.financial-year-id"
-] as const;
-
+export type Desk = "app";
 type ApiEnvelope<T> = { data: T; success: true } | { error: { message: string }; success: false };
 
-type TenantTokenClaims = {
-  tenantDbName?: string;
-  tenantId?: string;
-  userType?: string;
-};
-
-function tenantClaims(token: string | null): TenantTokenClaims | null {
-  if (!token) return null;
+export function getToken(): string | null {
   try {
-    const encoded = token.split(".")[1];
-    if (!encoded) return null;
-    const normalized = encoded.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-    const claims = JSON.parse(atob(padded)) as TenantTokenClaims;
-    return claims.userType === "tenant" ? claims : null;
+    return localStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }
 }
 
-export function getToken(desk: Desk): string | null {
+export function setToken(token: string): void {
   try {
-    return localStorage.getItem(TOKEN_KEYS[desk]);
-  } catch {
-    return null;
-  }
-}
-
-export function setToken(desk: Desk, token: string): void {
-  try {
-    localStorage.setItem(TOKEN_KEYS[desk], token);
+    localStorage.setItem(TOKEN_KEY, token);
   } catch {}
 }
 
-export function clearToken(desk: Desk): void {
+export function clearToken(): void {
   try {
-    localStorage.removeItem(TOKEN_KEYS[desk]);
+    localStorage.removeItem(TOKEN_KEY);
   } catch {}
 }
 
-export function getTenantId(): string | null {
-  try {
-    return localStorage.getItem(TENANT_ID_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function setTenantId(id: string | undefined): void {
-  try {
-    if (id) localStorage.setItem(TENANT_ID_KEY, id);
-    else localStorage.removeItem(TENANT_ID_KEY);
-  } catch {}
-}
-
-export function getTenantDbName(): string | null {
-  try {
-    return localStorage.getItem(TENANT_DB_NAME_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function setTenantDbName(dbName: string | undefined): void {
-  try {
-    if (dbName) localStorage.setItem(TENANT_DB_NAME_KEY, dbName);
-    else localStorage.removeItem(TENANT_DB_NAME_KEY);
-  } catch {}
-}
-
-function clearTenantSession(): void {
-  try {
-    localStorage.removeItem(TOKEN_KEYS.tenant);
-    localStorage.removeItem(TENANT_ID_KEY);
-    localStorage.removeItem(TENANT_DB_NAME_KEY);
-    localStorage.removeItem(CORE_TENANT_KEYS.database);
-    localStorage.removeItem(CORE_TENANT_KEYS.id);
-    localStorage.removeItem(CORE_TENANT_KEYS.token);
-    for (const key of TENANT_RUNTIME_KEYS) localStorage.removeItem(key);
-  } catch {}
-}
-
-function writeTenantSession(input: {
-  accessToken: string;
-  tenantDbName: string;
-  tenantId: string;
-}): void {
-  setTenantId(input.tenantId);
-  setTenantDbName(input.tenantDbName);
-  setToken("tenant", input.accessToken);
-  // Core is a separately bundled dependency and still reads its established
-  // storage contract. Mirror the authenticated TechMedia context at that seam.
-  try {
-    localStorage.setItem(CORE_TENANT_KEYS.database, input.tenantDbName);
-    localStorage.setItem(CORE_TENANT_KEYS.id, input.tenantId);
-    localStorage.setItem(CORE_TENANT_KEYS.token, input.accessToken);
-  } catch {}
-}
-
-function authHeaders(desk?: Desk): Record<string, string> {
-  const headers: Record<string, string> = {};
-  const token = desk ? getToken(desk) : null;
-  if (token) headers.Authorization = `Bearer ${token}`;
-  if (desk === "tenant") {
-    // The signed token is the authority for request routing. Local storage is only
-    // a compatibility mirror for independently bundled application packages.
-    const claims = tenantClaims(token);
-    const tenantId = claims?.tenantId ?? getTenantId();
-    const tenantDbName = claims?.tenantDbName ?? getTenantDbName();
-    if (tenantId) headers["x-tenant-id"] = tenantId;
-    if (tenantDbName) headers["x-tenant-db"] = tenantDbName;
-  }
-  return headers;
-}
-
-async function request<T>(path: string, options: RequestInit = {}, desk?: Desk): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken();
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     headers: {
       ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
-      ...authHeaders(desk),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers
     }
   });
-
   const responseText = await response.text();
   let envelope: ApiEnvelope<T> | null = null;
   if (responseText) {
     try {
       envelope = JSON.parse(responseText) as ApiEnvelope<T>;
     } catch {
-      if (!response.ok) throw new Error(apiUnavailableMessage(response));
-      throw new Error("Platform API returned an invalid response.");
+      throw new Error(`TechMedia API returned an invalid response (${response.status}).`);
     }
   }
-
-  if (!envelope) {
-    throw new Error(
-      response.ok ? "Platform API returned an empty response." : apiUnavailableMessage(response)
-    );
-  }
-
+  if (!envelope) throw new Error("TechMedia API returned an empty response.");
   if (!response.ok || !envelope.success) {
     throw new Error(envelope.success ? "Request failed" : envelope.error.message);
   }
   return envelope.data;
 }
 
-function apiUnavailableMessage(response: Response): string {
-  if (response.status >= 500) {
-    return `Platform API is unavailable (${response.status} ${response.statusText || "Server Error"}).`;
-  }
-
-  return `Platform API request failed (${response.status} ${response.statusText || "Request Error"}).`;
+export function apiGet<T>(path: string, ..._unused: unknown[]): Promise<T> {
+  return request<T>(path, { method: "GET" });
 }
 
-export function apiGet<T>(path: string, desk?: Desk): Promise<T> {
-  return request<T>(path, { method: "GET" }, desk);
+export function apiPost<T>(path: string, data?: unknown, ..._unused: unknown[]): Promise<T> {
+  return request<T>(path, { body: JSON.stringify(data ?? {}), method: "POST" });
 }
 
-export function apiPost<T>(path: string, data?: unknown, desk?: Desk): Promise<T> {
-  return request<T>(path, { body: JSON.stringify(data ?? {}), method: "POST" }, desk);
+export function apiPut<T>(path: string, data?: unknown, ..._unused: unknown[]): Promise<T> {
+  return request<T>(path, { body: JSON.stringify(data ?? {}), method: "PUT" });
 }
 
-export function apiPut<T>(path: string, data?: unknown, desk?: Desk): Promise<T> {
-  return request<T>(path, { body: JSON.stringify(data ?? {}), method: "PUT" }, desk);
+export function apiDelete<T>(path: string, ..._unused: unknown[]): Promise<T> {
+  return request<T>(path, { method: "DELETE" });
 }
 
-export function apiDelete<T>(path: string, desk?: Desk): Promise<T> {
-  return request<T>(path, { method: "DELETE" }, desk);
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Request failed";
-}
-
-export async function login(input: {
-  corporateId?: string;
-  desk: Desk;
-  email: string;
-  password: string;
-  tenantCode?: string;
-}) {
-  if (input.desk === "tenant") clearTenantSession();
-  else clearToken(input.desk);
-
-  try {
-    const data = await apiPost<{
-      accessToken?: string;
-      corporateId?: string;
-      email: string;
-      name?: string;
-      tenantId?: string;
-      tenantDbName?: string;
-      tenantCode?: string;
-      tenantUuid?: string;
-      userType: string;
-    }>("/auth/login", input);
-
-    if (input.desk === "tenant") {
-      if (!data.accessToken || !data.tenantId || !data.tenantDbName) {
-        throw new Error("Tenant login response is incomplete.");
-      }
-      writeTenantSession({
-        accessToken: data.accessToken,
-        tenantDbName: data.tenantDbName,
-        tenantId: data.tenantId
-      });
-    } else if (data.accessToken) {
-      setToken(input.desk, data.accessToken);
-    }
-
-    return { data, success: true };
-  } catch (error: unknown) {
-    return { error: { message: errorMessage(error) }, success: false };
-  }
-}
-
-export async function developmentTenantLogin() {
-  clearTenantSession();
-
+export async function login(input: { email: string; password: string }) {
+  clearToken();
   try {
     const data = await apiPost<{
       accessToken: string;
       email: string;
-      name?: string;
-      tenantCode: string;
-      tenantDbName: string;
-      tenantId: string;
-      tenantUuid: string;
-      userType: "tenant";
-    }>("/auth/development/tenant-login");
-
-    writeTenantSession(data);
+      name: string;
+      permissions: string[];
+      role: string;
+    }>("/auth/login", input);
+    setToken(data.accessToken);
     return { data, success: true } as const;
-  } catch (error: unknown) {
-    return { error: { message: errorMessage(error) }, success: false } as const;
+  } catch (error) {
+    return {
+      error: { message: error instanceof Error ? error.message : "Login failed" },
+      success: false
+    } as const;
   }
 }
 
-export async function logout(desk: Desk): Promise<void> {
+export async function developmentLogin() {
+  clearToken();
   try {
-    if (getToken(desk)) await apiPost("/auth/logout", undefined, desk);
-  } catch {}
-  clearToken(desk);
-  if (desk === "tenant") {
-    clearTenantSession();
+    const data = await apiPost<{ accessToken: string }>("/auth/development/login");
+    setToken(data.accessToken);
+    return { data, success: true } as const;
+  } catch (error) {
+    return {
+      error: { message: error instanceof Error ? error.message : "Development login failed" },
+      success: false
+    } as const;
   }
+}
+
+export async function logout(): Promise<void> {
+  try {
+    if (getToken()) await apiPost("/auth/logout");
+  } catch {}
+  clearToken();
 }

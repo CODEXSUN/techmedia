@@ -36,28 +36,6 @@ export type FrappeConnectionVerificationResult = {
   latencyMs: number;
 };
 
-export type FrappeSyncSettings = {
-  enquiryDoctype: "Enquiry";
-  lastPullAt: string | null;
-  lastPushAt: string | null;
-  pullEnquiriesEnabled: boolean;
-  pushEnquiriesEnabled: boolean;
-  updatedAt: string;
-};
-
-export type FrappeSyncSettingsSavePayload = Pick<
-  FrappeSyncSettings,
-  "pullEnquiriesEnabled" | "pushEnquiriesEnabled"
->;
-
-export type FrappeSyncResult = {
-  created: number;
-  direction: "pull" | "push";
-  failed: number;
-  processed: number;
-  updated: number;
-};
-
 export type FrappeUserPreview = {
   email: string;
   enabled: boolean;

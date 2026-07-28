@@ -1,57 +1,49 @@
-﻿# TechMedia
+# TechMedia
 
-The TechMedia application and orchestration repository.
+TechMedia is a standalone, single-client CRM application connected to live Frappe.
 
-Standalone TMApp install: `bash setup.sh`; updates use `bash update.sh`. See `.container/README.md` for owned ports,
-volumes, default tenant data, and production routing.
+The runtime contains:
 
-This project plays the same role as a Laravel application: it installs the framework and selected application packages, provides deployment configuration, builds the composed stack, and starts the runtime. Business implementation stays in its owning package.
+- Identity: users, roles, permissions, user roles, and role permissions.
+- Settings: one `.env` Frappe connection plus per-user Frappe credentials on user records.
+- CRM: live Frappe enquiry workflows with no local CRM business database.
+- Estimate: live Frappe Estimate list, create, and update workflows with no local business database.
 
-## Repository guidance
-
-Read `assist/AGENT-GUIDE.md` before changing this repository. The current TechMedia repository
-workspace map, ownership boundaries, migration/seed order, environment contract, versioning,
-and release workflow are documented under `assist/`.
-
-`devkit` is a standalone developer application and is not part of the Platform runtime stack.
-
-## Installed stack
-
-- `@codexsun/framework`
-- `@codexsun/ui`
-- `@codexsun/core`
-  TechMedia composes only `framework + ui + core + platform`. Billing, Mail, Ecommerce, and Sites
-  are intentionally not installed in this sibling application.
+TechMedia uses one MariaDB database configured by `DB_NAME`; only Identity is persisted locally.
+Settings, CRM, and Estimate own no tables. The app has one `/login` route and one `/app` desk, and depends only
+on the public Framework and UI sibling packages.
 
 ## Development
 
+Copy `.env.example` to `.env`, fill the database, JWT, encryption, administrator, and Frappe
+settings, then run:
+
 ```sh
 npm install
-npm run setup
 npm run dev
 ```
 
-The repositories must be sibling folders under the same parent directory. `npm run setup` installs each local package serially, and the lockfiles preserve the resolved development graph. No package is fetched from a registry during local composition.
-
-The default development runtime is:
+Default endpoints:
 
 - API: `http://127.0.0.1:7050`
 - Web: `http://127.0.0.1:7060`
 
-Platform is the only runtime application. Framework, UI, and Core are linked sibling packages
-compiled before Platform.
+Database commands:
 
-Use `npm run dev:api` or `npm run dev:web` to start one side only. Ports are deployment configuration and can be changed through environment variables without changing application packages.
+```sh
+npm run db:migrate
+npm run db:seed
+npm run db:migrations:list
+```
+
+`db:drop` and `dbmigrate:fresh` require the explicit reset guard documented in `.env.example`.
 
 ## Verification
 
 ```sh
-npm run build
 npm run check
-npm run test:product-stacks
-npm run test:e2e:composed-runtime
+npm run build
+npm run dependencies:check
 ```
 
-Repository release helpers are `npm run version:show`, `npm run check:versions`,
-`npm run version:bump -- --dry-run`, the equivalent `npm run version-bump -- --dry-run`, and
-`npm run github:now -- --dry-run`.
+Read `assist/AGENT-GUIDE.md` before changing architecture or module ownership.

@@ -1,114 +1,48 @@
-import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@codexsun/ui/components/button";
 import { Field } from "@codexsun/ui/components/Field";
 import { LogIn } from "lucide-react";
-import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { developmentTenantLogin, type Desk, login } from "../../shared/api/platform-api";
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
+import { developmentLogin, login } from "../../shared/api/platform-api";
 import { TechMediaAuthLayout } from "./TechMediaAuthLayout";
 
-type LoginPageProps = {
-  desk: Desk;
-  title: string;
-};
-
-const tenantLoginSettings: { corporateId: string; showCorporateId: boolean } = {
-  corporateId: "techmedia",
-  showCorporateId: false
-};
-
-export function LoginPage({ desk, title }: LoginPageProps) {
-  const navigate = useNavigate();
-  const [corporateId, setCorporateId] = useState(tenantLoginSettings.corporateId);
+export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const autoLoginStarted = useRef(false);
 
-  const targetPath = useMemo(() => {
-    if (desk === "sa") {
-      return "/sa/$";
-    }
-
-    if (desk === "admin") {
-      return "/admin";
-    }
-
-    return "/app/$";
-  }, [desk]);
-
   useEffect(() => {
     if (
-      desk !== "tenant" ||
       !import.meta.env.DEV ||
-      import.meta.env.VITE_DEV_AUTO_TENANT_LOGIN !== "1" ||
+      import.meta.env.VITE_DEV_AUTO_LOGIN !== "1" ||
       autoLoginStarted.current
     ) {
       return;
     }
-
     autoLoginStarted.current = true;
     setLoading(true);
-    setMessage("");
-    void developmentTenantLogin()
+    void developmentLogin()
       .then((result) => {
-        if (!result.success) {
-          setMessage(result.error.message);
-          return;
-        }
-        window.location.assign("/app/");
+        if (result.success) window.location.assign("/app/");
+        else setMessage(result.error.message);
       })
-      .catch(() => setMessage("Development auto-login failed."))
       .finally(() => setLoading(false));
-  }, [desk, navigate, targetPath]);
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setMessage("");
-
-    try {
-      const result = await login({
-        ...(desk === "tenant" ? { corporateId } : {}),
-        desk,
-        email,
-        password
-      });
-
-      if (!result.success) {
-        setMessage(result.error?.message ?? "Login failed");
-        return;
-      }
-
-      if (desk === "tenant") {
-        // A tenant switch must start with a fresh query cache so records and
-        // runtime metadata from the previous tenant cannot survive navigation.
-        window.location.assign("/app/");
-        return;
-      }
-
-      await navigate({ to: targetPath });
-    } catch {
-      setMessage("Network error, please try again");
-    } finally {
-      setLoading(false);
-    }
+    const result = await login({ email, password });
+    if (result.success) window.location.assign("/app/");
+    else setMessage(result.error.message);
+    setLoading(false);
   }
 
   return (
-    <TechMediaAuthLayout surface={desk} title={title}>
+    <TechMediaAuthLayout surface="app" title="TechMedia Login">
       <form className="auth-form" onSubmit={submit}>
-        {desk === "tenant" && tenantLoginSettings.showCorporateId ? (
-          <Field
-            autoComplete="organization"
-            className="auth-field"
-            label="Corporate ID"
-            name="corporateId"
-            disabled={loading}
-            onChange={(event: ChangeEvent<HTMLInputElement>) => setCorporateId(event.target.value)}
-            value={corporateId}
-          />
-        ) : null}
         <Field
           autoComplete="email"
           className="auth-field"

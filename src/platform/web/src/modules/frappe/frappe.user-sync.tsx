@@ -138,7 +138,7 @@ export function FrappeUserSyncWorkspace({ canImport }: { canImport: boolean }) {
           Refresh preview
         </Button>
       }
-      description="Preview enabled Frappe System Users and add them to this tenant application."
+      description="Preview enabled Frappe System Users and add them to TechMedia."
       technicalName="page.frappe.user-sync"
       title="Frappe user sync"
     >

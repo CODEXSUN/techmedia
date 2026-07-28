@@ -1,145 +1,60 @@
-import { env } from "../env.js";
-import { getTenantDatabase } from "../database/tenant-database.js";
+import { getTechMediaDatabase } from "../database/techmedia-database.js";
 import { frappeUserAuthenticationContract } from "../modules/frappe/index.js";
-import { TenantRepository } from "../modules/tenant/tenant.repository.js";
-import type { Tenant } from "../modules/tenant/tenant.types.js";
-import { signAuthToken, type AuthUserType } from "./jwt.js";
+import { signAuthToken } from "./jwt.js";
 import { verifyPassword } from "./password-hash.js";
-import { TENANT_SUPER_ADMIN_ROLE_KEY } from "../modules/tenant-role/index.js";
-
-const tenantRepository = new TenantRepository();
 
 export class AuthService {
-  async login(input: LoginInput) {
-    const desk = normalizeDesk(input.desk);
+  async login(input: { email?: string; password?: string }) {
     const email = input.email?.trim().toLowerCase() ?? "";
     const password = input.password ?? "";
     if (!email || !password) return null;
 
-    if (desk === "tenant") {
-      return this.loginTenant({ ...input, email, password });
-    }
-
-    return this.loginPlatformUser({ desk, email, password });
-  }
-
-  private async loginTenant(input: Required<Pick<LoginInput, "email" | "password">> & LoginInput) {
-    const domainTenant = await tenantRepository.findByDomain(input.domain ?? "");
-    const corporateId = input.corporateId?.trim() ?? "";
-    const tenant =
-      domainTenant ?? (corporateId ? await tenantRepository.findByCorporateId(corporateId) : null);
-    if (
-      !tenant ||
-      tenant.status !== "active" ||
-      !corporateMatchesTenant(tenant, corporateId, Boolean(domainTenant))
-    ) {
+    const database = getTechMediaDatabase();
+    const user = await database
+      .selectFrom("users")
+      .select(["id", "uuid", "email", "name", "password_hash", "role", "status"])
+      .where("email", "=", email)
+      .executeTakeFirst();
+    if (!user || user.status !== "active" || !verifyPassword(password, user.password_hash)) {
       return null;
     }
 
-    const user = await tenantRepository.findTenantUserByEmail(tenant, input.email);
-    if (!user || user.status !== "active" || !verifyPassword(input.password, user.password_hash)) {
-      return null;
-    }
-    const permissions =
-      user.role === TENANT_SUPER_ADMIN_ROLE_KEY
-        ? await tenantRepository.findTenantPermissionKeys(tenant)
-        : await tenantRepository.findTenantUserPermissionKeys(tenant, user.id);
-    const publicTenantRole = user.role === TENANT_SUPER_ADMIN_ROLE_KEY ? "user" : user.role;
-    const frappeAuthentication = tenant.enabledModuleKeys.includes("frappe")
-      ? await frappeUserAuthenticationContract(getTenantDatabase(tenant)).statusForLogin(user.id)
-      : { authenticatedUser: null, employeeCode: null, status: "disabled" as const };
-
-    return {
-      accessToken: signAuthToken({
-        email: user.email,
-        ...(frappeAuthentication.employeeCode
-          ? { frappeEmployeeCode: frappeAuthentication.employeeCode }
-          : {}),
-        ...(frappeAuthentication.authenticatedUser
-          ? { frappeUser: frappeAuthentication.authenticatedUser }
-          : {}),
-        name: user.name,
-        tenantCode: tenant.tenantCode,
-        tenantDbName: tenant.dbName,
-        tenantId: tenant.uuid,
-        tenantUuid: tenant.uuid,
-        tenantRole: publicTenantRole,
-        permissions,
-        userId: user.uuid,
-        userType: "tenant"
-      }),
+    const permissions = await database
+      .selectFrom("user_roles as userRole")
+      .innerJoin("roles as role", "role.id", "userRole.role_id")
+      .innerJoin("role_permissions as rolePermission", "rolePermission.role_id", "role.id")
+      .innerJoin("permissions as permission", "permission.id", "rolePermission.permission_id")
+      .select("permission.key")
+      .where("userRole.user_id", "=", user.id)
+      .where("userRole.status", "=", "active")
+      .where("role.status", "=", "active")
+      .where("rolePermission.status", "=", "active")
+      .where("permission.status", "=", "active")
+      .distinct()
+      .orderBy("permission.key")
+      .execute();
+    const permissionKeys = permissions.map(({ key }) => key);
+    const frappe = await frappeUserAuthenticationContract(database).statusForLogin(Number(user.id));
+    const accessToken = signAuthToken({
       email: user.email,
-      frappeAuthenticated: frappeAuthentication.status === "live",
-      frappeAuthenticatedUser: frappeAuthentication.authenticatedUser,
-      frappeEmployeeCode: frappeAuthentication.employeeCode,
-      frappeConnectionStatus: frappeAuthentication.status,
+      ...(frappe.employeeCode ? { frappeEmployeeCode: frappe.employeeCode } : {}),
+      ...(frappe.authenticatedUser ? { frappeUser: frappe.authenticatedUser } : {}),
       name: user.name,
-      tenantCode: tenant.tenantCode,
-      tenantDbName: tenant.dbName,
-      tenantId: tenant.uuid,
-      tenantUuid: tenant.uuid,
-      tenantRole: publicTenantRole,
-      permissions,
-      userType: "tenant" as const
-    };
-  }
-
-  private loginPlatformUser(input: {
-    desk: "staff" | "super_admin";
-    email: string;
-    password: string;
-  }) {
-    const seed = input.desk === "super_admin" ? platformSeed("super_admin") : platformSeed("staff");
-    if (!seed || input.email !== seed.email || input.password !== seed.password) {
-      return null;
-    }
+      permissions: permissionKeys,
+      role: user.role,
+      userId: user.uuid
+    });
 
     return {
-      accessToken: signAuthToken({
-        email: seed.email,
-        userId: seed.email,
-        userType: input.desk
-      }),
-      email: seed.email,
-      userType: input.desk
+      accessToken,
+      email: user.email,
+      frappeAuthenticated: frappe.status === "live",
+      frappeAuthenticatedUser: frappe.authenticatedUser,
+      frappeEmployeeCode: frappe.employeeCode,
+      frappeConnectionStatus: frappe.status,
+      name: user.name,
+      permissions: permissionKeys,
+      role: user.role
     };
   }
-}
-
-type LoginInput = {
-  corporateId?: string;
-  desk?: unknown;
-  domain?: string;
-  email?: string;
-  password?: string;
-};
-
-function normalizeDesk(value: unknown): AuthUserType {
-  if (value === "sa" || value === "super_admin") return "super_admin";
-  if (value === "admin" || value === "staff") return "staff";
-  return "tenant";
-}
-
-function corporateMatchesTenant(tenant: Tenant, corporateId: string, resolvedByDomain: boolean) {
-  if (!corporateId) return false;
-  const normalized = corporateId.trim().toLowerCase();
-  const candidates = [tenant.corporateId, tenant.tenantCode, tenant.slug]
-    .filter(Boolean)
-    .map((value) => String(value).toLowerCase());
-  return (
-    candidates.includes(normalized) ||
-    (resolvedByDomain && candidates.length > 0 && candidates.includes(normalized))
-  );
-}
-
-function platformSeed(userType: "staff" | "super_admin") {
-  if (userType === "super_admin") {
-    const email = env.SUPER_ADMIN_EMAIL.trim().toLowerCase();
-    const password = env.SUPER_ADMIN_PASSWORD.trim();
-    return email && password ? { email, password } : null;
-  }
-
-  const email = env.SOFTWARE_ADMIN_EMAIL.trim().toLowerCase();
-  const password = env.SOFTWARE_ADMIN_PASSWORD.trim();
-  return email && password ? { email, password } : null;
 }

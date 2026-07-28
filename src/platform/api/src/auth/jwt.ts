@@ -1,27 +1,20 @@
-﻿import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { env } from "../env.js";
 
-export type AuthUserType = "super_admin" | "staff" | "tenant";
-
 export type AuthTokenPayload = {
-  aud: "codexsun-platform";
+  aud: "techmedia";
   email: string;
   exp: number;
   iat: number;
-  iss: "codexsun-platform-api";
+  iss: "techmedia-api";
   jti: string;
   name?: string;
   frappeEmployeeCode?: string;
   frappeUser?: string;
   sessionIssuedAt: string;
-  tenantCode?: string;
-  tenantDbName?: string;
-  tenantId?: string;
-  tenantUuid?: string;
-  tenantRole?: string;
+  role?: string;
   permissions?: string[];
   userId: string;
-  userType: AuthUserType;
 };
 
 export function signAuthToken(
@@ -30,10 +23,10 @@ export function signAuthToken(
   const now = Math.floor(Date.now() / 1000);
   const payload: AuthTokenPayload = {
     ...input,
-    aud: "codexsun-platform",
+    aud: "techmedia",
     exp: now + 60 * 60 * 4,
     iat: now,
-    iss: "codexsun-platform-api",
+    iss: "techmedia-api",
     jti: randomUUID(),
     sessionIssuedAt: new Date(now * 1000).toISOString()
   };
@@ -55,11 +48,7 @@ export function verifyAuthToken(token: string): AuthTokenPayload | null {
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as AuthTokenPayload;
     const now = Math.floor(Date.now() / 1000);
-    if (
-      payload.iss !== "codexsun-platform-api" ||
-      payload.aud !== "codexsun-platform" ||
-      payload.exp <= now
-    ) {
+    if (payload.iss !== "techmedia-api" || payload.aud !== "techmedia" || payload.exp <= now) {
       return null;
     }
     return payload;

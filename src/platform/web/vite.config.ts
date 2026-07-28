@@ -11,7 +11,6 @@ const repositoryDir = resolve(configDir, "../../..");
 const workspaceDir = resolve(repositoryDir, "..");
 const platformSourceRoots = [
   repositoryDir,
-  resolve(workspaceDir, "core"),
   resolve(workspaceDir, "framework"),
   resolve(workspaceDir, "ui")
 ];
@@ -125,13 +124,8 @@ export default defineConfig(({ command, mode }) => {
     },
     define: {
       __APP_VERSION__: JSON.stringify(rootPackage.version),
-      "import.meta.env.VITE_DEV_AUTO_TENANT_LOGIN": JSON.stringify(
-        runtimeEnv.DEV_AUTO_TENANT_LOGIN ?? "0"
-      ),
-      "import.meta.env.VITE_PLATFORM_API_URL": JSON.stringify("/api/platform"),
-      "import.meta.env.VITE_TENANT_NAME": JSON.stringify(
-        runtimeEnv.DEFAULT_TENANT_NAME || "TechMedia"
-      )
+      "import.meta.env.VITE_DEV_AUTO_LOGIN": JSON.stringify(runtimeEnv.DEV_AUTO_LOGIN ?? "0"),
+      "import.meta.env.VITE_PLATFORM_API_URL": JSON.stringify("/api/platform")
     },
     plugins: [tailwindcss(), react()],
     resolve: {
@@ -158,11 +152,6 @@ export default defineConfig(({ command, mode }) => {
               ]
             },
             proxy: {
-              "/api/core": {
-                changeOrigin: false,
-                rewrite: (path) => path.replace(/^\/api\/core/u, "") || "/",
-                target: platformApiTarget(runtimeEnv)
-              },
               "/api/platform": {
                 changeOrigin: false,
                 rewrite: (path) => path.replace(/^\/api\/platform/u, "") || "/",

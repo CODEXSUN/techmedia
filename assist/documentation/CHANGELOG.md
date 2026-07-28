@@ -2,16 +2,49 @@
 
 ## Version State
 
-Current version: 1.0.11
+Current version: 1.0.12
 
-Release tag: v-1.0.11
+Release tag: v-1.0.12
 
-Changelog label: v 1.0.11
+Changelog label: v 1.0.12
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.12
+
+### [v 1.0.12] 2026-07-29 12:15 am - Complete standalone TechMedia CRM and Estimate
+
+#### Database Changes
+
+- Database update: Yes.
+- Replaced tenant database routing with one `DB_NAME`-selected TechMedia database and limited the
+  local schema to users, roles, permissions, user-role assignments, role-permission assignments,
+  and schema migration history.
+- Removed tenant, application registry, entitlement, subscription, storage, queue, and locally
+  persisted CRM database ownership from the TechMedia runtime.
+- Kept Settings, CRM, and Estimate free of local business tables: the application connection is
+  stored in `.env`, per-user Frappe credentials remain on Identity users, and business records are
+  read and written directly through live Frappe contracts.
+
+#### App Codebase Changes
+
+- Converted TechMedia into a standalone single-client application with one login, one desk, one
+  database lifecycle, and no tenant-aware or TMApp runtime composition.
+- Retained only Identity administration, Frappe Settings, CRM enquiries, and Estimate workflows,
+  with CRM visible to every authenticated user and Identity/Settings gated to the Administrator
+  role in both the frontend routes and API authorization boundary.
+- Added the live-Frappe Estimate module with list, search, filters, configurable columns,
+  pagination, bounded reference lookups, and dedicated create/update pages.
+- Refined CRM enquiry navigation and lists with consistent workspace widths, initial-load spinners,
+  completed empty states, removal of the separate Enquiry ID selector, and cleaned Frappe labels.
+- Added Frappe connection save and verification state, user import before credential verification,
+  administrator-only theme selection, simplified breadcrumbs, and consistent CRM/Settings desks.
+- Standardized Estimate and enquiry layouts with shared list gutters, centered responsive forms,
+  compact controls, and matching live-loading feedback.
+- Bumped the repository, Platform API, Platform Web, and lockfile versions to 1.0.12.
 
 ## v-1.0.11
 

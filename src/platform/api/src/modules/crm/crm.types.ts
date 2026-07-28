@@ -1,5 +1,5 @@
 import type { Kysely } from "kysely";
-import type { TenantDatabase } from "../../database/schema.js";
+import type { TechMediaDatabase } from "../../database/schema.js";
 
 export type CrmEnquiryPriority = "low" | "normal" | "high" | "urgent";
 export type CrmEnquiryStatus = "escalation" | "follow" | "lost" | "open" | "won";
@@ -187,11 +187,6 @@ export type CrmEnquirySavePayload = {
   workspace: string;
 };
 
-export type CrmEnquirySyncInput = Omit<CrmEnquirySavePayload, "assignedToUserId"> & {
-  assignedToUserId: number | null;
-  createdByUserId: number;
-};
-
 export type CrmEnquiryListFilters = {
   enquiryId?: string;
   search?: string;
@@ -215,32 +210,10 @@ export type CrmEnquiryOverview = {
   viewCounts: Record<CrmEnquiryView, number>;
 };
 
-export type CrmActor = {
-  email: string;
-  id: number;
-  name: string;
-  role: string;
-  status: "active" | "inactive" | "suspended";
-  uuid: string;
-};
-
-export type CrmEnquiryExternalLifecycle = {
-  delete: (enquiryId: number, userId: number) => Promise<unknown>;
-  resync: (enquiryId: number, userId: number) => Promise<CrmEnquiryResyncResult>;
-  upsert: (enquiryId: number, userId: number) => Promise<unknown>;
-};
-
-export type CrmEnquiryResyncResult = {
-  action: "created" | "updated";
-  frappeName: string;
-};
-
 export type CrmContext = {
   actorEmail: string;
-  actorUser: () => Promise<CrmActor | undefined>;
   authorize: (permission: string) => Promise<void>;
   can: (permission: string) => Promise<boolean>;
-  database: Kysely<TenantDatabase>;
+  database: Kysely<TechMediaDatabase>;
   frappeEmployeeCode: string | null;
-  tenantId: string;
 };

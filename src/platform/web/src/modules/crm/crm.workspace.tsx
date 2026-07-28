@@ -14,7 +14,6 @@ import {
 import { Button } from "@codexsun/ui/components/button";
 import { cn } from "@codexsun/ui/lib/utils";
 import { WorkspaceFilters } from "@codexsun/ui/workspace/filters";
-import { WorkspaceLookup } from "@codexsun/ui/workspace/lookup";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";
 import { WorkspacePagination } from "@codexsun/ui/workspace/pagination";
 import { buildShowingLabel } from "@codexsun/ui/workspace/utils";
@@ -22,7 +21,6 @@ import { CrmForm } from "./crm.form";
 import {
   useCrmEnquiriesQuery,
   useCrmEnquiryMutations,
-  useCrmReferencesQuery,
   useCrmUsersQuery
 } from "./crm.hooks";
 import { CrmList } from "./crm.list";
@@ -91,7 +89,6 @@ export function CrmWorkspace({
   view: CrmEnquiryView;
 }) {
   const [search, setSearch] = useState("");
-  const [enquiryId, setEnquiryId] = useState<string | undefined>();
   const [listInFilter, setListInFilter] = useState("all");
   const [visibleColumns, setVisibleColumns] = useState<CrmEnquiryColumnVisibility>(
     defaultEnquiryColumnVisibility
@@ -103,12 +100,11 @@ export function CrmWorkspace({
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const query = useCrmEnquiriesQuery({
     view,
-    ...(search ? { search } : {}),
-    ...(enquiryId ? { enquiryId } : {})
+    ...(search ? { search } : {})
   });
-  const references = useCrmReferencesQuery();
   const users = useCrmUsersQuery();
   const mutations = useCrmEnquiryMutations();
+  const initialLoading = query.data === undefined && query.isFetching;
   const records = query.data ?? [];
   const listInOptions = useMemo(
     () => [
@@ -153,7 +149,7 @@ export function CrmWorkspace({
     }
   }
 
-  useEffect(() => setPage(1), [view, search, enquiryId, listInFilter]);
+  useEffect(() => setPage(1), [view, search, listInFilter]);
   useEffect(() => {
     if (!listInOptions.some((option) => option.id === listInFilter)) setListInFilter("all");
   }, [listInFilter, listInOptions]);
@@ -244,25 +240,10 @@ export function CrmWorkspace({
         onShowAllColumns={() => setVisibleColumns(allEnquiryColumnsVisible())}
         searchPlaceholder="Search title or enquiry ID"
         searchValue={search}
-        toolbarAction={
-          <div className="w-64">
-            <WorkspaceLookup
-              allowTextValue={false}
-              compactOptions
-              loading={references.isLoading}
-              options={(references.data ?? []).map((reference) => ({
-                label: `#${reference.id} · ${reference.title}`,
-                value: String(reference.id)
-              }))}
-              placeholder="Enquiry ID"
-              showAllOptionsOnFocus
-              value={enquiryId ? String(enquiryId) : ""}
-              onValueChange={(value) => setEnquiryId(value || undefined)}
-            />
-          </div>
-        }
       />
       <CrmList
+        error={query.isError}
+        loading={initialLoading}
         {...(canForceDelete
           ? {
               onForceDelete: (record) => setPendingAction({ record, type: "force-delete" as const })
@@ -276,21 +257,23 @@ export function CrmWorkspace({
           assignedTo: view === "assigned" ? false : visibleColumns.assignedTo
         }}
       />
-      <WorkspacePagination
-        page={currentPage}
-        rowsPerPage={rowsPerPage}
-        showingLabel={buildShowingLabel(currentPage, rowsPerPage, filteredRecords.length)}
-        singularLabel="enquiry"
-        totalCount={filteredRecords.length}
-        totalPages={totalPages}
-        onNextPage={() => setPage((value) => Math.min(totalPages, value + 1))}
-        onPageChange={setPage}
-        onPreviousPage={() => setPage((value) => Math.max(1, value - 1))}
-        onRowsPerPageChange={(value) => {
-          setRowsPerPage(value);
-          setPage(1);
-        }}
-      />
+      {query.data !== undefined ? (
+        <WorkspacePagination
+          page={currentPage}
+          rowsPerPage={rowsPerPage}
+          showingLabel={buildShowingLabel(currentPage, rowsPerPage, filteredRecords.length)}
+          singularLabel="enquiry"
+          totalCount={filteredRecords.length}
+          totalPages={totalPages}
+          onNextPage={() => setPage((value) => Math.min(totalPages, value + 1))}
+          onPageChange={setPage}
+          onPreviousPage={() => setPage((value) => Math.max(1, value - 1))}
+          onRowsPerPageChange={(value) => {
+            setRowsPerPage(value);
+            setPage(1);
+          }}
+        />
+      ) : null}
       <CrmForm
         canAssign={canAssign}
         {...((mutations.create.error ?? mutations.update.error) instanceof Error
