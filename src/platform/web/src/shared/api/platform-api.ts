@@ -26,6 +26,20 @@ export function clearToken(): void {
   } catch {}
 }
 
+export function tokenIsCurrent(token = getToken()): boolean {
+  if (!token) return false;
+  try {
+    const encoded = token.split(".")[1];
+    if (!encoded) return false;
+    const claims = JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/"))) as {
+      exp?: number;
+    };
+    return typeof claims.exp === "number" && claims.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -47,9 +61,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   if (!envelope) throw new Error("TechMedia API returned an empty response.");
   if (!response.ok || !envelope.success) {
+    if (response.status === 401 && token && !isCredentialRequest(path)) {
+      clearToken();
+      if (window.location.pathname !== "/login" && window.location.pathname !== "/") {
+        window.location.replace("/login");
+      }
+    }
     throw new Error(envelope.success ? "Request failed" : envelope.error.message);
   }
   return envelope.data;
+}
+
+function isCredentialRequest(path: string) {
+  return path === "/auth/login" || path === "/auth/development/login";
 }
 
 export function apiGet<T>(path: string, ..._unused: unknown[]): Promise<T> {

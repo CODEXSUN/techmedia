@@ -1,6 +1,6 @@
 {
   "name": "@techmedia/platform-web",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "private": true,
   "type": "module",
   "scripts": {
@@ -22,7 +22,7 @@
     "lucide-react": "^1.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^2.15.4",
+    "recharts": "^3.10.1",
     "zod": "^4.4.3"
   }
 }

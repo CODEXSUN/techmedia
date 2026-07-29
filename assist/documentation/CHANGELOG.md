@@ -2,16 +2,36 @@
 
 ## Version State
 
-Current version: 1.0.12
+Current version: 1.0.13
 
-Release tag: v-1.0.12
+Release tag: v-1.0.13
 
-Changelog label: v 1.0.12
+Changelog label: v 1.0.13
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.13
+
+### [v 1.0.13] 2026-07-29 11:47 am - Complete standalone deployment and public login
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.13.
+- Added the standalone TechMedia container deployment, interactive setup flow, environment
+  contract, and shared-service integration used by the CXApp TechMedia stack.
+- Reworked the public login into a responsive TechMedia landing experience while preserving
+  authenticated return paths and application routing.
+- Corrected browser API URL normalization and authentication gating for loopback development and
+  container deployment.
+- Updated Recharts to the supported 3.x line, reviewed install scripts, and produced clean audit
+  and production build results.
 
 ## v-1.0.12
 

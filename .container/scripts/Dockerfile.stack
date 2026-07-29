@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1.7
+ARG NODE_RUNTIME_VERSION=26.5.0
+FROM node:${NODE_RUNTIME_VERSION}-bookworm-slim AS build
+
+ARG NPM_RUNTIME_VERSION=12.0.1
+WORKDIR /workspace
+RUN npm install --global npm@${NPM_RUNTIME_VERSION}
+
+# The standalone TechMedia image receives only its public shared dependencies.
+COPY framework ./framework
+COPY ui ./ui
+COPY core ./core
+COPY techmedia ./techmedia
+
+RUN --mount=type=cache,id=techmedia-framework-npm,target=/root/.npm \
+  cd framework && npm ci && npm run build
+RUN --mount=type=cache,id=techmedia-ui-npm,target=/root/.npm \
+  cd ui && npm ci && npm run build
+RUN --mount=type=cache,id=techmedia-core-npm,target=/root/.npm \
+  cd core && npm ci && npm run build
+RUN --mount=type=cache,id=techmedia-app-npm,target=/root/.npm \
+  cd techmedia && npm ci && npm run build
+
+FROM node:${NODE_RUNTIME_VERSION}-bookworm-slim AS api-runtime
+ARG NPM_RUNTIME_VERSION=12.0.1
+WORKDIR /workspace/techmedia
+RUN npm install --global npm@${NPM_RUNTIME_VERSION} && \
+  apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
+  rm -rf /var/lib/apt/lists/*
+COPY --chown=node:node --from=build /workspace/framework /workspace/framework
+COPY --chown=node:node --from=build /workspace/ui /workspace/ui
+COPY --chown=node:node --from=build /workspace/techmedia /workspace/techmedia
+USER node
+EXPOSE 7050
+CMD ["node", "dist/platform/api/server.js"]
+
+FROM nginx:1.28-alpine AS web-runtime
+COPY techmedia/.container/scripts/nginx-spa.conf /etc/nginx/templates/default.conf.template
+COPY --from=build /workspace/techmedia/dist/platform/web /usr/share/nginx/html
+EXPOSE 80

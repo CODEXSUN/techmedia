@@ -7,7 +7,7 @@ export function setPlatformDocumentTitle(pageTitle: string) {
 }
 
 const pageTitles: Record<string, string> = {
-  "/": "App Portal",
+  "/": "Login",
   "/admin": "Admin Desk",
   "/admin/login": "Staff Admin Login",
   "/app": "Application Desk",
