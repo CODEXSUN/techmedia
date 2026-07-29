@@ -34,8 +34,6 @@ services:
     env_file:
       - ${TECHMEDIA_RUNTIME_ENV_FILE:-./.env}
     environment:
-      DB_HOST: mariadb
-      DB_PORT: 3306
       DEV_AUTO_LOGIN: "0"
       NODE_ENV: production
       PLATFORM_API_PORT: ${TECHMEDIA_API_INTERNAL_PORT:-7050}

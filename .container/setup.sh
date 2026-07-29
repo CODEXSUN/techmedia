@@ -5,10 +5,12 @@ CONTAINER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$CONTAINER_DIR/.." && pwd)"
 WORKSPACE_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
 RUNTIME_ENV="${TECHMEDIA_RUNTIME_ENV:-$CONTAINER_DIR/.env}"
+RUNTIME_ENV_EXAMPLE="$CONTAINER_DIR/.env.example"
 DEPLOY_ENV="${TECHMEDIA_DEPLOY_ENV:-$CONTAINER_DIR/deploy.env}"
 DEPLOY_ENV_EXAMPLE="$CONTAINER_DIR/deploy.env.example"
 COMPOSE_FILE="$CONTAINER_DIR/docker-compose.yml"
 SHARED_REPOSITORIES=(framework ui core)
+SHARED_DEPLOY_ENV="${TECHMEDIA_SHARED_DEPLOY_ENV:-$WORKSPACE_ROOT/cxapp/.container/deploy.env}"
 
 usage() {
   cat <<'EOF'
@@ -25,14 +27,17 @@ Included:
   - UI
   - Core build dependency
   - TechMedia Platform API and Web
-  - TechMedia-owned MariaDB
+  - Reused shared MariaDB or a TechMedia-owned MariaDB
 
 Excluded:
   - CXApp, Billing, DevKit, Mail, TMApp, Trades, Redis, Media, and all other stacks
 
 The setup asks whether to reuse or freshly clone shared source checkouts.
-If TechMedia MariaDB data already exists, it separately asks whether to reuse
-or freshly recreate only the TechMedia database volume.
+It then asks whether to reuse an already-running MariaDB/Redis/Media
+infrastructure set or start a dedicated TechMedia MariaDB. TechMedia uses only
+MariaDB; reused Redis and Media containers are detected and left untouched.
+If dedicated TechMedia MariaDB data already exists, setup separately asks
+whether to reuse or freshly recreate only the TechMedia database volume.
 EOF
 }
 
@@ -154,14 +159,10 @@ prepare_deploy_environment() {
 }
 
 prepare_runtime_environment() {
+  local infrastructure_mode="$1" database_host
   if [[ ! -f "$RUNTIME_ENV" ]]; then
-    if [[ -f "$ROOT_DIR/.env" ]]; then
-      cp "$ROOT_DIR/.env" "$RUNTIME_ENV"
-      echo "Created production runtime settings from the root .env: $RUNTIME_ENV"
-    else
-      cp "$ROOT_DIR/.env.example" "$RUNTIME_ENV"
-      echo "Created production runtime settings: $RUNTIME_ENV"
-    fi
+    cp "$RUNTIME_ENV_EXAMPLE" "$RUNTIME_ENV"
+    echo "Created production runtime settings: $RUNTIME_ENV"
   fi
 
   ensure_secret "$RUNTIME_ENV" JWT_SECRET
@@ -178,7 +179,12 @@ prepare_runtime_environment() {
   set_file_value "$RUNTIME_ENV" DEV_AUTO_LOGIN 0
   set_file_value "$RUNTIME_ENV" VITE_DEV_AUTO_LOGIN 0
   set_file_value "$RUNTIME_ENV" DB_DRIVER mariadb
-  set_file_value "$RUNTIME_ENV" DB_HOST mariadb
+  if [[ "$infrastructure_mode" == shared ]]; then
+    database_host="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
+  else
+    database_host=mariadb
+  fi
+  set_file_value "$RUNTIME_ENV" DB_HOST "$database_host"
   set_file_value "$RUNTIME_ENV" DB_PORT 3306
   set_file_value "$RUNTIME_ENV" DB_USER "$(file_value "$DEPLOY_ENV" DB_USER)"
   set_file_value "$RUNTIME_ENV" DB_PASSWORD "$(file_value "$DEPLOY_ENV" DB_PASSWORD)"
@@ -281,6 +287,73 @@ prepare_shared_repositories() {
   done
 }
 
+container_is_running() {
+  [[ "$(docker inspect --format '{{.State.Running}}' "$1" 2>/dev/null || true)" == true ]]
+}
+
+select_infrastructure_mode() {
+  local answer shared_mariadb
+  shared_mariadb="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
+  while true; do
+    if container_is_running "$shared_mariadb"; then
+      read -r -p \
+        "Reuse running MariaDB/Redis/Media infrastructure or use a fresh standalone TechMedia MariaDB? [reuse/fresh] " \
+        answer
+    else
+      read -r -p \
+        "Shared MariaDB is unavailable. Use a fresh standalone TechMedia MariaDB? [fresh] " \
+        answer
+      answer="${answer:-fresh}"
+    fi
+    case "${answer:-reuse}" in
+      reuse|Reuse|REUSE)
+        printf 'shared'
+        return
+        ;;
+      fresh|Fresh|FRESH)
+        printf 'dedicated'
+        return
+        ;;
+      *)
+        echo "Enter reuse or fresh." >&2
+        ;;
+    esac
+  done
+}
+
+prepare_shared_infrastructure() {
+  local mariadb redis media root_password name
+  mariadb="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
+  redis="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_REDIS_CONTAINER_NAME cxapp-redis)"
+  media="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MEDIA_CONTAINER_NAME cxapp-media)"
+  for name in "$mariadb" "$redis" "$media"; do
+    safe_docker_name "$name"
+  done
+  container_is_running "$mariadb" || {
+    echo "Shared MariaDB container is not running: $mariadb" >&2
+    exit 69
+  }
+  for name in "$redis" "$media"; do
+    if container_is_running "$name"; then
+      echo "Detected shared container (left untouched; TechMedia does not consume it): $name"
+    else
+      echo "Shared optional container is unavailable and is not required by TechMedia: $name"
+    fi
+  done
+
+  root_password="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_ROOT_PASSWORD)"
+  if [[ -z "$root_password" && -f "$SHARED_DEPLOY_ENV" ]]; then
+    root_password="$(file_value "$SHARED_DEPLOY_ENV" MARIADB_ROOT_PASSWORD)"
+    [[ -z "$root_password" ]] ||
+      set_file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_ROOT_PASSWORD "$root_password"
+  fi
+  [[ -n "$root_password" ]] || {
+    echo "Shared MariaDB root password is unavailable." >&2
+    echo "Configure TECHMEDIA_SHARED_MARIADB_ROOT_PASSWORD in $DEPLOY_ENV." >&2
+    exit 78
+  }
+}
+
 compose() {
   TECHMEDIA_RUNTIME_ENV_FILE="$RUNTIME_ENV" docker compose \
     --env-file "$RUNTIME_ENV" \
@@ -330,12 +403,17 @@ sql_string() {
 }
 
 reconcile_database_user() {
-  local container database user password root_password escaped_password
-  container="$(file_value "$DEPLOY_ENV" TECHMEDIA_MARIADB_CONTAINER_NAME techmedia-mariadb)"
+  local infrastructure_mode="$1" container database user password root_password escaped_password
+  if [[ "$infrastructure_mode" == shared ]]; then
+    container="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
+    root_password="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_ROOT_PASSWORD)"
+  else
+    container="$(file_value "$DEPLOY_ENV" TECHMEDIA_MARIADB_CONTAINER_NAME techmedia-mariadb)"
+    root_password="$(file_value "$DEPLOY_ENV" MARIADB_ROOT_PASSWORD)"
+  fi
   database="$(file_value "$RUNTIME_ENV" DB_NAME)"
   user="$(file_value "$RUNTIME_ENV" DB_USER)"
   password="$(file_value "$RUNTIME_ENV" DB_PASSWORD)"
-  root_password="$(file_value "$DEPLOY_ENV" MARIADB_ROOT_PASSWORD)"
   escaped_password="$(sql_string "$password")"
   safe_docker_name "$container"
 
@@ -355,6 +433,45 @@ SQL
   fi
 }
 
+connect_shared_mariadb() {
+  local network container
+  network="$(file_value "$DEPLOY_ENV" TECHMEDIA_NETWORK techmedia-network)"
+  container="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
+  safe_docker_name "$network"
+  safe_docker_name "$container"
+  docker network inspect "$network" >/dev/null 2>&1 || docker network create "$network" >/dev/null
+  if ! docker inspect --format \
+    '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{println}}{{end}}' \
+    "$container" | grep -Fxq "$network"; then
+    docker network connect "$network" "$container"
+  fi
+}
+
+disconnect_shared_mariadb() {
+  local network container
+  network="$(file_value "$DEPLOY_ENV" TECHMEDIA_NETWORK techmedia-network)"
+  container="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
+  if docker network inspect "$network" >/dev/null 2>&1 &&
+    docker container inspect "$container" >/dev/null 2>&1 &&
+    docker inspect --format \
+      '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{println}}{{end}}' \
+      "$container" | grep -Fxq "$network"; then
+    docker network disconnect "$network" "$container"
+  fi
+}
+
+remove_dedicated_database_container() {
+  local container
+  container="$(file_value "$DEPLOY_ENV" TECHMEDIA_MARIADB_CONTAINER_NAME techmedia-mariadb)"
+  safe_docker_name "$container"
+  if docker container inspect "$container" >/dev/null 2>&1; then
+    docker stop "$container" >/dev/null
+    docker rm "$container" >/dev/null
+    echo "Removed the unused dedicated MariaDB container: $container"
+    echo "Preserved its recoverable Docker volume."
+  fi
+}
+
 require_command git
 require_command node
 require_command docker
@@ -368,14 +485,23 @@ docker compose version >/dev/null 2>&1 || {
 }
 
 prepare_deploy_environment
-prepare_runtime_environment
-validate_runtime_environment
 shared_mode="$(select_shared_mode)"
 prepare_shared_repositories "$shared_mode"
+infrastructure_mode="$(select_infrastructure_mode)"
+if [[ "$infrastructure_mode" == shared ]]; then
+  prepare_shared_infrastructure
+fi
+prepare_runtime_environment "$infrastructure_mode"
+validate_runtime_environment
 
-database_volume="$(file_value "$DEPLOY_ENV" TECHMEDIA_MARIADB_DATA_VOLUME techmedia-mariadb-data)"
-safe_docker_name "$database_volume"
-database_mode="$(select_database_mode "$database_volume")"
+if [[ "$infrastructure_mode" == dedicated ]]; then
+  database_volume="$(file_value "$DEPLOY_ENV" TECHMEDIA_MARIADB_DATA_VOLUME techmedia-mariadb-data)"
+  safe_docker_name "$database_volume"
+  database_mode="$(select_database_mode "$database_volume")"
+else
+  database_volume=""
+  database_mode="reuse shared MariaDB"
+fi
 
 compose config --quiet
 
@@ -384,9 +510,10 @@ echo "Standalone TechMedia deployment plan"
 echo "  Runtime env: $RUNTIME_ENV"
 echo "  Deploy env: $DEPLOY_ENV"
 echo "  Shared source: $shared_mode"
+echo "  Infrastructure: $infrastructure_mode"
 echo "  MariaDB data: $database_mode"
 echo "  Images: Framework -> UI -> Core -> TechMedia Platform API/Web"
-echo "  Runtime: TechMedia API, TechMedia Web, TechMedia MariaDB"
+echo "  Runtime: TechMedia API, TechMedia Web, selected MariaDB"
 echo "  Excluded: CXApp, TMApp, Billing, DevKit, Mail, Trades, Redis, and Media"
 read -r -p "Build and apply this standalone TechMedia installation? [Y/n] " confirmation
 case "${confirmation:-Y}" in
@@ -397,15 +524,25 @@ case "${confirmation:-Y}" in
     ;;
 esac
 
-if [[ "$database_mode" == fresh ]] && docker volume inspect "$database_volume" >/dev/null 2>&1; then
+if [[ "$infrastructure_mode" == dedicated && "$database_mode" == fresh ]] &&
+  docker volume inspect "$database_volume" >/dev/null 2>&1; then
+  disconnect_shared_mariadb
   compose down --remove-orphans
   docker volume rm "$database_volume" >/dev/null
 fi
 
 compose build api web
-compose up -d mariadb --wait --wait-timeout 180
-reconcile_database_user
-compose up -d api web --no-build --force-recreate --wait --wait-timeout 300
+if [[ "$infrastructure_mode" == shared ]]; then
+  connect_shared_mariadb
+  reconcile_database_user shared
+  remove_dedicated_database_container
+  compose up -d api web --no-build --no-deps --force-recreate --wait --wait-timeout 300
+else
+  disconnect_shared_mariadb
+  compose up -d mariadb --wait --wait-timeout 180
+  reconcile_database_user dedicated
+  compose up -d api web --no-build --force-recreate --wait --wait-timeout 300
+fi
 
 echo
 echo "TechMedia standalone installation completed."

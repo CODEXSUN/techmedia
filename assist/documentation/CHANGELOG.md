@@ -2,16 +2,42 @@
 
 ## Version State
 
-Current version: 1.0.13
+Current version: 1.0.14
 
-Release tag: v-1.0.13
+Release tag: v-1.0.14
 
-Changelog label: v 1.0.13
+Changelog label: v 1.0.14
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## v-1.0.14
+
+### [v 1.0.14] 2026-07-29 5:23 pm - Harden standalone shared-infrastructure deployment
+
+#### Database Changes
+
+- Database update: No.
+- Kept the Identity schema and migration history unchanged while allowing setup to reconcile the
+  dedicated `techmedia` account and `techmedia_db` on either shared or dedicated MariaDB.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.14.
+- Added an explicit deployment choice between existing shared infrastructure and a dedicated
+  TechMedia MariaDB; shared Redis and Media are detected and left untouched because TechMedia does
+  not consume them.
+- Removed the redundant TechMedia MariaDB container when shared reuse is selected while preserving
+  its named volume for recovery, and added clean network switching for future dedicated installs.
+- Removed the Compose-level `DB_HOST=mariadb` override so the protected runtime environment remains
+  authoritative when connecting to `cxapp-mariadb`.
+- Added separate production `.container/.env.example` and `deploy.env.example` contracts with the
+  live non-secret administrator, database, Frappe endpoint, and shared-container defaults while
+  keeping passwords, JWT values, root credentials, and API secrets generated or prompted.
+- Verified the shared deployment live with healthy API/Web containers, administrator login,
+  Identity-only tables, eight migrations, and successful login after an API restart.
 
 ## v-1.0.13
 
