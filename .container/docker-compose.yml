@@ -1,6 +1,17 @@
 name: ${TECHMEDIA_COMPOSE_PROJECT:-techmedia}
 
 services:
+  verify:
+    profiles: [tools]
+    build:
+      context: ..
+      dockerfile: .container/scripts/Dockerfile.stack
+      target: verify
+      args:
+        NODE_RUNTIME_VERSION: ${NODE_RUNTIME_VERSION:-26.5.0}
+        NPM_RUNTIME_VERSION: ${NPM_RUNTIME_VERSION:-12.0.1}
+    image: ${TECHMEDIA_IMAGE_REGISTRY:-techmedia}/verify:${TECHMEDIA_IMAGE_TAG:-local}
+
   mariadb:
     image: ${MARIADB_IMAGE:-mariadb:11.8}
     container_name: ${TECHMEDIA_MARIADB_CONTAINER_NAME:-techmedia-mariadb}

@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.15
+Current version: 1.0.16
 
-Release tag: v-1.0.15
+Release tag: v-1.0.16
 
-Changelog label: v 1.0.15
+Changelog label: v 1.0.16
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -28,6 +28,29 @@ New entries must keep database-facing work and application code work separate.
 - Kept Estimate creation and its existing three-dot Edit action available in the enquiry tab.
 - Replaced free-text enquiry customers with an existing-Customer autocomplete backed by live
   Frappe, displaying only customer names and rejecting arbitrary customer values before save.
+- Made each user's assigned role visible by its human-readable label in the Users list and
+  included role keys and labels in user search.
+- Added a guarded Docker updater that preserves existing environment credentials, MariaDB
+  containers and volumes, network and port settings; verifies the build in Docker; creates a
+  retained, validated database backup; gates replacement on migrations and seeds; verifies both
+  HTTP endpoints; and restores the previous API and Web images when replacement fails.
+
+## v-1.0.16
+
+### [v 1.0.16] 2026-07-30 6:54 pm - Personal CRM overview and status filters
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.16.
+- Reworked the CRM overview around the signed-in user's enquiries: My enquiries, Created by me,
+  In progress, and Closed by me. Removed the cross-user enquiry leaderboard and its API payload.
+- Added a live API-backed CRM status filter. Enquiry lists now show active Open, Follow, and
+  Escalation records by default, while Won and Lost records are available only when selected from
+  the existing Filters menu.
 
 ## v-1.0.15
 

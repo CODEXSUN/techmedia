@@ -3,6 +3,7 @@ import type { TechMediaDatabase } from "../../database/schema.js";
 
 export type CrmEnquiryPriority = "low" | "normal" | "high" | "urgent";
 export type CrmEnquiryStatus = "escalation" | "follow" | "lost" | "open" | "won";
+export type CrmEnquiryStatusFilter = CrmEnquiryStatus | "active";
 export type CrmEnquiryLifecycleStatus = "active" | "suspended";
 export type CrmEnquiryView = "assigned" | "created" | "open";
 
@@ -203,24 +204,17 @@ export type CrmEnquirySavePayload = {
 export type CrmEnquiryListFilters = {
   enquiryId?: string;
   search?: string;
+  status?: CrmEnquiryStatusFilter;
   view: CrmEnquiryView;
 };
 
 export type CrmEnquiryOverview = {
-  leaderboard: Array<{
-    active: number;
-    closed: number;
-    completionRate: number;
-    total: number;
-    user: CrmUserReference;
-  }>;
   stats: {
-    closed: number;
+    closedByMe: number;
+    createdByMe: number;
     inProgress: number;
-    open: number;
-    total: number;
+    myEnquiries: number;
   };
-  viewCounts: Record<CrmEnquiryView, number>;
 };
 
 export type CrmContext = {

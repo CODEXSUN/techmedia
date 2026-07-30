@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "@codexsun/ui/components/sonner";
 import {
@@ -27,6 +27,7 @@ import type {
   CrmEnquiryColumnId,
   CrmEnquiryColumnVisibility,
   CrmEnquirySavePayload,
+  CrmEnquiryStatusFilter,
   CrmEnquiryView
 } from "./crm.types";
 
@@ -95,7 +96,7 @@ export function CrmWorkspace({
   view: CrmEnquiryView;
 }) {
   const [search, setSearch] = useState("");
-  const [listInFilter, setListInFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<CrmEnquiryStatusFilter>("active");
   const [visibleColumns, setVisibleColumns] = useState<CrmEnquiryColumnVisibility>(
     defaultEnquiryColumnVisibility
   );
@@ -106,41 +107,19 @@ export function CrmWorkspace({
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const query = useCrmEnquiriesQuery({
     view,
+    status: statusFilter,
     ...(search ? { search } : {})
   });
   const users = useCrmUsersQuery();
   const mutations = useCrmEnquiryMutations();
   const initialLoading = query.data === undefined && query.isFetching;
   const records = query.data ?? [];
-  const listInOptions = useMemo(
-    () => [
-      { id: "all", label: "All lists" },
-      ...Array.from(new Set(records.map((record) => record.enquiryGroup.trim()).filter(Boolean)))
-        .sort((left, right) => left.localeCompare(right))
-        .map((group) => ({ id: `group:${group}`, label: group }))
-    ],
-    [records]
-  );
-  const filteredRecords = useMemo(
-    () =>
-      listInFilter === "all"
-        ? records
-        : records.filter((record) => `group:${record.enquiryGroup.trim()}` === listInFilter),
-    [listInFilter, records]
-  );
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / rowsPerPage));
+  const totalPages = Math.max(1, Math.ceil(records.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages);
-  const visibleRecords = filteredRecords.slice(
-    (currentPage - 1) * rowsPerPage,
-    currentPage * rowsPerPage
-  );
-  const viewingIndex = viewing
-    ? filteredRecords.findIndex((record) => record.id === viewing.id)
-    : -1;
+  const visibleRecords = records.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const viewingIndex = viewing ? records.findIndex((record) => record.id === viewing.id) : -1;
   const nextViewing =
-    viewingIndex >= 0 && viewingIndex < filteredRecords.length - 1
-      ? filteredRecords[viewingIndex + 1]
-      : undefined;
+    viewingIndex >= 0 && viewingIndex < records.length - 1 ? records[viewingIndex + 1] : undefined;
   const details = viewDetails[view];
 
   async function loadRecord(record: CrmEnquiry, target: "edit" | "view") {
@@ -155,10 +134,7 @@ export function CrmWorkspace({
     }
   }
 
-  useEffect(() => setPage(1), [view, search, listInFilter]);
-  useEffect(() => {
-    if (!listInOptions.some((option) => option.id === listInFilter)) setListInFilter("all");
-  }, [listInFilter, listInOptions]);
+  useEffect(() => setPage(1), [view, search, statusFilter]);
 
   async function save(value: CrmEnquirySavePayload) {
     try {
@@ -241,10 +217,17 @@ export function CrmWorkspace({
             onCheckedChange: (checked) =>
               setVisibleColumns((current) => ({ ...current, [column.id]: checked }))
           }))}
-        filterOptions={listInOptions}
-        filterValue={listInFilter}
+        filterOptions={[
+          { id: "active", label: "Active (open, follow, escalation)" },
+          { id: "open", label: "Open" },
+          { id: "follow", label: "Follow" },
+          { id: "escalation", label: "Escalation" },
+          { id: "won", label: "Won" },
+          { id: "lost", label: "Lost" }
+        ]}
+        filterValue={statusFilter}
         onFilterValueChange={(value) => {
-          setListInFilter(value);
+          setStatusFilter(value as CrmEnquiryStatusFilter);
           setPage(1);
         }}
         onSearchValueChange={setSearch}
@@ -272,9 +255,9 @@ export function CrmWorkspace({
         <WorkspacePagination
           page={currentPage}
           rowsPerPage={rowsPerPage}
-          showingLabel={buildShowingLabel(currentPage, rowsPerPage, filteredRecords.length)}
+          showingLabel={buildShowingLabel(currentPage, rowsPerPage, records.length)}
           singularLabel="enquiry"
-          totalCount={filteredRecords.length}
+          totalCount={records.length}
           totalPages={totalPages}
           onNextPage={() => setPage((value) => Math.min(totalPages, value + 1))}
           onPageChange={setPage}

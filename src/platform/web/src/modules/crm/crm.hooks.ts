@@ -21,7 +21,12 @@ import {
   updateCrmEnquiryMessage,
   updateCrmEnquiry
 } from "./crm.services";
-import type { CrmEnquiry, CrmEnquirySavePayload, CrmEnquiryView } from "./crm.types";
+import type {
+  CrmEnquiry,
+  CrmEnquirySavePayload,
+  CrmEnquiryStatusFilter,
+  CrmEnquiryView
+} from "./crm.types";
 
 export const crmEnquiryQueryKey = ["crm", "enquiries"] as const;
 
@@ -36,11 +41,18 @@ export function useCrmOverviewQuery(enabled = true) {
 export function useCrmEnquiriesQuery(input: {
   enquiryId?: string;
   search?: string;
+  status?: CrmEnquiryStatusFilter;
   view: CrmEnquiryView;
 }) {
   return useQuery({
     queryFn: () => listCrmEnquiries(input),
-    queryKey: [...crmEnquiryQueryKey, input.view, input.search ?? "", input.enquiryId ?? 0]
+    queryKey: [
+      ...crmEnquiryQueryKey,
+      input.view,
+      input.status ?? "active",
+      input.search ?? "",
+      input.enquiryId ?? 0
+    ]
   });
 }
 

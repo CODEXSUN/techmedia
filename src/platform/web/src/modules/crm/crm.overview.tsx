@@ -1,19 +1,5 @@
-import {
-  CircleCheckBigIcon,
-  Clock3Icon,
-  InboxIcon,
-  MessagesSquareIcon,
-  TrophyIcon,
-  UserRoundIcon
-} from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@codexsun/ui/components/card";
-import { Progress } from "@codexsun/ui/components/progress";
+import { CircleCheckBigIcon, Clock3Icon, MessagesSquareIcon, UserRoundIcon } from "lucide-react";
+import { Card, CardContent } from "@codexsun/ui/components/card";
 import { Skeleton } from "@codexsun/ui/components/skeleton";
 import { useCrmOverviewQuery } from "./crm.hooks";
 import type { CrmEnquiryOverview } from "./crm.types";
@@ -43,12 +29,7 @@ export function CrmOverview({ signedInUser }: CrmOverviewProps) {
           </CardContent>
         </Card>
       ) : null}
-      {query.data ? (
-        <>
-          <EnquiryStats stats={query.data.stats} />
-          <EnquiryLeaderboard leaderboard={query.data.leaderboard} />
-        </>
-      ) : null}
+      {query.data ? <EnquiryStats stats={query.data.stats} /> : null}
     </section>
   );
 }
@@ -67,16 +48,16 @@ function CrmHero({ signedInUser }: CrmOverviewProps) {
             CRM workspace
           </div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-foreground xl:whitespace-nowrap">
-            Turn every enquiry into clear, accountable follow-up.
+            Keep your enquiries moving with clear follow-up.
           </h1>
           <p className="mt-2 text-sm leading-5 text-slate-600 dark:text-muted-foreground xl:whitespace-nowrap">
-            Manage assigned, created, and open enquiries with clear customer follow-up.
+            Focus on the enquiries assigned to you and created by you.
           </p>
         </div>
         <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-100/80 px-4 py-2 text-sm font-medium text-emerald-950 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100 lg:justify-self-end">
           <UserRoundIcon className="size-4" />
           <span>
-            Signed in as {signedInUser.name} · {signedInUser.email}
+            Signed in as {signedInUser.name} - {signedInUser.email}
           </span>
         </div>
       </div>
@@ -87,16 +68,16 @@ function CrmHero({ signedInUser }: CrmOverviewProps) {
 function EnquiryStats({ stats }: { stats: CrmEnquiryOverview["stats"] }) {
   const items = [
     {
-      description: "Visible enquiries",
+      description: "Assigned to you",
       icon: MessagesSquareIcon,
-      label: "Total",
-      value: stats.total
+      label: "My enquiries",
+      value: stats.myEnquiries
     },
     {
-      description: "Awaiting follow-up",
-      icon: InboxIcon,
-      label: "Open",
-      value: stats.open
+      description: "Created by you",
+      icon: MessagesSquareIcon,
+      label: "Created by me",
+      value: stats.createdByMe
     },
     {
       description: "Work in progress",
@@ -105,10 +86,10 @@ function EnquiryStats({ stats }: { stats: CrmEnquiryOverview["stats"] }) {
       value: stats.inProgress
     },
     {
-      description: "Follow-up completed",
+      description: "Your completed follow-up",
       icon: CircleCheckBigIcon,
-      label: "Closed",
-      value: stats.closed
+      label: "Closed by me",
+      value: stats.closedByMe
     }
   ];
 
@@ -140,106 +121,16 @@ function EnquiryStats({ stats }: { stats: CrmEnquiryOverview["stats"] }) {
   );
 }
 
-function EnquiryLeaderboard({ leaderboard }: { leaderboard: CrmEnquiryOverview["leaderboard"] }) {
-  return (
-    <Card className="shadow-sm">
-      <CardHeader className="flex-row items-center justify-between gap-4 space-y-0 p-5 pb-3">
-        <div>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <span className="grid size-8 place-items-center rounded-lg bg-primary/10 text-primary">
-              <TrophyIcon className="size-4" />
-            </span>
-            Enquiry leaderboard
-          </CardTitle>
-          <CardDescription className="mt-1">
-            Ranked by closed enquiries, then total assigned.
-          </CardDescription>
-        </div>
-        <span className="rounded-full border bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground">
-          Top {leaderboard.length}
-        </span>
-      </CardHeader>
-      <CardContent className="space-y-2 p-5 pt-1">
-        {leaderboard.length === 0 ? (
-          <div className="rounded-lg border border-dashed px-4 py-8 text-center">
-            <p className="text-sm font-medium">No enquiry activity yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Assignee performance will appear when enquiries are created.
-            </p>
-          </div>
-        ) : (
-          leaderboard.map((entry, index) => (
-            <div
-              key={entry.user.id}
-              className="grid gap-3 rounded-lg border bg-background p-3 transition-colors hover:bg-muted/30 md:grid-cols-[2rem_minmax(12rem,1.2fr)_minmax(10rem,1fr)_5rem_5rem_5rem] md:items-center"
-            >
-              <span className="grid size-7 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                {index + 1}
-              </span>
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full border bg-muted text-xs font-semibold">
-                  {initials(entry.user.name)}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{entry.user.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{entry.user.email}</p>
-                </div>
-              </div>
-              <div>
-                <div className="mb-1.5 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Completion</span>
-                  <span className="font-semibold">{entry.completionRate}%</span>
-                </div>
-                <Progress value={entry.completionRate} className="h-1.5" />
-              </div>
-              <Metric label="Total" value={entry.total} />
-              <Metric label="Active" value={entry.active} />
-              <Metric label="Closed" value={entry.closed} />
-            </div>
-          ))
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2 md:block md:text-right">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="text-sm font-semibold">{number.format(value)}</p>
-    </div>
-  );
-}
-
 function OverviewSkeleton() {
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
-          <Card key={index} className="p-4 shadow-sm">
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="mt-3 h-8 w-14" />
-            <Skeleton className="mt-2 h-3 w-28" />
-          </Card>
-        ))}
-      </div>
-      <Card className="p-5 shadow-sm">
-        <Skeleton className="h-5 w-44" />
-        <Skeleton className="mt-3 h-16 w-full" />
-        <Skeleton className="mt-2 h-16 w-full" />
-      </Card>
-    </>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 4 }, (_, index) => (
+        <Card key={index} className="p-4 shadow-sm">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="mt-3 h-8 w-14" />
+          <Skeleton className="mt-2 h-3 w-28" />
+        </Card>
+      ))}
+    </div>
   );
-}
-
-function initials(name: string) {
-  return name
-    .trim()
-    .split(/\s+/u)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
 }

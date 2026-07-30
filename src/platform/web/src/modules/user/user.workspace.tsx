@@ -38,6 +38,10 @@ export function UserWorkspace({ actorEmail }: { actorEmail: string }) {
   const [rowsPerPage, setRowsPerPage] = useState(100);
   const [editing, setEditing] = useState<User | null | undefined>(undefined);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const roleLabels = useMemo(
+    () => new Map((userRoleLookups.data?.second ?? []).map((role) => [role.key, role.label])),
+    [userRoleLookups.data?.second]
+  );
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return (query.data ?? []).filter(
@@ -45,9 +49,11 @@ export function UserWorkspace({ actorEmail }: { actorEmail: string }) {
         (status === "all" || record.status === status) &&
         (!term ||
           record.name.toLowerCase().includes(term) ||
-          record.email.toLowerCase().includes(term))
+          record.email.toLowerCase().includes(term) ||
+          record.role.toLowerCase().includes(term) ||
+          (roleLabels.get(record.role) ?? "").toLowerCase().includes(term))
     );
-  }, [query.data, search, status]);
+  }, [query.data, roleLabels, search, status]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages);
   const records = filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
@@ -169,6 +175,7 @@ export function UserWorkspace({ actorEmail }: { actorEmail: string }) {
         onRestore={(record) => setPendingAction({ record, type: "restore" })}
         onSuspend={(record) => setPendingAction({ record, type: "suspend" })}
         records={records}
+        roleLabels={roleLabels}
       />
       <WorkspacePagination
         page={currentPage}

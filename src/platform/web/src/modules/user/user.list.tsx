@@ -13,7 +13,8 @@ export function UserList({
   onForceDelete,
   onRestore,
   onSuspend,
-  records
+  records,
+  roleLabels
 }: {
   actorEmail: string;
   loading: boolean;
@@ -22,6 +23,7 @@ export function UserList({
   onRestore: (record: User) => void;
   onSuspend: (record: User) => void;
   records: User[];
+  roleLabels: ReadonlyMap<string, string>;
 }) {
   const columns: ColumnDef<User>[] = [
     {
@@ -40,7 +42,12 @@ export function UserList({
     { accessorKey: "email", header: "Email" },
     {
       accessorKey: "role",
-      cell: ({ row }) => <WorkspaceStatusBadge label={row.original.role} tone="info" />,
+      cell: ({ row }) => (
+        <WorkspaceStatusBadge
+          label={roleLabels.get(row.original.role) ?? row.original.role}
+          tone="info"
+        />
+      ),
       header: "Role"
     },
     {
@@ -110,7 +117,7 @@ export function UserList({
       data={records}
       emptyState="No users found."
       isLoading={loading}
-      minWidth="960px"
+      minWidth="1080px"
     />
   );
 }

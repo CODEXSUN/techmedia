@@ -10,6 +10,7 @@ import type {
   CrmEnquiryMessageUpdatePayload,
   CrmEnquiryOverview,
   CrmEnquirySavePayload,
+  CrmEnquiryStatusFilter,
   CrmEnquiryView,
   CrmJobSavePayload,
   CrmUserReference
@@ -37,9 +38,9 @@ export class CrmService {
       view: filters.view,
       ...(filters.search ? { search: filters.search } : {})
     });
-    const filtered = filters.enquiryId
-      ? records.filter((record) => record.name === filters.enquiryId)
-      : records;
+    const filtered = records
+      .filter((record) => matchesStatus(record.status, filters.status))
+      .filter((record) => !filters.enquiryId || record.name === filters.enquiryId);
     return this.mapMany(filtered);
   }
 
@@ -53,50 +54,19 @@ export class CrmService {
   async overview(): Promise<CrmEnquiryOverview> {
     await this.requireAnyView();
     const employee = this.employee();
-    const views: CrmEnquiryView[] = ["assigned", "created", "open"];
-    const visible = await Promise.all(
-      views.map(async (view) =>
-        (await this.context.can(viewPermissions[view]))
-          ? this.gateway.list({ employee, view })
-          : Promise.resolve([])
-      )
-    );
-    const records = uniqueByName(visible.flat());
-    const employees = await this.gateway.employees();
-    const counts = new Map<string, { active: number; closed: number; total: number }>();
-    for (const record of records) {
-      const owner = record.assignedToEmployee || record.userEmployee;
-      if (!owner) continue;
-      const current = counts.get(owner) ?? { active: 0, closed: 0, total: 0 };
-      current.total++;
-      if (isClosed(record.status)) current.closed++;
-      else current.active++;
-      counts.set(owner, current);
-    }
-    const closed = records.filter((record) => isClosed(record.status)).length;
-    const open = records.filter((record) => record.status.toLowerCase() === "open").length;
+    const listPersonal = async (view: "assigned" | "created"): Promise<LiveRecord[]> =>
+      (await this.context.can(viewPermissions[view])) ? this.gateway.list({ employee, view }) : [];
+    const [assigned, created] = await Promise.all([
+      listPersonal("assigned"),
+      listPersonal("created")
+    ]);
+    const personal = uniqueByName([...assigned, ...created]);
     return {
-      leaderboard: employees
-        .map((employee) => {
-          const count = counts.get(employee.name) ?? { active: 0, closed: 0, total: 0 };
-          return {
-            ...count,
-            completionRate: count.total === 0 ? 0 : Math.round((count.closed / count.total) * 100),
-            user: employeeReference(employee)
-          };
-        })
-        .filter((row) => row.total > 0)
-        .sort((left, right) => right.total - left.total),
       stats: {
-        closed,
-        inProgress: records.length - closed - open,
-        open,
-        total: records.length
-      },
-      viewCounts: {
-        assigned: visible[0]?.length ?? 0,
-        created: visible[1]?.length ?? 0,
-        open: visible[2]?.length ?? 0
+        closedByMe: personal.filter((record) => isClosed(record.status)).length,
+        createdByMe: created.length,
+        inProgress: personal.filter((record) => isInProgress(record.status)).length,
+        myEnquiries: assigned.length
       }
     };
   }
@@ -483,6 +453,15 @@ function fromFrappeStatus(value: string): CrmEnquiry["status"] {
 
 function isClosed(status: string) {
   return ["won", "lost"].includes(status.trim().toLowerCase());
+}
+
+function isInProgress(status: string) {
+  return ["follow", "escalation"].includes(status.trim().toLowerCase());
+}
+
+function matchesStatus(status: string, filter?: CrmEnquiryStatusFilter) {
+  if (!filter || filter === "active") return !isClosed(status);
+  return status.trim().toLowerCase() === filter;
 }
 
 function uniqueByName(records: LiveRecord[]) {

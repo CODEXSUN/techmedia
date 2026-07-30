@@ -110,6 +110,7 @@ const messageUpdatePayload = z.object({ comment: z.string().trim().min(1).max(10
 const query = z.object({
   enquiryId: z.string().trim().min(1).max(140).optional(),
   search: z.string().trim().max(220).optional(),
+  status: z.enum(["active", "open", "follow", "escalation", "won", "lost"]).optional(),
   view: z.enum(["assigned", "created", "open"])
 });
 const customerReferenceQuery = z.object({
@@ -120,25 +121,11 @@ const customerReference = z.object({
   name: z.string().min(1).max(220)
 });
 const overview = z.object({
-  leaderboard: z.array(
-    z.object({
-      active: z.number().int().nonnegative(),
-      closed: z.number().int().nonnegative(),
-      completionRate: z.number().int().min(0).max(100),
-      total: z.number().int().nonnegative(),
-      user: userReference
-    })
-  ),
   stats: z.object({
-    closed: z.number().int().nonnegative(),
+    closedByMe: z.number().int().nonnegative(),
+    createdByMe: z.number().int().nonnegative(),
     inProgress: z.number().int().nonnegative(),
-    open: z.number().int().nonnegative(),
-    total: z.number().int().nonnegative()
-  }),
-  viewCounts: z.object({
-    assigned: z.number().int().nonnegative(),
-    created: z.number().int().nonnegative(),
-    open: z.number().int().nonnegative()
+    myEnquiries: z.number().int().nonnegative()
   })
 });
 
@@ -154,7 +141,8 @@ export async function registerCrmRoutes(
       (await service(request)).list({
         view: query.view,
         ...(query.enquiryId ? { enquiryId: query.enquiryId } : {}),
-        ...(query.search ? { search: query.search } : {})
+        ...(query.search ? { search: query.search } : {}),
+        ...(query.status ? { status: query.status } : {})
       })
   });
   registerContractRoute(app, {

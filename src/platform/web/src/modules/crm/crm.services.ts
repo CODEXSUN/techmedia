@@ -11,6 +11,7 @@ import type {
   CrmEnquiryOverview,
   CrmEnquiryReference,
   CrmEnquirySavePayload,
+  CrmEnquiryStatusFilter,
   CrmEnquiryTaskCreatePayload,
   CrmEnquiryView,
   CrmJobSavePayload,
@@ -22,11 +23,13 @@ const path = "/crm/enquiries";
 export function listCrmEnquiries(input: {
   enquiryId?: string;
   search?: string;
+  status?: CrmEnquiryStatusFilter;
   view: CrmEnquiryView;
 }) {
   const query = new URLSearchParams({ view: input.view });
   if (input.search?.trim()) query.set("search", input.search.trim());
   if (input.enquiryId) query.set("enquiryId", String(input.enquiryId));
+  if (input.status) query.set("status", input.status);
   return apiGet<CrmEnquiry[]>(`${path}?${query}`);
 }
 

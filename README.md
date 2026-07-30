@@ -78,6 +78,45 @@ After deployment:
 - Runtime configuration: `.env`
 - Docker/deployment configuration: `.container/deploy.env`
 
+### Updating an existing Docker deployment
+
+After pulling or copying the updated repository source, run:
+
+```sh
+bash update.sh
+```
+
+For a non-interactive update:
+
+```sh
+bash update.sh --yes
+```
+
+To validate the current deployment without rebuilding anything:
+
+```sh
+bash update.sh --check
+```
+
+On Windows with Git Bash:
+
+```powershell
+& "C:\Program Files\Git\bin\bash.exe" update.sh
+```
+
+The updater requires the existing root `.env`, `.container/deploy.env`, and Compose-owned
+TechMedia containers. Before downtime, it validates container ownership and runtime-file access,
+runs the production build and repository checks in Docker with development dependencies, rebuilds
+the API and Web images, creates and validates a timestamped MariaDB dump, and runs migrations plus
+repeatable seeds with the new API image. It then recreates only the two application containers,
+waits for Docker health, and probes both published HTTP endpoints. A failed replacement restores
+the prior API and Web images automatically; the SQL backup is retained for manual database
+recovery. `TECHMEDIA_BACKUP_RETENTION` in `.container/deploy.env` controls the number of retained
+backups and defaults to 10.
+
+The updater does not rerun interactive setup, modify either environment file, change credentials,
+recreate MariaDB, remove volumes, or touch shared infrastructure.
+
 ## Verification
 
 ```sh

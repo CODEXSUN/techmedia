@@ -12,6 +12,9 @@ COPY . .
 RUN --mount=type=cache,id=techmedia-app-npm,target=/root/.npm \
   npm ci && npm run build
 
+FROM build AS verify
+RUN npm run check
+
 FROM node:${NODE_RUNTIME_VERSION}-bookworm-slim AS api-runtime
 ARG NPM_RUNTIME_VERSION=12.0.1
 WORKDIR /workspace/techmedia
