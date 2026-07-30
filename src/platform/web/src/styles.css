@@ -44,10 +44,10 @@
   background:
     radial-gradient(
       circle at 16% 18%,
-      color-mix(in oklab, var(--primary) 10%, transparent),
+      color-mix(in oklab, var(--primary) 6%, transparent),
       transparent 30%
     ),
-    var(--background);
+    color-mix(in oklab, #ffffff 97%, var(--primary));
   display: grid;
   min-height: 100vh;
   padding: 32px;
@@ -64,13 +64,20 @@
 }
 
 .techmedia-login-story {
-  background: linear-gradient(
-    145deg,
-    color-mix(in oklab, var(--primary) 92%, #061a1a),
-    color-mix(in oklab, var(--primary) 70%, #091417)
-  );
+  background:
+    radial-gradient(
+      circle at 16% 14%,
+      color-mix(in oklab, var(--primary) 12%, transparent),
+      transparent 38%
+    ),
+    linear-gradient(
+      145deg,
+      color-mix(in oklab, #ffffff 94%, var(--primary)),
+      color-mix(in oklab, #ffffff 98%, var(--primary))
+    );
+  border: 1px solid color-mix(in oklab, var(--primary) 18%, #ffffff);
   border-radius: 18px 0 0 18px;
-  color: var(--primary-foreground);
+  color: #173f39;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -85,7 +92,7 @@
 }
 
 .techmedia-login-brand .auth-surface-mark {
-  filter: drop-shadow(0 8px 18px rgb(0 0 0 / 18%));
+  filter: drop-shadow(0 8px 18px rgb(15 118 110 / 12%));
 }
 
 .techmedia-login-brand > span:last-child {
@@ -99,7 +106,7 @@
 }
 
 .techmedia-login-brand small {
-  color: color-mix(in oklab, currentColor 72%, transparent);
+  color: #52746f;
   font-size: 12px;
 }
 
@@ -109,7 +116,7 @@
 
 .techmedia-login-eyebrow {
   align-items: center;
-  color: color-mix(in oklab, currentColor 74%, transparent);
+  color: #18786d;
   display: inline-flex;
   font-size: 12px;
   font-weight: 650;
@@ -134,7 +141,7 @@
 }
 
 .techmedia-login-dots span {
-  background: color-mix(in oklab, currentColor 32%, transparent);
+  background: color-mix(in oklab, var(--primary) 22%, transparent);
   border-radius: 999px;
   height: 3px;
   transition:
@@ -144,13 +151,13 @@
 }
 
 .techmedia-login-dots span.is-active {
-  background: currentColor;
+  background: var(--primary);
   width: 34px;
 }
 
 .techmedia-login-footnote {
   align-items: center;
-  color: color-mix(in oklab, currentColor 68%, transparent);
+  color: #52746f;
   display: flex;
   font-size: 12px;
   gap: 7px;
