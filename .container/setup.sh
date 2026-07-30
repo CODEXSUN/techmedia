@@ -3,8 +3,8 @@ set -euo pipefail
 
 CONTAINER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$CONTAINER_DIR/.." && pwd)"
-RUNTIME_ENV="${TECHMEDIA_RUNTIME_ENV:-$CONTAINER_DIR/.env}"
-RUNTIME_ENV_EXAMPLE="$CONTAINER_DIR/.env.example"
+RUNTIME_ENV="${TECHMEDIA_RUNTIME_ENV:-$ROOT_DIR/.env}"
+RUNTIME_ENV_EXAMPLE="$ROOT_DIR/.env.example"
 DEPLOY_ENV="${TECHMEDIA_DEPLOY_ENV:-$CONTAINER_DIR/deploy.env}"
 DEPLOY_ENV_EXAMPLE="$CONTAINER_DIR/deploy.env.example"
 COMPOSE_FILE="$CONTAINER_DIR/docker-compose.yml"
@@ -15,12 +15,13 @@ Usage: bash setup.sh
 
 Interactive standalone TechMedia container installation.
 
-The installer reviews Docker resources, host ports, database identity,
-administrator credentials, public URLs, and the Frappe application connection.
+The installer reviews Docker resources, host ports, database identity, and
+administrator credentials. Application URLs, encryption, and Frappe connection
+values are read from the root .env without prompting. Frappe is always enabled.
 Press Enter at any prompt to keep the displayed value.
 
 Configuration:
-  .container/.env         TechMedia production runtime and application secrets
+  .env                    TechMedia runtime, application, and Frappe settings
   .container/deploy.env  Docker topology and MariaDB infrastructure secret
 
 Included:
@@ -150,51 +151,6 @@ prompt_secret() {
   prompt_secret_if_empty "$file" "$key" "$label"
 }
 
-prompt_optional_secret() {
-  local file="$1" key="$2" label="$3" current answer value confirmation
-  current="$(file_value "$file" "$key")"
-  if [[ -n "$current" ]]; then
-    read -r -p "$label is configured. Keep, change, or clear it? [keep/change/clear] " answer
-    case "${answer:-keep}" in
-      keep|Keep|KEEP)
-        return
-        ;;
-      clear|Clear|CLEAR)
-        set_file_value "$file" "$key" ""
-        return
-        ;;
-      change|Change|CHANGE) ;;
-      *)
-        echo "Enter keep, change, or clear." >&2
-        prompt_optional_secret "$file" "$key" "$label"
-        return
-        ;;
-    esac
-  else
-    read -r -p "Configure $label? [y/N] " answer
-    case "${answer:-N}" in
-      y|Y|yes|Yes|YES) ;;
-      *) return ;;
-    esac
-  fi
-
-  while true; do
-    read -r -s -p "$label: " value
-    echo
-    [[ -n "$value" ]] || {
-      echo "$label cannot be empty." >&2
-      continue
-    }
-    read -r -s -p "Confirm $label: " confirmation
-    echo
-    if [[ "$value" == "$confirmation" ]]; then
-      set_file_value "$file" "$key" "$value"
-      return
-    fi
-    echo "Values do not match. Try again." >&2
-  done
-}
-
 prepare_deploy_environment() {
   if [[ ! -f "$DEPLOY_ENV" ]]; then
     cp "$DEPLOY_ENV_EXAMPLE" "$DEPLOY_ENV"
@@ -237,11 +193,6 @@ configure_deploy_environment() {
 
 prepare_runtime_environment() {
   local infrastructure_mode="$1" database_host
-  if [[ ! -f "$RUNTIME_ENV" ]]; then
-    cp "$RUNTIME_ENV_EXAMPLE" "$RUNTIME_ENV"
-    echo "Created production runtime settings: $RUNTIME_ENV"
-  fi
-
   ensure_secret "$RUNTIME_ENV" JWT_SECRET
 
   set_file_value "$RUNTIME_ENV" NODE_ENV production
@@ -266,45 +217,41 @@ prepare_runtime_environment() {
   set_file_value "$RUNTIME_ENV" TECHMEDIA_DB_FRESH_ON_START 0
   set_file_value "$RUNTIME_ENV" TECHMEDIA_DB_RESET_CONFIRM ""
   set_file_value "$RUNTIME_ENV" TECHMEDIA_ALLOW_PRODUCTION_DB_RESET 0
-  set_default_if_empty "$RUNTIME_ENV" PLATFORM_API_URL http://127.0.0.1:7050
-  set_default_if_empty "$RUNTIME_ENV" PLATFORM_WEB_ORIGIN http://127.0.0.1:7060
-  set_default_if_empty "$RUNTIME_ENV" PLATFORM_WEB_HEALTH_URL http://127.0.0.1:7060/status
-  set_default_if_empty "$RUNTIME_ENV" FRAPPE_ENABLED 1
+  set_file_value "$RUNTIME_ENV" FRAPPE_ENABLED 1
   set_default_if_empty "$RUNTIME_ENV" FRAPPE_CONNECTION_NAME Frappe
   set_default_if_empty "$RUNTIME_ENV" FRAPPE_VERIFICATION_STATUS unverified
   chmod 600 "$RUNTIME_ENV" 2>/dev/null || true
 }
 
-configure_runtime_environment() {
-  local bind_address api_port web_port
-  bind_address="$(file_value "$DEPLOY_ENV" TECHMEDIA_BIND_ADDRESS 127.0.0.1)"
-  api_port="$(file_value "$DEPLOY_ENV" TECHMEDIA_API_HOST_PORT 7050)"
-  web_port="$(file_value "$DEPLOY_ENV" TECHMEDIA_WEB_HOST_PORT 7060)"
+ensure_runtime_environment_file() {
+  if [[ ! -f "$RUNTIME_ENV" ]]; then
+    cp "$RUNTIME_ENV_EXAMPLE" "$RUNTIME_ENV"
+    chmod 600 "$RUNTIME_ENV" 2>/dev/null || true
+    echo "Created runtime environment from .env.example: $RUNTIME_ENV"
+  fi
+}
 
+configure_runtime_environment() {
   echo
-  echo "Application runtime settings"
+  echo "Administrator settings"
   prompt_setting "$RUNTIME_ENV" INITIAL_ADMIN_NAME "Initial administrator name" Administrator
   prompt_setting "$RUNTIME_ENV" INITIAL_ADMIN_EMAIL \
     "Initial administrator email" admin@techmedia.in
   prompt_secret "$RUNTIME_ENV" INITIAL_ADMIN_PASSWORD "Initial administrator password"
-  prompt_optional_secret "$RUNTIME_ENV" TECHMEDIA_INTEGRATION_ENCRYPTION_KEY \
-    "dedicated Frappe credential encryption key"
-  prompt_setting "$RUNTIME_ENV" PLATFORM_API_URL "Public API URL" \
-    "http://$bind_address:$api_port"
-  prompt_setting "$RUNTIME_ENV" PLATFORM_WEB_ORIGIN "Public web origin" \
-    "http://$bind_address:$web_port"
-  prompt_setting "$RUNTIME_ENV" PLATFORM_WEB_HEALTH_URL "Public web health URL" \
-    "http://$bind_address:$web_port/status"
-  prompt_setting "$RUNTIME_ENV" FRAPPE_ENABLED "Enable live Frappe (1 or 0)" 1
-  prompt_setting "$RUNTIME_ENV" FRAPPE_CONNECTION_NAME "Frappe connection name" Frappe
-  prompt_setting "$RUNTIME_ENV" FRAPPE_BASE_URL "Frappe base URL (blank disables verification)" ""
-  prompt_optional_secret "$RUNTIME_ENV" FRAPPE_APP_KEY "Frappe application key"
-  prompt_optional_secret "$RUNTIME_ENV" FRAPPE_APP_SECRET "Frappe application secret"
 }
 
 validate_runtime_environment() {
   local key value
-  for key in DB_USER DB_PASSWORD DB_NAME JWT_SECRET INITIAL_ADMIN_EMAIL INITIAL_ADMIN_PASSWORD; do
+  for key in \
+    DB_USER \
+    DB_PASSWORD \
+    DB_NAME \
+    JWT_SECRET \
+    INITIAL_ADMIN_EMAIL \
+    INITIAL_ADMIN_PASSWORD \
+    PLATFORM_API_URL \
+    PLATFORM_WEB_ORIGIN \
+    PLATFORM_WEB_HEALTH_URL; do
     [[ -n "$(file_value "$RUNTIME_ENV" "$key")" ]] || {
       echo "$key must be configured in $RUNTIME_ENV." >&2
       exit 78
@@ -516,27 +463,6 @@ validate_deploy_environment() {
     "$(file_value "$DEPLOY_ENV" TECHMEDIA_WEB_CONTAINER_NAME techmedia-web)"
 }
 
-sync_loopback_urls() {
-  local bind_address api_port web_port value
-  bind_address="$(file_value "$DEPLOY_ENV" TECHMEDIA_BIND_ADDRESS 127.0.0.1)"
-  api_port="$(file_value "$DEPLOY_ENV" TECHMEDIA_API_HOST_PORT 7050)"
-  web_port="$(file_value "$DEPLOY_ENV" TECHMEDIA_WEB_HOST_PORT 7060)"
-
-  value="$(file_value "$RUNTIME_ENV" PLATFORM_API_URL)"
-  if [[ -z "$value" || "$value" =~ ^http://(127\.0\.0\.1|localhost):[0-9]+$ ]]; then
-    set_file_value "$RUNTIME_ENV" PLATFORM_API_URL "http://$bind_address:$api_port"
-  fi
-  value="$(file_value "$RUNTIME_ENV" PLATFORM_WEB_ORIGIN)"
-  if [[ -z "$value" || "$value" =~ ^http://(127\.0\.0\.1|localhost):[0-9]+$ ]]; then
-    set_file_value "$RUNTIME_ENV" PLATFORM_WEB_ORIGIN "http://$bind_address:$web_port"
-  fi
-  value="$(file_value "$RUNTIME_ENV" PLATFORM_WEB_HEALTH_URL)"
-  if [[ -z "$value" || "$value" =~ ^http://(127\.0\.0\.1|localhost):[0-9]+/status$ ]]; then
-    set_file_value "$RUNTIME_ENV" PLATFORM_WEB_HEALTH_URL \
-      "http://$bind_address:$web_port/status"
-  fi
-}
-
 select_database_mode() {
   local volume="$1" answer confirmation
   if ! docker volume inspect "$volume" >/dev/null 2>&1; then
@@ -631,6 +557,7 @@ docker compose version >/dev/null 2>&1 || {
   exit 69
 }
 
+ensure_runtime_environment_file
 prepare_deploy_environment
 configure_deploy_environment
 infrastructure_mode="$(select_infrastructure_mode)"
@@ -642,7 +569,6 @@ else
 fi
 prepare_runtime_environment "$infrastructure_mode"
 validate_deploy_environment
-sync_loopback_urls
 configure_runtime_environment
 validate_runtime_environment
 

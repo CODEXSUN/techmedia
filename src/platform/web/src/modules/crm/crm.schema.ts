@@ -17,3 +17,29 @@ export const crmEnquirySchema = z.object({
   title: z.string().trim().min(2, "Title is required.").max(220),
   workspace: z.string().trim().max(100_000)
 });
+
+const jobTime = z
+  .string()
+  .regex(/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/u, "Choose a valid time.");
+
+export const crmJobSchema = z
+  .object({
+    employee: z.string().trim().min(1, "Choose an employee."),
+    employeeCostPerHour: z
+      .string()
+      .trim()
+      .regex(/^\d+(?:\.\d{1,2})?$/u, "Enter a valid non-negative hourly rate.")
+      .transform(Number),
+    startTime: jobTime,
+    status: z.enum(["Running", "Completed", "Cancelled"]),
+    stopTime: z.union([jobTime, z.literal("")]).transform((value) => value || null)
+  })
+  .superRefine((value, context) => {
+    if (value.status !== "Running" && !value.stopTime) {
+      context.addIssue({
+        code: "custom",
+        message: "Stop time is required for a completed or cancelled job.",
+        path: ["stopTime"]
+      });
+    }
+  });

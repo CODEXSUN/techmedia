@@ -190,8 +190,11 @@ function updatePackage(file, currentVersion, nextVersion) {
     "optionalDependencies"
   ]) {
     for (const [name, value] of Object.entries(pkg[field] ?? {})) {
-      if (name.startsWith("@techmedia/") && value === `^${currentVersion}`) {
-        pkg[field][name] = `^${nextVersion}`;
+      if (
+        (name.startsWith("@techmedia/") || name.startsWith("@codexsun/")) &&
+        (value === currentVersion || value === `^${currentVersion}`)
+      ) {
+        pkg[field][name] = value.startsWith("^") ? `^${nextVersion}` : nextVersion;
       }
     }
   }

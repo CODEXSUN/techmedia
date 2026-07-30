@@ -10,6 +10,7 @@ import type {
   CrmEnquiryOverview,
   CrmEnquirySavePayload,
   CrmEnquiryView,
+  CrmJobSavePayload,
   CrmUserReference
 } from "./crm.types.js";
 
@@ -208,6 +209,38 @@ export class CrmService {
     return this.get(name);
   }
 
+  async createJob(name: string, input: CrmJobSavePayload) {
+    await this.context.authorize("crm.job.manage");
+    const current = await this.gateway.get(name);
+    await this.authorizeRecord(current);
+    await this.validateJob(input);
+    const jobs = await this.gateway.jobs(name);
+    if (input.status === "Running" && jobs.some((job) => job.status === "Running")) {
+      throw AppError.conflict("A job is already running for this enquiry.");
+    }
+    await this.gateway.createJob(name, input);
+    return this.get(name);
+  }
+
+  async updateJob(name: string, jobName: string, input: CrmJobSavePayload) {
+    await this.context.authorize("crm.job.manage");
+    const current = await this.gateway.get(name);
+    await this.authorizeRecord(current);
+    await this.validateJob(input);
+    const jobs = await this.gateway.jobs(name);
+    if (!jobs.some((job) => job.name === jobName)) {
+      throw AppError.notFound("Job was not found against this enquiry in Frappe.");
+    }
+    if (
+      input.status === "Running" &&
+      jobs.some((job) => job.name !== jobName && job.status === "Running")
+    ) {
+      throw AppError.conflict("A different job is already running for this enquiry.");
+    }
+    await this.gateway.updateJob(name, jobName, input);
+    return this.get(name);
+  }
+
   async stopJob(name: string, jobName: string) {
     await this.context.authorize("crm.enquiry.update");
     const current = await this.gateway.get(name);
@@ -320,6 +353,16 @@ export class CrmService {
     const employees = await this.gateway.employees();
     if (!employees.some((employee) => employee.name === value)) {
       throw AppError.validation("Assigned employee must be an active Frappe Employee.");
+    }
+  }
+
+  private async validateJob(input: CrmJobSavePayload) {
+    const employees = await this.gateway.employees();
+    if (!employees.some((employee) => employee.name === input.employee)) {
+      throw AppError.validation("Job employee must be an active Frappe Employee.");
+    }
+    if (input.status !== "Running" && !input.stopTime) {
+      throw AppError.validation("Stop time is required for a completed or cancelled job.");
     }
   }
 

@@ -86,6 +86,26 @@ const messagePayload = z.object({
   parentMessageId: z.string().trim().min(1).max(240).nullable().optional()
 });
 const jobParams = params.extend({ jobName: z.string().trim().min(1).max(240) });
+const jobTime = z
+  .string()
+  .regex(/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/u, "Use a valid 24-hour time.");
+const jobPayload = z
+  .object({
+    employee: z.string().trim().min(1).max(140),
+    employeeCostPerHour: z.number().finite().nonnegative().max(10_000_000),
+    startTime: jobTime,
+    status: z.enum(["Running", "Completed", "Cancelled"]),
+    stopTime: jobTime.nullable()
+  })
+  .superRefine((value, context) => {
+    if (value.status !== "Running" && !value.stopTime) {
+      context.addIssue({
+        code: "custom",
+        message: "Stop time is required for a completed or cancelled job.",
+        path: ["stopTime"]
+      });
+    }
+  });
 const messageUpdatePayload = z.object({ comment: z.string().trim().min(1).max(10_000) });
 const query = z.object({
   enquiryId: z.string().trim().min(1).max(140).optional(),
@@ -142,6 +162,20 @@ export async function registerCrmRoutes(
     schemas: { params: jobParams, response: record },
     handler: async ({ params, request }) =>
       (await service(request)).stopJob(params.id, params.jobName)
+  });
+  registerContractRoute(app, {
+    method: "POST",
+    url: `${path}/:id/jobs`,
+    schemas: { body: jobPayload, params, response: record },
+    handler: async ({ body, params, request }) =>
+      (await service(request)).createJob(params.id, body)
+  });
+  registerContractRoute(app, {
+    method: "PUT",
+    url: `${path}/:id/jobs/:jobName`,
+    schemas: { body: jobPayload, params: jobParams, response: record },
+    handler: async ({ body, params, request }) =>
+      (await service(request)).updateJob(params.id, params.jobName, body)
   });
   registerContractRoute(app, {
     method: "GET",

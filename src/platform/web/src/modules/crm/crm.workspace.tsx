@@ -76,6 +76,7 @@ export function CrmWorkspace({
   canCreateEstimate,
   canCreateQuotation,
   canForceDelete,
+  canManageJobs,
   canUpdateEstimate,
   canUpdateQuotation,
   canUpdate,
@@ -86,6 +87,7 @@ export function CrmWorkspace({
   canCreateEstimate: boolean;
   canCreateQuotation: boolean;
   canForceDelete: boolean;
+  canManageJobs: boolean;
   canSuspend: boolean;
   canUpdate: boolean;
   canUpdateEstimate: boolean;
@@ -189,6 +191,7 @@ export function CrmWorkspace({
         canAssign={canAssign}
         canCreateEstimate={canCreateEstimate}
         canCreateQuotation={canCreateQuotation}
+        canManageJobs={canManageJobs}
         canUpdate={canUpdate}
         canUpdateEstimate={canUpdateEstimate}
         canUpdateQuotation={canUpdateQuotation}

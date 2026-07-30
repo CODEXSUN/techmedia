@@ -17,12 +17,15 @@ New entries must keep database-facing work and application code work separate.
 
 ### Database Changes
 
-- Database update: No.
-- No unreleased database changes.
+- Database update: Yes.
+- Added the repeatable `crm.job.manage` permission and assigned it to the protected Manager role;
+  no schema or business tables were added.
 
 ### App Codebase Changes
 
-- No unreleased application changes.
+- Added supervisor-managed manual Job Execution creation and editing through live Frappe, including
+  validated employee, time, status, and hourly-rate fields with row action menus.
+- Kept Estimate creation and its existing three-dot Edit action available in the enquiry tab.
 
 ## v-1.0.15
 
@@ -59,6 +62,11 @@ New entries must keep database-facing work and application code work separate.
 - Added an explicit path to reuse a named running MariaDB container and existing Docker network;
   reused networks are external to Compose and existing infrastructure is never disconnected,
   stopped, removed, or recreated by setup.
+- Simplified setup to create the root `.env` from `.env.example` when absent, read application URLs,
+  encryption, and Frappe connection values from that file without prompts, and always enable the
+  live Frappe integration.
+- Kept internal Framework and UI workspace dependency versions aligned during repository version
+  bumps so container `npm ci` resolves local workspaces instead of requesting unpublished packages.
 - Added occupied-port detection before image builds and documented the Git Bash invocation required
   on Windows systems where `bash.exe` resolves to an unconfigured WSL installation.
 - Verified a live local Docker deployment with healthy MariaDB, API, and web containers, eight

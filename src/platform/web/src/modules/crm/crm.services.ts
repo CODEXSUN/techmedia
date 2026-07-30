@@ -12,6 +12,7 @@ import type {
   CrmEnquirySavePayload,
   CrmEnquiryTaskCreatePayload,
   CrmEnquiryView,
+  CrmJobSavePayload,
   CrmUserReference
 } from "./crm.types";
 
@@ -78,6 +79,14 @@ export function startCrmEnquiryJob(id: string) {
 
 export function stopCrmEnquiryJob(id: string, jobName: string) {
   return apiPost<CrmEnquiry>(`${path}/${id}/jobs/${encodeURIComponent(jobName)}/stop`, {});
+}
+
+export function createCrmEnquiryJob(id: string, payload: CrmJobSavePayload) {
+  return apiPost<CrmEnquiry>(`${path}/${id}/jobs`, payload);
+}
+
+export function updateCrmEnquiryJob(id: string, jobName: string, payload: CrmJobSavePayload) {
+  return apiPut<CrmEnquiry>(`${path}/${id}/jobs/${encodeURIComponent(jobName)}`, payload);
 }
 
 export function addCrmEnquiryEmail(id: string, payload: CrmEnquiryEmailCreatePayload) {

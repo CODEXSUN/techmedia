@@ -13,5 +13,7 @@ export type {
   CrmEnquirySchedule,
   CrmEnquiryStatus,
   CrmEnquiryTask,
-  CrmEnquiryView
+  CrmEnquiryView,
+  CrmJobExecution,
+  CrmJobSavePayload
 } from "./crm.types.js";

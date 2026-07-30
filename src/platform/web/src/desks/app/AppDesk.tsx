@@ -151,12 +151,7 @@ export function AppDesk() {
   );
 }
 
-function renderPage(
-  page: Page,
-  claims: Claims,
-  permissions: string[],
-  administrator: boolean
-) {
+function renderPage(page: Page, claims: Claims, permissions: string[], administrator: boolean) {
   if (isAdministratorPage(page) && !administrator) {
     return (
       <CrmOverview signedInUser={{ email: claims.email, name: claims.name ?? claims.email }} />
@@ -210,6 +205,7 @@ function renderPage(
         permissions.includes("quotation.create") || permissions.includes("crm.enquiry.create")
       }
       canForceDelete={permissions.includes("crm.enquiry.force-delete")}
+      canManageJobs={permissions.includes("crm.job.manage")}
       canSuspend={false}
       canUpdate={permissions.includes("crm.enquiry.update")}
       canUpdateEstimate={
@@ -285,7 +281,9 @@ function accessiblePage(page: Page, administrator: boolean): Page {
 }
 
 function isAdministratorPage(page: Page) {
-  return page.startsWith("settings.") || (page.startsWith("identity.") && page !== "identity.profile");
+  return (
+    page.startsWith("settings.") || (page.startsWith("identity.") && page !== "identity.profile")
+  );
 }
 
 function pageFromPath(pathname: string, role: string | undefined): Page {

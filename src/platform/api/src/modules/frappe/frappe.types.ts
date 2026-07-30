@@ -81,6 +81,14 @@ export type FrappeLiveJobExecution = {
   totalCost: number;
 };
 
+export type FrappeLiveJobExecutionSavePayload = {
+  employee: string;
+  employeeCostPerHour: number;
+  startTime: string;
+  status: "Cancelled" | "Completed" | "Running";
+  stopTime: string | null;
+};
+
 export type FrappeLiveEnquiryActivity = {
   action: "added" | "changed" | "edited" | "removed" | "viewed";
   createdAt: string;
@@ -130,6 +138,10 @@ export type FrappeLiveEnquiryGateway = {
   employees: () => Promise<FrappeLiveEmployee[]>;
   get: (name: string) => Promise<FrappeLiveEnquiry>;
   jobs: (name: string) => Promise<FrappeLiveJobExecution[]>;
+  createJob: (
+    name: string,
+    input: FrappeLiveJobExecutionSavePayload
+  ) => Promise<FrappeLiveJobExecution>;
   list: (input: {
     employee: string;
     search?: string;
@@ -142,6 +154,11 @@ export type FrappeLiveEnquiryGateway = {
   ) => Promise<FrappeLiveEnquiry>;
   startJob: (name: string) => Promise<FrappeLiveJobExecution>;
   stopJob: (name: string, jobName: string) => Promise<FrappeLiveJobExecution>;
+  updateJob: (
+    name: string,
+    jobName: string,
+    input: FrappeLiveJobExecutionSavePayload
+  ) => Promise<FrappeLiveJobExecution>;
 };
 
 export type FrappeLiveEnquiryGatewayFactory = (context: {

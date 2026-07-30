@@ -6,6 +6,7 @@ import {
   addCrmEnquiryMessage,
   addCrmEnquiryNote,
   addCrmEnquiryTask,
+  createCrmEnquiryJob,
   createCrmEnquiry,
   deleteCrmEnquiryMessage,
   forceDeleteCrmEnquiry,
@@ -15,6 +16,7 @@ import {
   listCrmUserReferences,
   startCrmEnquiryJob,
   stopCrmEnquiryJob,
+  updateCrmEnquiryJob,
   updateCrmEnquiryMessage,
   updateCrmEnquiry
 } from "./crm.services";
@@ -111,8 +113,16 @@ export function useCrmEnquiryChildMutations(onSaved: (record: CrmEnquiry) => voi
       mutationFn: startCrmEnquiryJob,
       onSuccess: done
     }),
+    jobCreate: useMutation({
+      mutationFn: (input: Parameters<typeof createCrmEnquiryJob>) => createCrmEnquiryJob(...input),
+      onSuccess: done
+    }),
     jobStop: useMutation({
       mutationFn: (input: Parameters<typeof stopCrmEnquiryJob>) => stopCrmEnquiryJob(...input),
+      onSuccess: done
+    }),
+    jobUpdate: useMutation({
+      mutationFn: (input: Parameters<typeof updateCrmEnquiryJob>) => updateCrmEnquiryJob(...input),
       onSuccess: done
     }),
     note: useMutation({

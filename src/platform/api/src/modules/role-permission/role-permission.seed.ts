@@ -28,6 +28,7 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
   const liveFrappeDefaults: Record<string, string[]> = {
     auditor: ["estimate.view", "quotation.view"],
     manager: [
+      "crm.job.manage",
       "estimate.view",
       "estimate.create",
       "estimate.update",

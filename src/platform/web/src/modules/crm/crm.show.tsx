@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Paperclip,
   Pencil,
+  Plus,
   ReceiptText,
   Send,
   Smile,
@@ -48,6 +49,7 @@ import { WorkspaceDatePicker } from "@codexsun/ui/workspace/date-picker";
 import { WorkspaceLookup } from "@codexsun/ui/workspace/lookup";
 import { WorkspaceMinimalEditor } from "@codexsun/ui/workspace/minimal-editor";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";
+import { WorkspaceRowActions } from "@codexsun/ui/workspace/row-actions";
 import { WorkspaceSelect } from "@codexsun/ui/workspace/select";
 import { WorkspaceDetailTable, WorkspaceShowCard } from "@codexsun/ui/workspace/show";
 import { WorkspaceStatusBadge } from "@codexsun/ui/workspace/status";
@@ -55,7 +57,14 @@ import { WorkspaceTableEmptyState, WorkspaceTableHeaderCell } from "@codexsun/ui
 import { EstimateEnquiryTab } from "../estimate";
 import { QuotationEnquiryTab } from "../quotation";
 import { useCrmEnquiryChildMutations, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
-import type { CrmEnquiry, CrmEnquirySavePayload, CrmUserReference } from "./crm.types";
+import { CrmJobForm } from "./crm.job-form";
+import type {
+  CrmEnquiry,
+  CrmEnquirySavePayload,
+  CrmJobExecution,
+  CrmJobSavePayload,
+  CrmUserReference
+} from "./crm.types";
 
 type CrmShowTab =
   "activity" | "attachments" | "comments" | "estimate" | "jobs" | "quotation" | "tasks";
@@ -64,6 +73,7 @@ export function CrmShow({
   canAssign,
   canCreateEstimate,
   canCreateQuotation,
+  canManageJobs,
   canUpdate,
   canUpdateEstimate,
   canUpdateQuotation,
@@ -75,6 +85,7 @@ export function CrmShow({
   canAssign: boolean;
   canCreateEstimate: boolean;
   canCreateQuotation: boolean;
+  canManageJobs: boolean;
   canUpdate: boolean;
   canUpdateEstimate: boolean;
   canUpdateQuotation: boolean;
@@ -96,7 +107,11 @@ export function CrmShow({
       throw error;
     }
   }
-  const jobLoading = childMutations.jobStart.isPending || childMutations.jobStop.isPending;
+  const jobLoading =
+    childMutations.jobCreate.isPending ||
+    childMutations.jobStart.isPending ||
+    childMutations.jobStop.isPending ||
+    childMutations.jobUpdate.isPending;
   const startJob = () =>
     saveChild("Job", () => childMutations.jobStart.mutateAsync(record.frappeName), "started");
   const stopJob = (jobName: string) =>
@@ -104,6 +119,18 @@ export function CrmShow({
       "Job",
       () => childMutations.jobStop.mutateAsync([record.frappeName, jobName]),
       "stopped"
+    );
+  const createJob = (payload: CrmJobSavePayload) =>
+    saveChild(
+      "Job",
+      () => childMutations.jobCreate.mutateAsync([record.frappeName, payload]),
+      "created"
+    );
+  const updateJob = (jobName: string, payload: CrmJobSavePayload) =>
+    saveChild(
+      "Job",
+      () => childMutations.jobUpdate.mutateAsync([record.frappeName, jobName, payload]),
+      "updated"
     );
   async function updateProperties(
     patch: Partial<
@@ -177,11 +204,15 @@ export function CrmShow({
     {
       content: (
         <JobsTab
+          canManage={canManageJobs}
           key={`jobs-${record.id}`}
           loading={jobLoading}
+          users={users.data ?? []}
           record={record}
+          onCreate={createJob}
           onStart={startJob}
           onStop={stopJob}
+          onUpdate={updateJob}
         />
       ),
       label: (
@@ -296,16 +327,25 @@ export function CrmShow({
 }
 
 function JobsTab({
+  canManage,
   loading,
+  onCreate,
   onStart,
   onStop,
-  record
+  onUpdate,
+  record,
+  users
 }: {
+  canManage: boolean;
   loading: boolean;
+  onCreate: (payload: CrmJobSavePayload) => Promise<unknown>;
   onStart: () => Promise<unknown>;
   onStop: (jobName: string) => Promise<unknown>;
+  onUpdate: (jobName: string, payload: CrmJobSavePayload) => Promise<unknown>;
   record: CrmEnquiry;
+  users: CrmUserReference[];
 }) {
+  const [editing, setEditing] = useState<CrmJobExecution | null | undefined>(undefined);
   const running = record.jobs.filter((job) => job.status === "Running");
   const active = running[0];
   return (
@@ -314,13 +354,21 @@ function JobsTab({
         <p className="text-sm text-muted-foreground">
           Live job time recorded directly against this enquiry in Frappe.
         </p>
-        <JobControlButton
-          active={active}
-          loading={loading}
-          runningCount={running.length}
-          onStart={onStart}
-          onStop={onStop}
-        />
+        <div className="flex items-center gap-2">
+          {canManage ? (
+            <Button disabled={loading} onClick={() => setEditing(null)} type="button">
+              <Plus className="size-4" />
+              New job
+            </Button>
+          ) : null}
+          <JobControlButton
+            active={active}
+            loading={loading}
+            runningCount={running.length}
+            onStart={onStart}
+            onStop={onStop}
+          />
+        </div>
       </div>
       {running.length > 1 ? (
         <p className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -340,6 +388,7 @@ function JobsTab({
               <th className="px-3 py-2">Rate/hr</th>
               <th className="px-3 py-2">Cost</th>
               <th className="px-3 py-2">Status</th>
+              {canManage ? <th className="px-3 py-2 text-right">Action</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -366,6 +415,16 @@ function JobsTab({
                     }
                   />
                 </td>
+                {canManage ? (
+                  <td className="px-3 py-2">
+                    <div className="flex justify-end">
+                      <WorkspaceRowActions
+                        onEdit={() => setEditing(job)}
+                        title={`Job ${job.name}`}
+                      />
+                    </div>
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>
@@ -374,6 +433,19 @@ function JobsTab({
           <WorkspaceTableEmptyState>No jobs have been recorded.</WorkspaceTableEmptyState>
         ) : null}
       </div>
+      {editing !== undefined ? (
+        <CrmJobForm
+          key={editing?.name ?? "new"}
+          loading={loading}
+          onCancel={() => setEditing(undefined)}
+          onSubmit={(value) => {
+            const operation = editing ? onUpdate(editing.name, value) : onCreate(value);
+            void operation.then(() => setEditing(undefined)).catch(() => undefined);
+          }}
+          record={editing}
+          users={users}
+        />
+      ) : null}
     </section>
   );
 }

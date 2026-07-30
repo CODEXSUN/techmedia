@@ -32,7 +32,7 @@ services:
     container_name: ${TECHMEDIA_API_CONTAINER_NAME:-techmedia-api}
     restart: unless-stopped
     env_file:
-      - ${TECHMEDIA_RUNTIME_ENV_FILE:-./.env}
+      - ${TECHMEDIA_RUNTIME_ENV_FILE:-../.env}
     environment:
       DEV_AUTO_LOGIN: "0"
       NODE_ENV: production
@@ -43,7 +43,7 @@ services:
     ports:
       - "${TECHMEDIA_BIND_ADDRESS:-127.0.0.1}:${TECHMEDIA_API_HOST_PORT:-7050}:${TECHMEDIA_API_INTERNAL_PORT:-7050}"
     volumes:
-      - ${TECHMEDIA_RUNTIME_ENV_FILE:-./.env}:/workspace/techmedia/.env
+      - ${TECHMEDIA_RUNTIME_ENV_FILE:-../.env}:/workspace/techmedia/.env
     networks: [techmedia]
     healthcheck:
       test:

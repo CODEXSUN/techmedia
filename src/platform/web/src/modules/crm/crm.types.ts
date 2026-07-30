@@ -45,6 +45,13 @@ export type CrmJobExecution = {
   stopTime: string | null;
   totalCost: number;
 };
+export type CrmJobSavePayload = {
+  employee: string;
+  employeeCostPerHour: number;
+  startTime: string;
+  status: "Cancelled" | "Completed" | "Running";
+  stopTime: string | null;
+};
 export type CrmEnquiryEmail = {
   body: string;
   createdAt: string;

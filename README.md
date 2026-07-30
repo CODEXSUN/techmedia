@@ -61,19 +61,21 @@ installed:
 & "C:\Program Files\Git\bin\bash.exe" setup.sh
 ```
 
-The installer reviews the Docker resource names, bind address, host ports, MariaDB database and
-user, protected administrator, public application URLs, and Frappe connection. Existing secrets
-can be kept without displaying them. Before building, setup detects unavailable API or web host
-ports and asks for replacements. It can either create a dedicated TechMedia network and MariaDB
-volume or reuse an explicitly named running MariaDB container on an existing Docker network.
-Reused networks are marked external, and setup never disconnects, stops, removes, or recreates
-those existing infrastructure resources.
+Before prompting, the installer creates the root `.env` from `.env.example` when it is missing.
+The interactive flow reviews Docker resource names, bind address, host ports, MariaDB identity, and
+the protected administrator. Public URLs, encryption, and Frappe connection values are read
+directly from the root `.env`; Frappe is always enabled and those values are not prompted. Existing
+secrets can be kept without displaying them. Setup detects unavailable API or web host ports and
+asks for replacements. It can either create a dedicated TechMedia network and MariaDB volume or
+reuse an explicitly named running MariaDB container on an existing Docker network. Reused networks
+are marked external, and setup never disconnects, stops, removes, or recreates those existing
+infrastructure resources.
 
 After deployment:
 
 - Web: the configured `TECHMEDIA_BIND_ADDRESS` and `TECHMEDIA_WEB_HOST_PORT`
 - API health: `/health` on the configured API host endpoint
-- Runtime configuration: `.container/.env`
+- Runtime configuration: `.env`
 - Docker/deployment configuration: `.container/deploy.env`
 
 ## Verification

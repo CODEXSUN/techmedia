@@ -94,7 +94,6 @@ export function EstimateEnquiryTab({
       )}
 
       <WorkspaceUpsertDialog
-        className="sm:max-w-6xl"
         description={`Enquiry ${enquiry} and the signed-in Frappe user are applied automatically.`}
         onClose={() => setEditing(undefined)}
         open={editing !== undefined}
@@ -169,7 +168,7 @@ function EstimateDialogForm({
       {shownError ? (
         <WorkspaceFormBanner title="Unable to save">{shownError}</WorkspaceFormBanner>
       ) : null}
-      <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-5">
         <WorkspaceFormField label="Date" required>
           <Input
             className="h-9"

@@ -35,6 +35,7 @@ const permissionKeys = [
   "crm.enquiry.update",
   "crm.enquiry.assign",
   "crm.enquiry.force-delete",
+  "crm.job.manage",
   "estimate.view",
   "estimate.create",
   "estimate.update",

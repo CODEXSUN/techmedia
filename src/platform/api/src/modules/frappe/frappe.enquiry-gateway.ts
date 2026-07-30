@@ -6,7 +6,8 @@ import type {
   FrappeLiveEnquiry,
   FrappeLiveEnquiryActivity,
   FrappeLiveEnquiryGatewayFactory,
-  FrappeLiveEnquirySavePayload
+  FrappeLiveEnquirySavePayload,
+  FrappeLiveJobExecutionSavePayload
 } from "./frappe.types.js";
 
 const enquiryFields = [
@@ -101,6 +102,20 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
 
     async jobs(name) {
       return loadJobs(name);
+    },
+
+    async createJob(name, input) {
+      const target = await connection();
+      const response = await frappeRequest<{ data?: FrappeJobExecutionDocument }>(
+        target,
+        "/api/v2/document/Job Execution",
+        {
+          body: JSON.stringify(jobPayload(requiredName(name), input)),
+          method: "POST"
+        }
+      );
+      if (!response.data) throw AppError.conflict("Frappe did not return the new job.");
+      return toJobExecution(response.data);
     },
 
     async create(input) {
@@ -204,6 +219,27 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         ...job,
         employeeCostPerHour: job.employeeCostPerHour || costPerHour
       };
+    },
+
+    async updateJob(name, jobName, input) {
+      const target = await connection();
+      const enquiryName = requiredName(name);
+      const existing = (await loadJobs(enquiryName)).find(
+        (job) => job.name === requiredName(jobName)
+      );
+      if (!existing) {
+        throw AppError.notFound("Job was not found against this enquiry in Frappe.");
+      }
+      const response = await frappeRequest<{ data?: FrappeJobExecutionDocument }>(
+        target,
+        `/api/v2/document/Job Execution/${encodeURIComponent(requiredName(jobName))}`,
+        {
+          body: JSON.stringify(jobPayload(enquiryName, input)),
+          method: "PUT"
+        }
+      );
+      if (!response.data) throw AppError.conflict("Frappe did not return the updated job.");
+      return toJobExecution(response.data);
     },
 
     async stopJob(name, jobName) {
@@ -505,6 +541,33 @@ function frappeTime(date: Date) {
     second: "2-digit",
     timeZone: "Asia/Kolkata"
   }).format(date);
+}
+
+function jobPayload(enquiry: string, input: FrappeLiveJobExecutionSavePayload) {
+  const hours =
+    input.status === "Running" || !input.stopTime
+      ? 0
+      : elapsedHours(input.startTime, input.stopTime);
+  return {
+    employee: input.employee,
+    employee_cost_per_hour: input.employeeCostPerHour,
+    enquiry,
+    hours,
+    start_time: input.startTime,
+    status: input.status,
+    stop_time: input.status === "Running" ? null : input.stopTime,
+    total_cost: Number((hours * input.employeeCostPerHour).toFixed(2))
+  };
+}
+
+function elapsedHours(startTime: string, stopTime: string) {
+  const seconds = timeSeconds(stopTime) - timeSeconds(startTime);
+  return Number(((seconds < 0 ? seconds + 86_400 : seconds) / 3600).toFixed(6));
+}
+
+function timeSeconds(value: string) {
+  const [hours = 0, minutes = 0, seconds = 0] = value.split(":").map(Number);
+  return hours * 3600 + minutes * 60 + seconds;
 }
 
 function toJobExecution(
