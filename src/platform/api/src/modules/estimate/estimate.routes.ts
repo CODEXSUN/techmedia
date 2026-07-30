@@ -6,6 +6,7 @@ import { EstimateService } from "./estimate.service.js";
 
 const path = "/estimates";
 const params = z.object({ name: z.string().trim().min(1).max(255) });
+const listQuery = z.object({ enquiry: z.string().trim().min(1).max(255).optional() });
 const price = z
   .string()
   .trim()
@@ -41,8 +42,8 @@ export async function registerEstimateRoutes(app: FastifyInstance) {
   registerContractRoute(app, {
     method: "GET",
     url: path,
-    schemas: { response: z.array(record) },
-    handler: ({ request }) => service(request).list()
+    schemas: { querystring: listQuery, response: z.array(record) },
+    handler: ({ query, request }) => service(request).list(query.enquiry)
   });
   registerContractRoute(app, {
     method: "GET",

@@ -4,10 +4,11 @@ import { existsSync, readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const workspaceRoots = ["src", "tools"].map((directory) => join(root, directory));
-const nestedDependencyTrees = [];
+const workspaceRoots = ["packages", "src", "tools"].map((directory) => join(root, directory));
+const forbiddenDirectoryNames = new Set(["dist", "dist-types", "node_modules"]);
+const nestedArtifacts = [];
 
-function findNestedDependencyTrees(directory) {
+function findNestedArtifacts(directory) {
   if (!existsSync(directory)) {
     return;
   }
@@ -19,26 +20,26 @@ function findNestedDependencyTrees(directory) {
 
     const fullPath = join(directory, entry.name);
 
-    if (entry.name === "node_modules") {
-      nestedDependencyTrees.push(relative(root, fullPath));
+    if (forbiddenDirectoryNames.has(entry.name)) {
+      nestedArtifacts.push(relative(root, fullPath));
       continue;
     }
 
-    findNestedDependencyTrees(fullPath);
+    findNestedArtifacts(fullPath);
   }
 }
 
 for (const workspaceRoot of workspaceRoots) {
-  findNestedDependencyTrees(workspaceRoot);
+  findNestedArtifacts(workspaceRoot);
 }
 
-if (nestedDependencyTrees.length > 0) {
-  console.error("Workspace-local node_modules folders are not allowed:");
-  for (const directory of nestedDependencyTrees) {
+if (nestedArtifacts.length > 0) {
+  console.error("Workspace-local dependency and build-output folders are not allowed:");
+  for (const directory of nestedArtifacts) {
     console.error(`- ${directory}`);
   }
   console.error("Run npm run dependencies:clean from the repository root.");
   process.exit(1);
 }
 
-console.log("Dependency layout verified: workspace packages use the root node_modules");
+console.log("Artifact layout verified: dependencies and build output stay at the repository root");

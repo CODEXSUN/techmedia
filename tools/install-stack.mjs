@@ -5,20 +5,19 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const repositories = ["framework", "ui"];
+const packages = ["packages/framework", "packages/ui"];
 
-for (const repository of repositories) {
-  const directory = resolve(root, "..", repository);
+for (const packagePath of packages) {
+  const directory = resolve(root, packagePath);
   if (!existsSync(resolve(directory, "package.json"))) {
-    console.error(`[install] missing sibling repository: ${directory}`);
+    console.error(`[install] missing internal workspace package: ${directory}`);
     process.exit(1);
   }
-
-  console.info(`[install] ${repository}`);
-  runNpm(["install", "--no-audit", "--no-fund"], directory);
 }
 
-console.info("[install] TECHMEDIA sibling packages are ready.");
+console.info("[install] installing the self-contained TechMedia workspace");
+runNpm(["install", "--no-audit", "--no-fund"], root);
+console.info("[install] TechMedia application, Framework, and UI workspaces are ready.");
 
 function runNpm(args, cwd) {
   const executable = process.env.npm_execpath ? process.execPath : "npm";

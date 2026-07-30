@@ -9,17 +9,16 @@ import {
   CornerUpLeft,
   Ellipsis,
   ListChecks,
-  Mail,
   MapPin,
   MessageSquare,
-  NotebookPen,
   Paperclip,
   Pencil,
-  Phone,
+  ReceiptText,
   Send,
   Smile,
   Square,
   Star,
+  ScrollText,
   Timer,
   Trash2,
   X
@@ -53,22 +52,32 @@ import { WorkspaceSelect } from "@codexsun/ui/workspace/select";
 import { WorkspaceDetailTable, WorkspaceShowCard } from "@codexsun/ui/workspace/show";
 import { WorkspaceStatusBadge } from "@codexsun/ui/workspace/status";
 import { WorkspaceTableEmptyState, WorkspaceTableHeaderCell } from "@codexsun/ui/workspace/table";
+import { EstimateEnquiryTab } from "../estimate";
+import { QuotationEnquiryTab } from "../quotation";
 import { useCrmEnquiryChildMutations, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
 import type { CrmEnquiry, CrmEnquirySavePayload, CrmUserReference } from "./crm.types";
 
 type CrmShowTab =
-  "activity" | "attachments" | "calls" | "comments" | "emails" | "jobs" | "notes" | "tasks";
+  "activity" | "attachments" | "comments" | "estimate" | "jobs" | "quotation" | "tasks";
 
 export function CrmShow({
   canAssign,
+  canCreateEstimate,
+  canCreateQuotation,
   canUpdate,
+  canUpdateEstimate,
+  canUpdateQuotation,
   onBack,
   onNext,
   onRecordChange,
   record
 }: {
   canAssign: boolean;
+  canCreateEstimate: boolean;
+  canCreateQuotation: boolean;
   canUpdate: boolean;
+  canUpdateEstimate: boolean;
+  canUpdateQuotation: boolean;
   onBack: () => void;
   onNext?: () => void;
   onRecordChange: (record: CrmEnquiry) => void;
@@ -182,31 +191,25 @@ export function CrmShow({
     },
     {
       content: (
-        <EmailsTab
-          key={`emails-${record.id}`}
-          loading={childMutations.email.isPending}
-          record={record}
-          onAdd={(input) =>
-            saveChild("Email", () => childMutations.email.mutateAsync([record.frappeName, input]))
-          }
+        <EstimateEnquiryTab
+          canCreate={canCreateEstimate}
+          canUpdate={canUpdateEstimate}
+          enquiry={record.frappeName}
         />
       ),
-      label: <TabLabel icon={<Mail className="size-4" />} label="Emails" />,
-      value: "emails"
+      label: <TabLabel icon={<ReceiptText className="size-4" />} label="Estimate" />,
+      value: "estimate"
     },
     {
       content: (
-        <CallsTab
-          key={`calls-${record.id}`}
-          loading={childMutations.call.isPending}
-          record={record}
-          onAdd={(input) =>
-            saveChild("Call", () => childMutations.call.mutateAsync([record.frappeName, input]))
-          }
+        <QuotationEnquiryTab
+          canCreate={canCreateQuotation}
+          canUpdate={canUpdateQuotation}
+          enquiry={record.frappeName}
         />
       ),
-      label: <TabLabel icon={<Phone className="size-4" />} label="Calls" />,
-      value: "calls"
+      label: <TabLabel icon={<ScrollText className="size-4" />} label="Quotation" />,
+      value: "quotation"
     },
     {
       content: (
@@ -221,20 +224,6 @@ export function CrmShow({
       ),
       label: <TabLabel icon={<ListChecks className="size-4" />} label="Tasks" />,
       value: "tasks"
-    },
-    {
-      content: (
-        <NotesTab
-          key={`notes-${record.id}`}
-          loading={childMutations.note.isPending}
-          record={record}
-          onAdd={(input) =>
-            saveChild("Note", () => childMutations.note.mutateAsync([record.frappeName, input]))
-          }
-        />
-      ),
-      label: <TabLabel icon={<NotebookPen className="size-4" />} label="Notes" />,
-      value: "notes"
     },
     {
       content: (
@@ -844,140 +833,6 @@ function CommentsTab({
   );
 }
 
-function EmailsTab({
-  loading,
-  onAdd,
-  record
-}: {
-  loading: boolean;
-  onAdd: (input: { body: string; recipient: string; subject: string }) => Promise<unknown>;
-  record: CrmEnquiry;
-}) {
-  const [recipient, setRecipient] = useState("");
-  const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
-  return (
-    <TabSurface>
-      <TabRecordCount count={record.emails.length} />
-      <ChildTable
-        columns={["Recipient", "Subject", "Created"]}
-        empty="No emails have been added."
-        rows={record.emails.map((email) => [
-          email.recipient,
-          email.subject,
-          formatDateTime(email.createdAt)
-        ])}
-      />
-      <TabComposer>
-        <div className="grid gap-2 md:grid-cols-2">
-          <Input
-            aria-label="Email recipient"
-            disabled={loading}
-            placeholder="Recipient email"
-            value={recipient}
-            onChange={(event) => setRecipient(event.target.value)}
-          />
-          <Input
-            aria-label="Email subject"
-            disabled={loading}
-            placeholder="Subject"
-            value={subject}
-            onChange={(event) => setSubject(event.target.value)}
-          />
-        </div>
-        <Textarea
-          aria-label="Email body"
-          className="mt-2 min-h-20 resize-none"
-          disabled={loading}
-          placeholder="Email body"
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-        />
-        <ComposerAction
-          disabled={loading || !recipient.trim() || !subject.trim() || !body.trim()}
-          label="Add email"
-          onClick={() =>
-            void onAdd({
-              body: body.trim(),
-              recipient: recipient.trim(),
-              subject: subject.trim()
-            })
-              .then(() => {
-                setRecipient("");
-                setSubject("");
-                setBody("");
-              })
-              .catch(() => undefined)
-          }
-        />
-      </TabComposer>
-    </TabSurface>
-  );
-}
-
-function CallsTab({
-  loading,
-  onAdd,
-  record
-}: {
-  loading: boolean;
-  onAdd: (input: { calledAt: string; phone: string; summary: string }) => Promise<unknown>;
-  record: CrmEnquiry;
-}) {
-  const [phone, setPhone] = useState(record.mobile);
-  const [summary, setSummary] = useState("");
-  const [calledAt, setCalledAt] = useState(() => new Date().toISOString().slice(0, 16));
-  return (
-    <TabSurface>
-      <TabRecordCount count={record.calls.length} />
-      <ChildTable
-        columns={["Phone", "Summary", "Called"]}
-        empty="No calls have been added."
-        rows={record.calls.map((call) => [call.phone, call.summary, formatDateTime(call.calledAt)])}
-      />
-      <TabComposer>
-        <div className="grid gap-2 md:grid-cols-2">
-          <Input
-            aria-label="Call phone"
-            disabled={loading}
-            placeholder="Phone"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-          />
-          <Input
-            aria-label="Called at"
-            disabled={loading}
-            type="datetime-local"
-            value={calledAt}
-            onChange={(event) => setCalledAt(event.target.value)}
-          />
-        </div>
-        <Textarea
-          aria-label="Call summary"
-          className="mt-2 min-h-20 resize-none"
-          disabled={loading}
-          placeholder="Call summary"
-          value={summary}
-          onChange={(event) => setSummary(event.target.value)}
-        />
-        <ComposerAction
-          disabled={loading || !phone.trim() || !summary.trim() || !calledAt}
-          label="Add call"
-          onClick={() =>
-            void onAdd({
-              calledAt: new Date(calledAt).toISOString(),
-              phone: phone.trim(),
-              summary: summary.trim()
-            })
-              .then(() => setSummary(""))
-              .catch(() => undefined)
-          }
-        />
-      </TabComposer>
-    </TabSurface>
-  );
-}
-
 function TasksTab({
   loading,
   onAdd,
@@ -1034,7 +889,7 @@ function TasksTab({
   );
 }
 
-function NotesTab({
+function _NotesTab({
   loading,
   onAdd,
   record

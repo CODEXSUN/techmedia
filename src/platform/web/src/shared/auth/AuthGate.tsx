@@ -1,12 +1,18 @@
-import { useNavigate } from "@tanstack/react-router";
 import { GlobalLoader } from "@codexsun/ui/components/global-loader";
 import type { ReactElement } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { apiGet, clearToken, tokenIsCurrent } from "../api/platform-api";
+import {
+  apiGet,
+  getToken,
+  redirectToLoginForExpiredSession,
+  tokenExpiresAt,
+  tokenIsCurrent
+} from "../api/platform-api";
 
 export function AuthGate({ children }: { children: ReactElement }) {
-  const navigate = useNavigate();
-  const localValid = useMemo(() => tokenIsCurrent(), []);
+  const token = useMemo(() => getToken(), []);
+  const expiresAt = useMemo(() => tokenExpiresAt(token), [token]);
+  const localValid = useMemo(() => tokenIsCurrent(token), [token]);
   const [serverValid, setServerValid] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -25,9 +31,19 @@ export function AuthGate({ children }: { children: ReactElement }) {
 
   useEffect(() => {
     if (serverValid !== false) return;
-    clearToken();
-    void navigate({ replace: true, to: "/login" });
-  }, [navigate, serverValid]);
+    redirectToLoginForExpiredSession();
+  }, [serverValid]);
+
+  useEffect(() => {
+    if (!expiresAt) return;
+    const remaining = expiresAt - Date.now();
+    if (remaining <= 0) {
+      redirectToLoginForExpiredSession();
+      return;
+    }
+    const timeout = window.setTimeout(redirectToLoginForExpiredSession, remaining);
+    return () => window.clearTimeout(timeout);
+  }, [expiresAt]);
 
   if (serverValid === true) return children;
   return <GlobalLoader />;

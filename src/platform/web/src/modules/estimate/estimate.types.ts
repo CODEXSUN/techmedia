@@ -28,12 +28,6 @@ export type EstimateReferences = {
   suppliers: EstimateReference[];
 };
 
-export type EstimateColumnId =
-  | "name"
-  | "date"
-  | "enquiry"
-  | "itemName"
-  | "supplierName"
-  | "price";
+export type EstimateColumnId = "name" | "date" | "enquiry" | "itemName" | "supplierName" | "price";
 
 export type EstimateColumnVisibility = Record<EstimateColumnId, boolean>;

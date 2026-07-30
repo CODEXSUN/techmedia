@@ -55,24 +55,25 @@ export function CrmOverview({ signedInUser }: CrmOverviewProps) {
 
 function CrmHero({ signedInUser }: CrmOverviewProps) {
   return (
-    <div className="relative isolate overflow-hidden rounded-lg border bg-slate-950 px-6 py-4 text-white shadow-sm md:px-10 md:py-5">
-      <div className="absolute inset-0 -z-20 bg-gradient-to-br from-slate-950 via-emerald-950 to-teal-900" />
-      <div className="absolute -right-16 -top-20 -z-10 size-64 rounded-full bg-emerald-400/20 blur-3xl" />
-      <div className="absolute -bottom-24 left-1/3 -z-10 size-52 rounded-full bg-cyan-400/10 blur-3xl" />
+    <div className="relative isolate overflow-hidden rounded-lg border border-emerald-200/80 bg-card px-6 py-4 text-card-foreground shadow-sm dark:border-emerald-900/70 md:px-10 md:py-5">
+      <div className="absolute inset-0 -z-20 bg-gradient-to-br from-white via-emerald-50/80 to-teal-50/70 dark:from-card dark:via-emerald-950/25 dark:to-teal-950/20" />
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500" />
+      <div className="absolute -right-16 -top-20 -z-10 size-64 rounded-full bg-emerald-200/45 blur-3xl dark:bg-emerald-700/10" />
+      <div className="absolute -bottom-24 left-1/3 -z-10 size-52 rounded-full bg-teal-100/70 blur-3xl dark:bg-teal-700/10" />
       <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-medium text-emerald-50">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/80 px-2.5 py-1 text-xs font-medium text-emerald-800 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
             <MessagesSquareIcon className="size-3.5" />
             CRM workspace
           </div>
-          <h1 className="text-xl font-semibold tracking-tight xl:whitespace-nowrap">
+          <h1 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-foreground xl:whitespace-nowrap">
             Turn every enquiry into clear, accountable follow-up.
           </h1>
-          <p className="mt-2 text-sm leading-5 text-slate-200 xl:whitespace-nowrap">
+          <p className="mt-2 text-sm leading-5 text-slate-600 dark:text-muted-foreground xl:whitespace-nowrap">
             Manage assigned, created, and open enquiries with clear customer follow-up.
           </p>
         </div>
-        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white shadow-sm lg:justify-self-end">
+        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-100/80 px-4 py-2 text-sm font-medium text-emerald-950 shadow-sm dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100 lg:justify-self-end">
           <UserRoundIcon className="size-4" />
           <span>
             Signed in as {signedInUser.name} · {signedInUser.email}

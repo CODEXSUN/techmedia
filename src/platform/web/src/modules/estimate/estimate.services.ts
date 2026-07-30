@@ -3,8 +3,10 @@ import type { Estimate, EstimateReferences, EstimateSavePayload } from "./estima
 
 const path = "/estimates";
 
-export function listEstimates() {
-  return apiGet<Estimate[]>(path);
+export function listEstimates(enquiry?: string) {
+  return apiGet<Estimate[]>(
+    enquiry ? `${path}?${new URLSearchParams({ enquiry }).toString()}` : path
+  );
 }
 
 export function listEstimateReferences() {

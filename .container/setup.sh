@@ -3,14 +3,11 @@ set -euo pipefail
 
 CONTAINER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$CONTAINER_DIR/.." && pwd)"
-WORKSPACE_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
 RUNTIME_ENV="${TECHMEDIA_RUNTIME_ENV:-$CONTAINER_DIR/.env}"
 RUNTIME_ENV_EXAMPLE="$CONTAINER_DIR/.env.example"
 DEPLOY_ENV="${TECHMEDIA_DEPLOY_ENV:-$CONTAINER_DIR/deploy.env}"
 DEPLOY_ENV_EXAMPLE="$CONTAINER_DIR/deploy.env.example"
 COMPOSE_FILE="$CONTAINER_DIR/docker-compose.yml"
-SHARED_REPOSITORIES=(framework ui core)
-SHARED_DEPLOY_ENV="${TECHMEDIA_SHARED_DEPLOY_ENV:-$WORKSPACE_ROOT/cxapp/.container/deploy.env}"
 
 usage() {
   cat <<'EOF'
@@ -18,24 +15,27 @@ Usage: bash setup.sh
 
 Interactive standalone TechMedia container installation.
 
+The installer reviews Docker resources, host ports, database identity,
+administrator credentials, public URLs, and the Frappe application connection.
+Press Enter at any prompt to keep the displayed value.
+
 Configuration:
   .container/.env         TechMedia production runtime and application secrets
   .container/deploy.env  Docker topology and MariaDB infrastructure secret
 
 Included:
-  - Framework public platform contracts
-  - UI
-  - Core build dependency
+  - Repository-owned Framework public platform contracts
+  - Repository-owned UI
   - TechMedia Platform API and Web
-  - Reused shared MariaDB or a TechMedia-owned MariaDB
+  - Reused existing Docker network and MariaDB, or TechMedia-owned infrastructure
 
 Excluded:
   - CXApp, Billing, DevKit, Mail, TMApp, Trades, Redis, Media, and all other stacks
 
-The setup asks whether to reuse or freshly clone shared source checkouts.
-It then asks whether to reuse an already-running MariaDB/Redis/Media
-infrastructure set or start a dedicated TechMedia MariaDB. TechMedia uses only
-MariaDB; reused Redis and Media containers are detected and left untouched.
+The setup builds only this self-contained TechMedia repository. It asks whether
+to reuse an existing Docker network and running MariaDB container or create a
+dedicated TechMedia network and MariaDB. TechMedia uses only MariaDB; optional
+Redis and Media containers are detected and left untouched.
 If dedicated TechMedia MariaDB data already exists, setup separately asks
 whether to reuse or freshly recreate only the TechMedia database volume.
 EOF
@@ -106,16 +106,78 @@ ensure_secret() {
   esac
 }
 
-prompt_setting_if_empty() {
-  local file="$1" key="$2" label="$3" default_value="$4" value
-  [[ -n "$(file_value "$file" "$key")" ]] && return
-  read -r -p "$label [default: $default_value]: " value
-  set_file_value "$file" "$key" "${value:-$default_value}"
+prompt_setting() {
+  local file="$1" key="$2" label="$3" default_value="$4" current value
+  current="$(file_value "$file" "$key" "$default_value")"
+  read -r -p "$label [$current]: " value
+  set_file_value "$file" "$key" "${value:-$current}"
 }
 
 prompt_secret_if_empty() {
   local file="$1" key="$2" label="$3" value confirmation
   [[ -n "$(file_value "$file" "$key")" ]] && return
+  while true; do
+    read -r -s -p "$label: " value
+    echo
+    [[ -n "$value" ]] || {
+      echo "$label cannot be empty." >&2
+      continue
+    }
+    read -r -s -p "Confirm $label: " confirmation
+    echo
+    if [[ "$value" == "$confirmation" ]]; then
+      set_file_value "$file" "$key" "$value"
+      return
+    fi
+    echo "Values do not match. Try again." >&2
+  done
+}
+
+prompt_secret() {
+  local file="$1" key="$2" label="$3" current answer
+  current="$(file_value "$file" "$key")"
+  if [[ -n "$current" && "$current" != generate-with-setup && "$current" != change_this* ]]; then
+    read -r -p "$label is configured. Keep it? [Y/n] " answer
+    case "${answer:-Y}" in
+      n|N|no|No|NO)
+        set_file_value "$file" "$key" ""
+        ;;
+      *)
+        return
+        ;;
+    esac
+  fi
+  prompt_secret_if_empty "$file" "$key" "$label"
+}
+
+prompt_optional_secret() {
+  local file="$1" key="$2" label="$3" current answer value confirmation
+  current="$(file_value "$file" "$key")"
+  if [[ -n "$current" ]]; then
+    read -r -p "$label is configured. Keep, change, or clear it? [keep/change/clear] " answer
+    case "${answer:-keep}" in
+      keep|Keep|KEEP)
+        return
+        ;;
+      clear|Clear|CLEAR)
+        set_file_value "$file" "$key" ""
+        return
+        ;;
+      change|Change|CHANGE) ;;
+      *)
+        echo "Enter keep, change, or clear." >&2
+        prompt_optional_secret "$file" "$key" "$label"
+        return
+        ;;
+    esac
+  else
+    read -r -p "Configure $label? [y/N] " answer
+    case "${answer:-N}" in
+      y|Y|yes|Yes|YES) ;;
+      *) return ;;
+    esac
+  fi
+
   while true; do
     read -r -s -p "$label: " value
     echo
@@ -158,6 +220,21 @@ prepare_deploy_environment() {
   chmod 600 "$DEPLOY_ENV" 2>/dev/null || true
 }
 
+configure_deploy_environment() {
+  echo
+  echo "Docker deployment settings"
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_COMPOSE_PROJECT "Compose project" techmedia
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_IMAGE_REGISTRY "Image registry/prefix" techmedia
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_API_CONTAINER_NAME "API container name" techmedia-api
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_WEB_CONTAINER_NAME "Web container name" techmedia-web
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_BIND_ADDRESS "Host bind address" 127.0.0.1
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_API_HOST_PORT "API host port" 7050
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_WEB_HOST_PORT "Web host port" 7060
+  prompt_setting "$DEPLOY_ENV" DB_NAME "Application database name" techmedia_db
+  prompt_setting "$DEPLOY_ENV" DB_USER "Application database user" techmedia
+  prompt_secret "$DEPLOY_ENV" DB_PASSWORD "Application database password"
+}
+
 prepare_runtime_environment() {
   local infrastructure_mode="$1" database_host
   if [[ ! -f "$RUNTIME_ENV" ]]; then
@@ -166,13 +243,6 @@ prepare_runtime_environment() {
   fi
 
   ensure_secret "$RUNTIME_ENV" JWT_SECRET
-
-  prompt_setting_if_empty "$RUNTIME_ENV" INITIAL_ADMIN_NAME \
-    "Initial administrator name" Administrator
-  prompt_setting_if_empty "$RUNTIME_ENV" INITIAL_ADMIN_EMAIL \
-    "Initial administrator email" admin@techmedia.in
-  prompt_secret_if_empty "$RUNTIME_ENV" INITIAL_ADMIN_PASSWORD \
-    "Initial administrator password"
 
   set_file_value "$RUNTIME_ENV" NODE_ENV production
   set_file_value "$RUNTIME_ENV" AUTH_MODE jwt
@@ -205,6 +275,33 @@ prepare_runtime_environment() {
   chmod 600 "$RUNTIME_ENV" 2>/dev/null || true
 }
 
+configure_runtime_environment() {
+  local bind_address api_port web_port
+  bind_address="$(file_value "$DEPLOY_ENV" TECHMEDIA_BIND_ADDRESS 127.0.0.1)"
+  api_port="$(file_value "$DEPLOY_ENV" TECHMEDIA_API_HOST_PORT 7050)"
+  web_port="$(file_value "$DEPLOY_ENV" TECHMEDIA_WEB_HOST_PORT 7060)"
+
+  echo
+  echo "Application runtime settings"
+  prompt_setting "$RUNTIME_ENV" INITIAL_ADMIN_NAME "Initial administrator name" Administrator
+  prompt_setting "$RUNTIME_ENV" INITIAL_ADMIN_EMAIL \
+    "Initial administrator email" admin@techmedia.in
+  prompt_secret "$RUNTIME_ENV" INITIAL_ADMIN_PASSWORD "Initial administrator password"
+  prompt_optional_secret "$RUNTIME_ENV" TECHMEDIA_INTEGRATION_ENCRYPTION_KEY \
+    "dedicated Frappe credential encryption key"
+  prompt_setting "$RUNTIME_ENV" PLATFORM_API_URL "Public API URL" \
+    "http://$bind_address:$api_port"
+  prompt_setting "$RUNTIME_ENV" PLATFORM_WEB_ORIGIN "Public web origin" \
+    "http://$bind_address:$web_port"
+  prompt_setting "$RUNTIME_ENV" PLATFORM_WEB_HEALTH_URL "Public web health URL" \
+    "http://$bind_address:$web_port/status"
+  prompt_setting "$RUNTIME_ENV" FRAPPE_ENABLED "Enable live Frappe (1 or 0)" 1
+  prompt_setting "$RUNTIME_ENV" FRAPPE_CONNECTION_NAME "Frappe connection name" Frappe
+  prompt_setting "$RUNTIME_ENV" FRAPPE_BASE_URL "Frappe base URL (blank disables verification)" ""
+  prompt_optional_secret "$RUNTIME_ENV" FRAPPE_APP_KEY "Frappe application key"
+  prompt_optional_secret "$RUNTIME_ENV" FRAPPE_APP_SECRET "Frappe application secret"
+}
+
 validate_runtime_environment() {
   local key value
   for key in DB_USER DB_PASSWORD DB_NAME JWT_SECRET INITIAL_ADMIN_EMAIL INITIAL_ADMIN_PASSWORD; do
@@ -229,108 +326,55 @@ validate_runtime_environment() {
   }
 }
 
-repository_path() {
-  printf '%s/%s' "$WORKSPACE_ROOT" "$1"
-}
-
-clone_repository() {
-  local repository="$1"
-  git clone --branch main --single-branch \
-    "https://github.com/CODEXSUN/${repository}.git" "$(repository_path "$repository")"
-}
-
-validate_repository() {
-  local repository="$1" directory
-  directory="$(repository_path "$repository")"
-  [[ -d "$directory/.git" && -f "$directory/package.json" ]] || {
-    echo "Invalid shared repository checkout: $directory" >&2
-    exit 73
-  }
-}
-
-select_shared_mode() {
-  local answer
-  while true; do
-    read -r -p "Reuse existing Framework/UI/Core source or prepare fresh checkouts? [reuse/fresh] " answer
-    case "${answer:-reuse}" in
-      reuse|Reuse|REUSE)
-        printf 'reuse'
-        return
-        ;;
-      fresh|Fresh|FRESH)
-        printf 'fresh'
-        return
-        ;;
-      *)
-        echo "Enter reuse or fresh." >&2
-        ;;
-    esac
-  done
-}
-
-prepare_shared_repositories() {
-  local mode="$1" repository directory
-  if [[ "$mode" == fresh ]]; then
-    for repository in "${SHARED_REPOSITORIES[@]}"; do
-      directory="$(repository_path "$repository")"
-      [[ ! -e "$directory" ]] || {
-        echo "Fresh shared source requires this path to be moved aside manually: $directory" >&2
-        exit 73
-      }
-    done
-  fi
-
-  for repository in "${SHARED_REPOSITORIES[@]}"; do
-    directory="$(repository_path "$repository")"
-    [[ -e "$directory" ]] || clone_repository "$repository"
-    validate_repository "$repository"
-  done
-}
-
 container_is_running() {
   [[ "$(docker inspect --format '{{.State.Running}}' "$1" 2>/dev/null || true)" == true ]]
 }
 
+container_is_compose_service() {
+  local container="$1" project="$2" service="$3"
+  [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' \
+    "$container" 2>/dev/null || true)" == "$project" ]] &&
+    [[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}}' \
+      "$container" 2>/dev/null || true)" == "$service" ]]
+}
+
 select_infrastructure_mode() {
-  local answer shared_mariadb
-  shared_mariadb="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
+  local answer
   while true; do
-    if container_is_running "$shared_mariadb"; then
-      read -r -p \
-        "Reuse running MariaDB/Redis/Media infrastructure or use a fresh standalone TechMedia MariaDB? [reuse/fresh] " \
-        answer
-    else
-      read -r -p \
-        "Shared MariaDB is unavailable. Use a fresh standalone TechMedia MariaDB? [fresh] " \
-        answer
-      answer="${answer:-fresh}"
-    fi
-    case "${answer:-reuse}" in
+    read -r -p \
+      "Reuse an existing Docker network and MariaDB, or create dedicated TechMedia infrastructure? [reuse/dedicated] " \
+      answer
+    case "${answer:-dedicated}" in
       reuse|Reuse|REUSE)
         printf 'shared'
         return
         ;;
-      fresh|Fresh|FRESH)
+      dedicated|Dedicated|DEDICATED|fresh|Fresh|FRESH)
         printf 'dedicated'
         return
         ;;
       *)
-        echo "Enter reuse or fresh." >&2
+        echo "Enter reuse or dedicated." >&2
         ;;
     esac
   done
 }
 
 prepare_shared_infrastructure() {
-  local mariadb redis media root_password name
+  local mariadb network redis media root_password name
   mariadb="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
+  network="$(file_value "$DEPLOY_ENV" TECHMEDIA_NETWORK techmedia-network)"
   redis="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_REDIS_CONTAINER_NAME cxapp-redis)"
   media="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MEDIA_CONTAINER_NAME cxapp-media)"
   for name in "$mariadb" "$redis" "$media"; do
     safe_docker_name "$name"
   done
   container_is_running "$mariadb" || {
-    echo "Shared MariaDB container is not running: $mariadb" >&2
+    echo "Existing MariaDB container is not running: $mariadb" >&2
+    exit 69
+  }
+  docker network inspect "$network" >/dev/null 2>&1 || {
+    echo "Existing Docker network was not found: $network" >&2
     exit 69
   }
   for name in "$redis" "$media"; do
@@ -342,16 +386,56 @@ prepare_shared_infrastructure() {
   done
 
   root_password="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_ROOT_PASSWORD)"
-  if [[ -z "$root_password" && -f "$SHARED_DEPLOY_ENV" ]]; then
-    root_password="$(file_value "$SHARED_DEPLOY_ENV" MARIADB_ROOT_PASSWORD)"
-    [[ -z "$root_password" ]] ||
-      set_file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_ROOT_PASSWORD "$root_password"
-  fi
   [[ -n "$root_password" ]] || {
     echo "Shared MariaDB root password is unavailable." >&2
     echo "Configure TECHMEDIA_SHARED_MARIADB_ROOT_PASSWORD in $DEPLOY_ENV." >&2
     exit 78
   }
+}
+
+configure_shared_infrastructure() {
+  echo
+  echo "Existing infrastructure settings"
+  echo "Running containers:"
+  docker ps --format '  {{.Names}} ({{.Image}})' || true
+  echo "Available Docker networks:"
+  docker network ls --format '  {{.Name}}' || true
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME \
+    "Existing MariaDB container name" cxapp-mariadb
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_NETWORK "Existing Docker network" techmedia-network
+  set_file_value "$DEPLOY_ENV" TECHMEDIA_NETWORK_EXTERNAL true
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_SHARED_REDIS_CONTAINER_NAME \
+    "Shared Redis container name (detected only)" cxapp-redis
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_SHARED_MEDIA_CONTAINER_NAME \
+    "Shared Media container name (detected only)" cxapp-media
+  prompt_secret "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_ROOT_PASSWORD \
+    "Shared MariaDB root password"
+}
+
+configure_dedicated_infrastructure() {
+  local container replacement
+  echo
+  echo "Dedicated TechMedia infrastructure settings"
+  if [[ "$(file_value "$DEPLOY_ENV" TECHMEDIA_NETWORK_EXTERNAL false)" == true ]]; then
+    set_file_value "$DEPLOY_ENV" TECHMEDIA_NETWORK techmedia-network
+  fi
+  set_file_value "$DEPLOY_ENV" TECHMEDIA_NETWORK_EXTERNAL false
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_MARIADB_CONTAINER_NAME \
+    "Dedicated MariaDB container name" techmedia-mariadb
+  container="$(file_value "$DEPLOY_ENV" TECHMEDIA_MARIADB_CONTAINER_NAME techmedia-mariadb)"
+  while docker container inspect "$container" >/dev/null 2>&1 &&
+    ! container_is_compose_service "$container" \
+      "$(file_value "$DEPLOY_ENV" TECHMEDIA_COMPOSE_PROJECT techmedia)" mariadb; do
+    echo "Container name is already owned by existing infrastructure: $container" >&2
+    read -r -p "Choose another dedicated MariaDB container name: " replacement
+    set_file_value "$DEPLOY_ENV" TECHMEDIA_MARIADB_CONTAINER_NAME "$replacement"
+    container="$replacement"
+  done
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_NETWORK "Dedicated Docker network" techmedia-network
+  prompt_setting "$DEPLOY_ENV" TECHMEDIA_MARIADB_DATA_VOLUME \
+    "MariaDB data volume" techmedia-mariadb-data
+  prompt_setting "$DEPLOY_ENV" MARIADB_IMAGE "MariaDB image" mariadb:11.8
+  prompt_secret "$DEPLOY_ENV" MARIADB_ROOT_PASSWORD "Dedicated MariaDB root password"
 }
 
 compose() {
@@ -366,6 +450,91 @@ safe_docker_name() {
     echo "Unsafe Docker resource name: $1" >&2
     exit 78
   }
+}
+
+validate_port() {
+  local port="$1"
+  [[ "$port" =~ ^[0-9]+$ ]] && ((port >= 1 && port <= 65535))
+}
+
+host_port_available() {
+  local bind_address="$1" port="$2"
+  node -e '
+    const server = require("node:net").createServer();
+    server.unref();
+    server.once("error", () => process.exit(1));
+    server.listen(Number(process.argv[2]), process.argv[1], () => {
+      server.close(() => process.exit(0));
+    });
+  ' "$bind_address" "$port"
+}
+
+container_publishes_port() {
+  local container="$1" bind_address="$2" port="$3"
+  docker container inspect "$container" >/dev/null 2>&1 || return 1
+  docker port "$container" 2>/dev/null | grep -Eq "(^|[[:space:]])${bind_address}:${port}$"
+}
+
+ensure_available_host_port() {
+  local key="$1" label="$2" container="$3" bind_address port replacement
+  bind_address="$(file_value "$DEPLOY_ENV" TECHMEDIA_BIND_ADDRESS 127.0.0.1)"
+  while true; do
+    port="$(file_value "$DEPLOY_ENV" "$key")"
+    validate_port "$port" || {
+      read -r -p "$label must be between 1 and 65535. Enter a valid port: " replacement
+      set_file_value "$DEPLOY_ENV" "$key" "$replacement"
+      continue
+    }
+    if host_port_available "$bind_address" "$port" ||
+      container_publishes_port "$container" "$bind_address" "$port"; then
+      return
+    fi
+    echo "$label $bind_address:$port is already in use." >&2
+    read -r -p "Choose another $label: " replacement
+    set_file_value "$DEPLOY_ENV" "$key" "$replacement"
+  done
+}
+
+validate_deploy_environment() {
+  local key
+  for key in \
+    TECHMEDIA_COMPOSE_PROJECT \
+    TECHMEDIA_API_CONTAINER_NAME \
+    TECHMEDIA_WEB_CONTAINER_NAME \
+    TECHMEDIA_MARIADB_CONTAINER_NAME \
+    TECHMEDIA_NETWORK \
+    TECHMEDIA_MARIADB_DATA_VOLUME; do
+    safe_docker_name "$(file_value "$DEPLOY_ENV" "$key")"
+  done
+  ensure_available_host_port \
+    TECHMEDIA_API_HOST_PORT \
+    "API host port" \
+    "$(file_value "$DEPLOY_ENV" TECHMEDIA_API_CONTAINER_NAME techmedia-api)"
+  ensure_available_host_port \
+    TECHMEDIA_WEB_HOST_PORT \
+    "Web host port" \
+    "$(file_value "$DEPLOY_ENV" TECHMEDIA_WEB_CONTAINER_NAME techmedia-web)"
+}
+
+sync_loopback_urls() {
+  local bind_address api_port web_port value
+  bind_address="$(file_value "$DEPLOY_ENV" TECHMEDIA_BIND_ADDRESS 127.0.0.1)"
+  api_port="$(file_value "$DEPLOY_ENV" TECHMEDIA_API_HOST_PORT 7050)"
+  web_port="$(file_value "$DEPLOY_ENV" TECHMEDIA_WEB_HOST_PORT 7060)"
+
+  value="$(file_value "$RUNTIME_ENV" PLATFORM_API_URL)"
+  if [[ -z "$value" || "$value" =~ ^http://(127\.0\.0\.1|localhost):[0-9]+$ ]]; then
+    set_file_value "$RUNTIME_ENV" PLATFORM_API_URL "http://$bind_address:$api_port"
+  fi
+  value="$(file_value "$RUNTIME_ENV" PLATFORM_WEB_ORIGIN)"
+  if [[ -z "$value" || "$value" =~ ^http://(127\.0\.0\.1|localhost):[0-9]+$ ]]; then
+    set_file_value "$RUNTIME_ENV" PLATFORM_WEB_ORIGIN "http://$bind_address:$web_port"
+  fi
+  value="$(file_value "$RUNTIME_ENV" PLATFORM_WEB_HEALTH_URL)"
+  if [[ -z "$value" || "$value" =~ ^http://(127\.0\.0\.1|localhost):[0-9]+/status$ ]]; then
+    set_file_value "$RUNTIME_ENV" PLATFORM_WEB_HEALTH_URL \
+      "http://$bind_address:$web_port/status"
+  fi
 }
 
 select_database_mode() {
@@ -439,40 +608,18 @@ connect_shared_mariadb() {
   container="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
   safe_docker_name "$network"
   safe_docker_name "$container"
-  docker network inspect "$network" >/dev/null 2>&1 || docker network create "$network" >/dev/null
+  docker network inspect "$network" >/dev/null 2>&1 || {
+    echo "Existing Docker network was not found: $network" >&2
+    exit 69
+  }
   if ! docker inspect --format \
     '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{println}}{{end}}' \
     "$container" | grep -Fxq "$network"; then
     docker network connect "$network" "$container"
+    echo "Connected existing MariaDB container $container to external network $network."
   fi
 }
 
-disconnect_shared_mariadb() {
-  local network container
-  network="$(file_value "$DEPLOY_ENV" TECHMEDIA_NETWORK techmedia-network)"
-  container="$(file_value "$DEPLOY_ENV" TECHMEDIA_SHARED_MARIADB_CONTAINER_NAME cxapp-mariadb)"
-  if docker network inspect "$network" >/dev/null 2>&1 &&
-    docker container inspect "$container" >/dev/null 2>&1 &&
-    docker inspect --format \
-      '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{println}}{{end}}' \
-      "$container" | grep -Fxq "$network"; then
-    docker network disconnect "$network" "$container"
-  fi
-}
-
-remove_dedicated_database_container() {
-  local container
-  container="$(file_value "$DEPLOY_ENV" TECHMEDIA_MARIADB_CONTAINER_NAME techmedia-mariadb)"
-  safe_docker_name "$container"
-  if docker container inspect "$container" >/dev/null 2>&1; then
-    docker stop "$container" >/dev/null
-    docker rm "$container" >/dev/null
-    echo "Removed the unused dedicated MariaDB container: $container"
-    echo "Preserved its recoverable Docker volume."
-  fi
-}
-
-require_command git
 require_command node
 require_command docker
 docker info >/dev/null 2>&1 || {
@@ -485,22 +632,29 @@ docker compose version >/dev/null 2>&1 || {
 }
 
 prepare_deploy_environment
-shared_mode="$(select_shared_mode)"
-prepare_shared_repositories "$shared_mode"
+configure_deploy_environment
 infrastructure_mode="$(select_infrastructure_mode)"
 if [[ "$infrastructure_mode" == shared ]]; then
+  configure_shared_infrastructure
   prepare_shared_infrastructure
+else
+  configure_dedicated_infrastructure
 fi
 prepare_runtime_environment "$infrastructure_mode"
+validate_deploy_environment
+sync_loopback_urls
+configure_runtime_environment
 validate_runtime_environment
 
 if [[ "$infrastructure_mode" == dedicated ]]; then
   database_volume="$(file_value "$DEPLOY_ENV" TECHMEDIA_MARIADB_DATA_VOLUME techmedia-mariadb-data)"
   safe_docker_name "$database_volume"
   database_mode="$(select_database_mode "$database_volume")"
+  infrastructure_label="dedicated TechMedia network and MariaDB"
 else
   database_volume=""
-  database_mode="reuse shared MariaDB"
+  database_mode="reuse existing MariaDB"
+  infrastructure_label="reuse existing Docker network and MariaDB"
 fi
 
 compose config --quiet
@@ -509,10 +663,10 @@ echo
 echo "Standalone TechMedia deployment plan"
 echo "  Runtime env: $RUNTIME_ENV"
 echo "  Deploy env: $DEPLOY_ENV"
-echo "  Shared source: $shared_mode"
-echo "  Infrastructure: $infrastructure_mode"
+echo "  Source: self-contained TechMedia monorepo"
+echo "  Infrastructure: $infrastructure_label"
 echo "  MariaDB data: $database_mode"
-echo "  Images: Framework -> UI -> Core -> TechMedia Platform API/Web"
+echo "  Images: internal Framework/UI -> TechMedia Platform API/Web"
 echo "  Runtime: TechMedia API, TechMedia Web, selected MariaDB"
 echo "  Excluded: CXApp, TMApp, Billing, DevKit, Mail, Trades, Redis, and Media"
 read -r -p "Build and apply this standalone TechMedia installation? [Y/n] " confirmation
@@ -526,7 +680,6 @@ esac
 
 if [[ "$infrastructure_mode" == dedicated && "$database_mode" == fresh ]] &&
   docker volume inspect "$database_volume" >/dev/null 2>&1; then
-  disconnect_shared_mariadb
   compose down --remove-orphans
   docker volume rm "$database_volume" >/dev/null
 fi
@@ -535,10 +688,8 @@ compose build api web
 if [[ "$infrastructure_mode" == shared ]]; then
   connect_shared_mariadb
   reconcile_database_user shared
-  remove_dedicated_database_container
   compose up -d api web --no-build --no-deps --force-recreate --wait --wait-timeout 300
 else
-  disconnect_shared_mariadb
   compose up -d mariadb --wait --wait-timeout 180
   reconcile_database_user dedicated
   compose up -d api web --no-build --force-recreate --wait --wait-timeout 300

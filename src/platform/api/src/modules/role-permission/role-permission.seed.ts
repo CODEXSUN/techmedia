@@ -25,13 +25,34 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
       ON DUPLICATE KEY UPDATE status='active',is_protected=TRUE`.execute(database);
   }
 
-  const estimateDefaults: Record<string, string[]> = {
-    auditor: ["estimate.view"],
-    manager: ["estimate.view", "estimate.create", "estimate.update"],
-    staff: ["estimate.view", "estimate.create", "estimate.update"],
-    user: ["estimate.view", "estimate.create", "estimate.update"]
+  const liveFrappeDefaults: Record<string, string[]> = {
+    auditor: ["estimate.view", "quotation.view"],
+    manager: [
+      "estimate.view",
+      "estimate.create",
+      "estimate.update",
+      "quotation.view",
+      "quotation.create",
+      "quotation.update"
+    ],
+    staff: [
+      "estimate.view",
+      "estimate.create",
+      "estimate.update",
+      "quotation.view",
+      "quotation.create",
+      "quotation.update"
+    ],
+    user: [
+      "estimate.view",
+      "estimate.create",
+      "estimate.update",
+      "quotation.view",
+      "quotation.create",
+      "quotation.update"
+    ]
   };
-  for (const [roleKey, permissionKeys] of Object.entries(estimateDefaults)) {
+  for (const [roleKey, permissionKeys] of Object.entries(liveFrappeDefaults)) {
     const role = await database
       .selectFrom("roles")
       .select("id")

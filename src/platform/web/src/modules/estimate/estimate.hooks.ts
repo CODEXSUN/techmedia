@@ -9,8 +9,11 @@ import type { EstimateSavePayload } from "./estimate.types";
 
 export const estimateQueryKey = ["estimate"] as const;
 
-export function useEstimatesQuery() {
-  return useQuery({ queryFn: listEstimates, queryKey: estimateQueryKey });
+export function useEstimatesQuery(enquiry?: string) {
+  return useQuery({
+    queryFn: () => listEstimates(enquiry),
+    queryKey: [...estimateQueryKey, enquiry ?? "all"]
+  });
 }
 
 export function useEstimateReferencesQuery(enabled: boolean) {

@@ -1,16 +1,22 @@
 import { Button } from "@codexsun/ui/components/button";
 import { Field } from "@codexsun/ui/components/Field";
 import { GlobalLoader } from "@codexsun/ui/components/global-loader";
+import { Alert, AlertDescription, AlertTitle } from "@codexsun/ui/components/alert";
 import { useNavigate } from "@tanstack/react-router";
-import { LogIn } from "lucide-react";
+import { LogIn, TriangleAlert } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import {
   apiGet,
   clearToken,
+  clearSessionExpiredWarning,
   developmentLogin,
+  getToken,
+  hasSessionExpiredWarning,
   login,
+  redirectToLoginForExpiredSession,
   tokenIsCurrent
 } from "../../shared/api/platform-api";
+import { applicationEntryPath } from "../../desks/app/app-shell-access";
 import { TechMediaAuthLayout } from "./TechMediaAuthLayout";
 import { TechMediaLandingLayout } from "./TechMediaLandingLayout";
 
@@ -27,22 +33,33 @@ function LoginSurface({ landing }: { landing: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [sessionExpiredWarning] = useState(hasSessionExpiredWarning);
   const [loading, setLoading] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const autoLoginStarted = useRef(false);
 
   useEffect(() => {
-    if (!tokenIsCurrent()) {
+    const timeout = window.setTimeout(clearSessionExpiredWarning, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!tokenIsCurrent(token)) {
+      if (token) {
+        redirectToLoginForExpiredSession();
+        return;
+      }
       clearToken();
       setSessionChecked(true);
       return;
     }
     let cancelled = false;
-    void apiGet<{ authenticated: boolean }>("/auth/session")
+    void apiGet<{ authenticated: boolean; role?: string }>("/auth/session")
       .then((session) => {
         if (cancelled) return;
         if (session.authenticated) {
-          void navigate({ replace: true, to: "/app/crm/overview" });
+          void navigate({ replace: true, to: applicationEntryPath(session.role) });
           return;
         }
         clearToken();
@@ -71,8 +88,9 @@ function LoginSurface({ landing }: { landing: boolean }) {
     setLoading(true);
     void developmentLogin()
       .then((result) => {
-        if (result.success) void navigate({ replace: true, to: "/app/crm/overview" });
-        else setMessage(result.error.message);
+        if (result.success) {
+          void navigate({ replace: true, to: applicationEntryPath(result.data.role) });
+        } else setMessage(result.error.message);
       })
       .finally(() => setLoading(false));
   }, [navigate, sessionChecked]);
@@ -82,8 +100,9 @@ function LoginSurface({ landing }: { landing: boolean }) {
     setLoading(true);
     setMessage("");
     const result = await login({ email, password });
-    if (result.success) void navigate({ replace: true, to: "/app/crm/overview" });
-    else setMessage(result.error.message);
+    if (result.success) {
+      void navigate({ replace: true, to: applicationEntryPath(result.data.role) });
+    } else setMessage(result.error.message);
     setLoading(false);
   }
 
@@ -91,6 +110,13 @@ function LoginSurface({ landing }: { landing: boolean }) {
 
   const form = (
     <form className="auth-form" onSubmit={submit}>
+      {sessionExpiredWarning ? (
+        <Alert className="auth-session-warning" variant="destructive">
+          <TriangleAlert className="size-4" />
+          <AlertTitle>Session expired</AlertTitle>
+          <AlertDescription>Your session ended. Sign in again to continue.</AlertDescription>
+        </Alert>
+      ) : null}
       <Field
         autoComplete="email"
         className="auth-field"

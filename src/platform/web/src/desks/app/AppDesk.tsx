@@ -4,7 +4,6 @@ import {
   CircleGaugeIcon,
   MessagesSquareIcon,
   PlugZapIcon,
-  ReceiptTextIcon,
   Settings2Icon,
   ShieldCheckIcon,
   UserRoundPlusIcon
@@ -15,6 +14,7 @@ import type { SidemenuItem } from "@codexsun/ui/blocks/menu/sidemenu/sub/sidemen
 import { AuthGate } from "../../shared/auth/AuthGate";
 import { getToken, logout } from "../../shared/api/platform-api";
 import {
+  applicationEntryPath,
   canAccessAdministratorSettings,
   canSelectApplicationTheme
 } from "./app-shell-access";
@@ -85,7 +85,7 @@ export function AppDesk() {
   const claims = readClaims();
   const permissions = claims.permissions ?? [];
   const administrator = canAccessAdministratorSettings(claims.role);
-  const requestedPage = pageFromPath(pathname);
+  const requestedPage = pageFromPath(pathname, claims.role);
   const page = accessiblePage(requestedPage, administrator);
   const select = (next: Page) => void navigate({ to: `/app/${next.replaceAll(".", "/")}` });
   const menuItems = buildMenu(page, select, administrator);
@@ -134,7 +134,7 @@ export function AppDesk() {
                   active: page.startsWith("identity.") || page.startsWith("settings."),
                   description: "Identity, Frappe connection, and user credentials.",
                   icon: PlugZapIcon,
-                  title: "Settings",
+                  title: "Application",
                   url: "/app/settings/frappe/overview"
                 }
               ]
@@ -169,12 +169,7 @@ function renderPage(
   if (page === "identity.role-permissions") return <RolePermissionWorkspace />;
   if (page === "identity.profile") return <UserProfileWorkspace />;
   if (page === "settings.frappe.overview") {
-    return (
-      <FrappeOverview
-        canUpdate={permissions.includes("settings.frappe.update")}
-        signedInUser={{ email: claims.email, name: claims.name ?? claims.email }}
-      />
-    );
+    return <FrappeOverview canUpdate={permissions.includes("settings.frappe.update")} />;
   }
   if (page === "settings.frappe.users") {
     return (
@@ -208,9 +203,21 @@ function renderPage(
     <CrmWorkspace
       canAssign={permissions.includes("crm.enquiry.assign")}
       canCreate={permissions.includes("crm.enquiry.create")}
+      canCreateEstimate={
+        permissions.includes("estimate.create") || permissions.includes("crm.enquiry.create")
+      }
+      canCreateQuotation={
+        permissions.includes("quotation.create") || permissions.includes("crm.enquiry.create")
+      }
       canForceDelete={permissions.includes("crm.enquiry.force-delete")}
       canSuspend={false}
       canUpdate={permissions.includes("crm.enquiry.update")}
+      canUpdateEstimate={
+        permissions.includes("estimate.update") || permissions.includes("crm.enquiry.update")
+      }
+      canUpdateQuotation={
+        permissions.includes("quotation.update") || permissions.includes("crm.enquiry.update")
+      }
       view={view}
     />
   );
@@ -235,8 +242,7 @@ function buildMenu(
           { ...item("Overview", "crm.overview"), icon: CircleGaugeIcon },
           item("My Enquiry", "crm.assigned"),
           item("Enquiry created by me", "crm.created"),
-          item("Open Enquiry", "crm.open"),
-          { ...item("Estimate", "estimate.list"), icon: ReceiptTextIcon }
+          item("Open Enquiry", "crm.open")
         ],
         title: "CRM"
       }
@@ -282,7 +288,7 @@ function isAdministratorPage(page: Page) {
   return page.startsWith("settings.") || (page.startsWith("identity.") && page !== "identity.profile");
 }
 
-function pageFromPath(pathname: string): Page {
+function pageFromPath(pathname: string, role: string | undefined): Page {
   const value = pathname.replace(/^\/app\/?/u, "").replaceAll("/", ".");
   const allowed: Page[] = [
     "identity.users",
@@ -299,7 +305,10 @@ function pageFromPath(pathname: string): Page {
     "crm.open",
     "estimate.list"
   ];
-  return allowed.includes(value as Page) ? (value as Page) : "crm.overview";
+  if (allowed.includes(value as Page)) return value as Page;
+  return applicationEntryPath(role)
+    .replace(/^\/app\//u, "")
+    .replaceAll("/", ".") as Page;
 }
 
 function titleFor(page: Page) {

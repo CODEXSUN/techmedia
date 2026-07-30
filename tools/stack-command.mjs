@@ -12,10 +12,10 @@ if (!command || !supported.has(command)) {
   process.exit(1);
 }
 
-const repositories = ["framework", "ui"];
+const packages = ["@codexsun/framework", "@codexsun/ui"];
 
-for (const repository of repositories) {
-  runNpm(["run", command, "--if-present", "--prefix", resolve(root, "..", repository)]);
+for (const packageName of packages) {
+  runNpm(["run", command, "--if-present", "--workspace", packageName]);
 }
 
 runNpm(["run", command, "--workspace", "@techmedia/platform-api"]);

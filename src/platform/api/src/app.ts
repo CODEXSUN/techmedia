@@ -11,6 +11,7 @@ import { crmModule } from "./modules/crm/index.js";
 import { estimateModule } from "./modules/estimate/index.js";
 import { frappeLiveEnquiryGatewayContract, frappeModule } from "./modules/frappe/index.js";
 import { permissionModule } from "./modules/permission/index.js";
+import { quotationModule } from "./modules/quotation/index.js";
 import { rolePermissionModule } from "./modules/role-permission/index.js";
 import { roleModule } from "./modules/role/index.js";
 import { userRoleModule } from "./modules/user-role/index.js";
@@ -24,7 +25,8 @@ const modules = [
   rolePermissionModule,
   frappeModule,
   crmModule,
-  estimateModule
+  estimateModule,
+  quotationModule
 ];
 
 export async function createApp() {
@@ -36,7 +38,8 @@ export async function createApp() {
     cookieSecret: env.JWT_SECRET,
     corsOrigins: platformWebOrigins(),
     environment: env.NODE_ENV,
-    shutdownHooks: [closeTechMediaDatabase]
+    shutdownHooks: [closeTechMediaDatabase],
+    tenantContext: false
   });
   const healthChecks: HealthCheck[] = [
     {

@@ -35,7 +35,7 @@ type FrappeEstimate = {
 export class EstimateService {
   constructor(private readonly context: EstimateContext) {}
 
-  async list(): Promise<Estimate[]> {
+  async list(enquiry?: string): Promise<Estimate[]> {
     await this.context.authorize("estimate.view");
     const response = await frappeRequest<{ data?: FrappeEstimate[]; message?: FrappeEstimate[] }>(
       await this.connection(),
@@ -44,7 +44,7 @@ export class EstimateService {
         body: JSON.stringify({
           doctype: "Estimate",
           fields: estimateFields,
-          filters: [],
+          filters: enquiry ? [["enquiry", "=", requiredEnquiry(enquiry)]] : [],
           limit_page_length: 500,
           order_by: "modified desc"
         }),
@@ -159,10 +159,7 @@ export class EstimateService {
   }
 
   private async authorizeWrite(estimatePermission: string, crmPermission: string) {
-    if (
-      (await this.context.can(estimatePermission)) ||
-      (await this.context.can(crmPermission))
-    ) {
+    if ((await this.context.can(estimatePermission)) || (await this.context.can(crmPermission))) {
       return;
     }
     await this.context.authorize(estimatePermission);
@@ -194,6 +191,12 @@ function requiredName(value: string) {
   const name = value.trim();
   if (!name) throw AppError.validation("Estimate name is required.");
   return name;
+}
+
+function requiredEnquiry(value: string) {
+  const enquiry = value.trim();
+  if (!enquiry) throw AppError.validation("Enquiry is required.");
+  return enquiry;
 }
 
 function toFrappePayload(input: EstimateSavePayload) {

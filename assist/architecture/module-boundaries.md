@@ -11,6 +11,8 @@
 - `identity.role-permission`
 - `settings.frappe`
 - `crm.enquiry`
+- `estimate`
+- `quotation`
 
 The composition root orders modules and injects the public live-Frappe enquiry gateway. It must not
 contain entity SQL or business workflows.
@@ -30,8 +32,14 @@ local source of truth is prohibited.
 Estimate owns its routes, validation, UI contracts, and Frappe document mapping. It must remain a
 live-Frappe leaf with no repository, migration, seed, cache table, or local business persistence.
 
-Frontend modules own their workspaces, forms, lists, services, hooks, schemas, and types. The app
-desk composes only Identity, Settings, CRM, and Estimate navigation.
+Quotation owns its routes, validation, UI contracts, enquiry-linked Frappe document mapping, and
+public enquiry-tab component. It must remain a live-Frappe leaf with no repository, migration,
+seed, cache table, or local business persistence.
 
-Framework supplies infrastructure contracts. UI supplies presentation primitives. TechMedia does
-not import sibling private source or compose product packages.
+Frontend modules own their workspaces, forms, lists, services, hooks, schemas, and types. The app
+desk composes only Identity, Settings, and CRM navigation; CRM enquiry detail consumes the public
+Estimate and Quotation tab components.
+
+The internal Framework workspace supplies infrastructure contracts. The internal UI workspace
+supplies presentation primitives. TechMedia does not import parent-repository source or compose
+other product packages.

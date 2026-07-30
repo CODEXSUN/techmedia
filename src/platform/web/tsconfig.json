@@ -2,15 +2,15 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "paths": {
-      "@codexsun/ui": ["../../../../ui/src/index.ts"],
-      "@codexsun/ui/styles.css": ["../../../../ui/src/styles.css"],
-      "@codexsun/ui/components/*": ["../../../../ui/src/components/*"],
-      "@codexsun/ui/layouts/*": ["../../../../ui/src/layouts/*"],
-      "@codexsun/ui/blocks/*": ["../../../../ui/src/blocks/*"],
-      "@codexsun/ui/workspace": ["../../../../ui/src/workspace/index.ts"],
-      "@codexsun/ui/workspace/*": ["../../../../ui/src/workspace/*"],
-      "@codexsun/ui/presets/*": ["../../../../ui/src/workspace/presets/*"],
-      "@codexsun/ui/lib/*": ["../../../../ui/src/lib/*"]
+      "@codexsun/ui": ["../../../packages/ui/src/index.ts"],
+      "@codexsun/ui/styles.css": ["../../../packages/ui/src/styles.css"],
+      "@codexsun/ui/components/*": ["../../../packages/ui/src/components/*"],
+      "@codexsun/ui/layouts/*": ["../../../packages/ui/src/layouts/*"],
+      "@codexsun/ui/blocks/*": ["../../../packages/ui/src/blocks/*"],
+      "@codexsun/ui/workspace": ["../../../packages/ui/src/workspace/index.ts"],
+      "@codexsun/ui/workspace/*": ["../../../packages/ui/src/workspace/*"],
+      "@codexsun/ui/presets/*": ["../../../packages/ui/src/workspace/presets/*"],
+      "@codexsun/ui/lib/*": ["../../../packages/ui/src/lib/*"]
     },
     "noEmit": true,
     "types": ["vite/client", "node"]

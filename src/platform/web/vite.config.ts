@@ -8,11 +8,10 @@ import { requireEnvNumber, requireEnvValue } from "@codexsun/framework/env";
 
 const configDir = fileURLToPath(new URL(".", import.meta.url));
 const repositoryDir = resolve(configDir, "../../..");
-const workspaceDir = resolve(repositoryDir, "..");
 const platformSourceRoots = [
   repositoryDir,
-  resolve(workspaceDir, "framework"),
-  resolve(workspaceDir, "ui")
+  resolve(repositoryDir, "packages/framework"),
+  resolve(repositoryDir, "packages/ui")
 ];
 const rootPackage = JSON.parse(readFileSync(resolve(repositoryDir, "package.json"), "utf8")) as {
   version: string;

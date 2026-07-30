@@ -28,6 +28,13 @@ Frappe is the source of truth for Estimate records and the linked Enquiry and Su
 TechMedia must not create, seed, mirror, synchronize, or cache Estimate business tables locally.
 List, reference, create, read, and update requests use the signed-in user's verified Frappe identity.
 
+## Quotation
+
+Frappe is the source of truth for Quotation records. Each TechMedia quotation is linked to its
+source Enquiry by the Frappe `Quotation.custom_enquiry` Link field. Enquiry and authenticated user
+identity are derived server-side; list, reference, create, read, and update requests use the
+signed-in user's verified Frappe identity.
+
 ## Safety
 
 - Database names and endpoints come from `.env`.

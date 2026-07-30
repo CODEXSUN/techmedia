@@ -18,11 +18,7 @@ import { WorkspacePage } from "@codexsun/ui/workspace/page";
 import { WorkspacePagination } from "@codexsun/ui/workspace/pagination";
 import { buildShowingLabel } from "@codexsun/ui/workspace/utils";
 import { CrmForm } from "./crm.form";
-import {
-  useCrmEnquiriesQuery,
-  useCrmEnquiryMutations,
-  useCrmUsersQuery
-} from "./crm.hooks";
+import { useCrmEnquiriesQuery, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
 import { CrmList } from "./crm.list";
 import { CrmShow } from "./crm.show";
 import { getCrmEnquiry } from "./crm.services";
@@ -77,15 +73,23 @@ function defaultEnquiryColumnVisibility(): CrmEnquiryColumnVisibility {
 export function CrmWorkspace({
   canAssign,
   canCreate,
+  canCreateEstimate,
+  canCreateQuotation,
   canForceDelete,
+  canUpdateEstimate,
+  canUpdateQuotation,
   canUpdate,
   view
 }: {
   canAssign: boolean;
   canCreate: boolean;
+  canCreateEstimate: boolean;
+  canCreateQuotation: boolean;
   canForceDelete: boolean;
   canSuspend: boolean;
   canUpdate: boolean;
+  canUpdateEstimate: boolean;
+  canUpdateQuotation: boolean;
   view: CrmEnquiryView;
 }) {
   const [search, setSearch] = useState("");
@@ -183,7 +187,11 @@ export function CrmWorkspace({
     return (
       <CrmShow
         canAssign={canAssign}
+        canCreateEstimate={canCreateEstimate}
+        canCreateQuotation={canCreateQuotation}
         canUpdate={canUpdate}
+        canUpdateEstimate={canUpdateEstimate}
+        canUpdateQuotation={canUpdateQuotation}
         onBack={() => setViewing(null)}
         {...(nextViewing ? { onNext: () => void loadRecord(nextViewing, "view") } : {})}
         onRecordChange={setViewing}

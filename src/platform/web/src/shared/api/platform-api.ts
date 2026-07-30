@@ -2,6 +2,7 @@ import { requiredClientEnv } from "../env/client-env";
 
 const apiBaseUrl = requiredClientEnv("VITE_PLATFORM_API_URL");
 const TOKEN_KEY = "techmedia_session";
+const SESSION_EXPIRED_WARNING_KEY = "techmedia_session_expired_warning";
 
 export type Desk = "app";
 type ApiEnvelope<T> = { data: T; success: true } | { error: { message: string }; success: false };
@@ -27,17 +28,44 @@ export function clearToken(): void {
 }
 
 export function tokenIsCurrent(token = getToken()): boolean {
-  if (!token) return false;
+  const expiresAt = tokenExpiresAt(token);
+  return expiresAt !== null && expiresAt > Date.now();
+}
+
+export function tokenExpiresAt(token = getToken()): number | null {
+  if (!token) return null;
   try {
     const encoded = token.split(".")[1];
-    if (!encoded) return false;
+    if (!encoded) return null;
     const claims = JSON.parse(atob(encoded.replace(/-/g, "+").replace(/_/g, "/"))) as {
       exp?: number;
     };
-    return typeof claims.exp === "number" && claims.exp * 1000 > Date.now();
+    return typeof claims.exp === "number" ? claims.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+export function redirectToLoginForExpiredSession(): void {
+  clearToken();
+  try {
+    sessionStorage.setItem(SESSION_EXPIRED_WARNING_KEY, "1");
+  } catch {}
+  window.location.replace("/login");
+}
+
+export function hasSessionExpiredWarning(): boolean {
+  try {
+    return sessionStorage.getItem(SESSION_EXPIRED_WARNING_KEY) === "1";
   } catch {
     return false;
   }
+}
+
+export function clearSessionExpiredWarning(): void {
+  try {
+    sessionStorage.removeItem(SESSION_EXPIRED_WARNING_KEY);
+  } catch {}
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -62,10 +90,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!envelope) throw new Error("TechMedia API returned an empty response.");
   if (!response.ok || !envelope.success) {
     if (response.status === 401 && token && !isCredentialRequest(path)) {
-      clearToken();
-      if (window.location.pathname !== "/login" && window.location.pathname !== "/") {
-        window.location.replace("/login");
-      }
+      redirectToLoginForExpiredSession();
     }
     throw new Error(envelope.success ? "Request failed" : envelope.error.message);
   }
@@ -115,7 +140,7 @@ export async function login(input: { email: string; password: string }) {
 export async function developmentLogin() {
   clearToken();
   try {
-    const data = await apiPost<{ accessToken: string }>("/auth/development/login");
+    const data = await apiPost<{ accessToken: string; role?: string }>("/auth/development/login");
     setToken(data.accessToken);
     return { data, success: true } as const;
   } catch (error) {

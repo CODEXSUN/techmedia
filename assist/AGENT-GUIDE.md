@@ -18,9 +18,11 @@ Before repository work, read:
 - Identity owns local users, roles, permissions, and their two assignment tables.
 - Settings reads the application Frappe connection from `.env`; per-user encrypted credentials
   belong to the user identity record.
-- Settings, CRM, and Estimate own no local tables. CRM enquiries and Estimate records are read and
-  written through live Frappe contracts using the signed-in user's verified credentials.
-- The Framework and UI siblings may be consumed only through public package exports.
+- Settings, CRM, Estimate, and Quotation own no local tables. CRM enquiries, Estimate records, and
+  Quotation records are read and written through live Frappe contracts using the signed-in user's
+  verified credentials.
+- The internal `packages/framework` and `packages/ui` workspaces may be consumed only through
+  public package exports.
 - Core and other product packages are not composed into TechMedia.
 
 ## Change Rules

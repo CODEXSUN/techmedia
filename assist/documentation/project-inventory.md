@@ -14,10 +14,21 @@
 - `role-permission`
 - `frappe`
 - `crm`
+- `estimate`
+- `quotation`
 
 ## Shared Dependencies
 
-- `../framework`: public backend infrastructure and module contracts.
-- `../ui`: public React components and layouts.
+- `packages/framework`: repository-owned backend infrastructure and public module contracts.
+- `packages/ui`: repository-owned React components, layouts, and workspace primitives.
 
-No other sibling product repository is part of the TechMedia runtime.
+No parent-folder or sibling product repository is part of the TechMedia install, build, or runtime.
+
+## Generated Layout
+
+- `node_modules`: the only dependency installation directory.
+- `dist/packages/framework`: compiled Framework runtime.
+- `dist/platform/api`: compiled API runtime.
+- `dist/platform/web`: production web bundle.
+
+Workspace-local `node_modules`, `dist`, and `dist-types` directories are prohibited.

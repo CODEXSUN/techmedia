@@ -17,8 +17,9 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", "../ui/src/styles.css"],
-      "outputs": ["../../../dist/**"]
+      "inputs": ["$TURBO_DEFAULT$"],
+      "cache": false,
+      "outputs": []
     },
     "typecheck": {
       "dependsOn": ["^build"],
@@ -30,7 +31,7 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "outputs": ["../../../dist/**"]
+      "outputs": []
     }
   }
 }

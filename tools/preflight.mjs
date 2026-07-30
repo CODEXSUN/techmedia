@@ -133,13 +133,13 @@ function parseRequiredPort(value, envKey) {
 
 function ensurePlatformApiDependencies() {
   console.log("  - Checking API package builds");
-  ensureLinkedPackageBuild("@codexsun/framework", "../framework");
+  ensureLinkedPackageBuild("@codexsun/framework", "packages/framework");
 }
 
 function ensureLinkedPackageBuild(packageName, packagePath) {
   const absolutePackagePath = resolve(root, packagePath);
   const srcPath = join(absolutePackagePath, "src");
-  const distPath = join(absolutePackagePath, "dist");
+  const distPath = resolve(root, "dist", "packages", packageName.split("/").at(-1));
   const packageJsonPath = join(absolutePackagePath, "package.json");
   const tsconfigPath = join(absolutePackagePath, "tsconfig.json");
 
@@ -176,7 +176,12 @@ function newestMtime(paths) {
     newest = Math.max(newest, stat.mtimeMs);
     if (stat.isDirectory()) {
       for (const entry of readdirSync(path, { withFileTypes: true })) {
-        if (entry.name === "node_modules" || entry.name === ".turbo" || entry.name === "dist") {
+        if (
+          entry.name === "node_modules" ||
+          entry.name === ".turbo" ||
+          entry.name === "dist" ||
+          entry.name === "dist-types"
+        ) {
           continue;
         }
         newest = Math.max(newest, newestMtime([join(path, entry.name)]));

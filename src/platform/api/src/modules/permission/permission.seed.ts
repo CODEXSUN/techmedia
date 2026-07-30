@@ -37,7 +37,10 @@ const permissionKeys = [
   "crm.enquiry.force-delete",
   "estimate.view",
   "estimate.create",
-  "estimate.update"
+  "estimate.update",
+  "quotation.view",
+  "quotation.create",
+  "quotation.update"
 ] as const;
 
 export async function seedPermissionModule(database: Kysely<TechMediaDatabase>) {

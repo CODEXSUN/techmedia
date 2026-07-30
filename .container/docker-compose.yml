@@ -22,8 +22,8 @@ services:
 
   api:
     build:
-      context: ../..
-      dockerfile: techmedia/.container/scripts/Dockerfile.stack
+      context: ..
+      dockerfile: .container/scripts/Dockerfile.stack
       target: api-runtime
       args:
         NODE_RUNTIME_VERSION: ${NODE_RUNTIME_VERSION:-26.5.0}
@@ -60,8 +60,8 @@ services:
 
   web:
     build:
-      context: ../..
-      dockerfile: techmedia/.container/scripts/Dockerfile.stack
+      context: ..
+      dockerfile: .container/scripts/Dockerfile.stack
       target: web-runtime
       args:
         NODE_RUNTIME_VERSION: ${NODE_RUNTIME_VERSION:-26.5.0}
@@ -93,3 +93,4 @@ volumes:
 networks:
   techmedia:
     name: ${TECHMEDIA_NETWORK:-techmedia-network}
+    external: ${TECHMEDIA_NETWORK_EXTERNAL:-false}

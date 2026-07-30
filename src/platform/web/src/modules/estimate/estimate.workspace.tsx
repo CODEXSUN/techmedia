@@ -8,7 +8,11 @@ import { WorkspacePage } from "@codexsun/ui/workspace/page";
 import { WorkspacePagination } from "@codexsun/ui/workspace/pagination";
 import { buildShowingLabel } from "@codexsun/ui/workspace/utils";
 import { EstimateForm } from "./estimate.form";
-import { useEstimateMutations, useEstimateReferencesQuery, useEstimatesQuery } from "./estimate.hooks";
+import {
+  useEstimateMutations,
+  useEstimateReferencesQuery,
+  useEstimatesQuery
+} from "./estimate.hooks";
 import { EstimateList } from "./estimate.list";
 import { getEstimate } from "./estimate.services";
 import type {
@@ -44,9 +48,8 @@ export function EstimateWorkspace({
   const mutations = useEstimateMutations();
   const [search, setSearch] = useState("");
   const [vendorFilter, setVendorFilter] = useState("all");
-  const [visibleColumns, setVisibleColumns] = useState<EstimateColumnVisibility>(
-    allEstimateColumnsVisible
-  );
+  const [visibleColumns, setVisibleColumns] =
+    useState<EstimateColumnVisibility>(allEstimateColumnsVisible);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(100);
   const [editing, setEditing] = useState<Estimate | null | undefined>(undefined);
@@ -70,12 +73,13 @@ export function EstimateWorkspace({
   );
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return (query.data ?? []).filter((record) =>
-      (vendorFilter === "all" || `vendor:${record.supplier}` === vendorFilter) &&
-      (!term ||
-        [record.name, record.enquiry, record.itemName, record.supplier, record.supplierName].some(
-          (value) => value.toLowerCase().includes(term)
-        ))
+    return (query.data ?? []).filter(
+      (record) =>
+        (vendorFilter === "all" || `vendor:${record.supplier}` === vendorFilter) &&
+        (!term ||
+          [record.name, record.enquiry, record.itemName, record.supplier, record.supplierName].some(
+            (value) => value.toLowerCase().includes(term)
+          ))
     );
   }, [query.data, search, vendorFilter]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));

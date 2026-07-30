@@ -1,4 +1,4 @@
-import { KeyRoundIcon, PlugZapIcon, RefreshCwIcon, UserRoundIcon } from "lucide-react";
+import { KeyRoundIcon, RefreshCwIcon } from "lucide-react";
 import { toast } from "@codexsun/ui/components/sonner";
 import { Button } from "@codexsun/ui/components/button";
 import { Card, CardContent } from "@codexsun/ui/components/card";
@@ -17,13 +17,7 @@ import type {
   FrappeConnectionVerificationPayload
 } from "./frappe.types";
 
-export function FrappeOverview({
-  canUpdate,
-  signedInUser
-}: {
-  canUpdate: boolean;
-  signedInUser: { email: string; name: string };
-}) {
+export function FrappeOverview({ canUpdate }: { canUpdate: boolean }) {
   const query = useFrappeConnectionQuery();
   const mutation = useFrappeConnectionMutation();
   const verification = useFrappeConnectionVerificationMutation();
@@ -55,28 +49,6 @@ export function FrappeOverview({
 
   return (
     <section className="space-y-4">
-      <div className="relative isolate overflow-hidden rounded-lg border bg-slate-950 px-6 py-4 text-white shadow-sm md:px-10 md:py-5">
-        <div className="absolute inset-0 -z-20 bg-gradient-to-br from-slate-950 via-violet-950 to-indigo-900" />
-        <div className="absolute -right-16 -top-20 -z-10 size-64 rounded-full bg-violet-400/20 blur-3xl" />
-        <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-xs font-medium">
-              <PlugZapIcon className="size-3.5" />
-              Frappe integration
-            </div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              Connect TechMedia with your Frappe CRM.
-            </h1>
-            <p className="mt-2 text-sm leading-5 text-slate-200">
-              Save the application connection, then verify it against the live server.
-            </p>
-          </div>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium shadow-sm lg:justify-self-end">
-            <UserRoundIcon className="size-4" />
-            Signed in as {signedInUser.name} · {signedInUser.email}
-          </div>
-        </div>
-      </div>
       <Card className="shadow-sm">
         <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">

@@ -2,16 +2,68 @@
 
 ## Version State
 
-Current version: 1.0.14
+Current version: 1.0.15
 
-Release tag: v-1.0.14
+Release tag: v-1.0.15
 
-Changelog label: v 1.0.14
+Changelog label: v 1.0.15
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
 
 New entries must keep database-facing work and application code work separate.
+
+## Unreleased
+
+### Database Changes
+
+- Database update: No.
+- No unreleased database changes.
+
+### App Codebase Changes
+
+- No unreleased application changes.
+
+## v-1.0.15
+
+### [v 1.0.15] 2026-07-30 11:00 am - Complete enquiry commercial workflow and interactive deployment
+
+#### Database Changes
+
+- Database update: Yes.
+- Added repeatable Quotation permission seeds and default role-permission assignments for auditor,
+  manager, staff, and user roles.
+- Kept the MariaDB schema limited to Identity and migration-history tables; this release adds no
+  business tables or destructive migration.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.15.
+- Converted TechMedia into a self-contained npm monorepo with repository-owned Framework and UI
+  workspaces, one root `node_modules`, and one root `dist`.
+- Removed parent-folder package installation, build, TypeScript, Vite, and container-context
+  dependencies, including the obsolete Core image dependency.
+- Added repository-boundary, artifact-layout, module-boundary, database-lifecycle, Framework
+  package, and built-runtime smoke verification.
+- Enabled the application desk and navigation for the initial administrator, corrected lazy module
+  loading, and enforced login redirection when a local JWT expires or an authenticated request is
+  rejected.
+- Added enquiry-owned Estimate and Quotation tabs with live-Frappe list and upsert workflows,
+  automatic enquiry and signed-in-user context, and responsive single-row Estimate inputs.
+- Removed the Emails, Calls, and Notes tabs from the enquiry show page while retaining Comments,
+  Jobs, Estimate, Quotation, Tasks, Attachments, and Activity.
+- Refined the CRM overview presentation and removed the Frappe connection header card.
+- Expanded the standalone `setup.sh` into a fully interactive Docker installer covering resource
+  names, ports, database identity, administrator credentials, public URLs, Frappe configuration,
+  secret retention, shared or dedicated MariaDB, and safe database reuse or recreation.
+- Added an explicit path to reuse a named running MariaDB container and existing Docker network;
+  reused networks are external to Compose and existing infrastructure is never disconnected,
+  stopped, removed, or recreated by setup.
+- Added occupied-port detection before image builds and documented the Git Bash invocation required
+  on Windows systems where `bash.exe` resolves to an unconfigured WSL installation.
+- Verified a live local Docker deployment with healthy MariaDB, API, and web containers, eight
+  applied migrations, administrator login and session recovery, web-to-API proxying, clean
+  container logs, and persisted authentication after an API restart.
 
 ## v-1.0.14
 
