@@ -15,6 +15,7 @@ export type User = {
   id: number;
   isProtected: boolean;
   name: string;
+  role: string;
   status: UserStatus;
   uuid: string;
 };
@@ -25,6 +26,7 @@ export type UserSavePayload = {
   frappeEmployeeCode?: string | undefined;
   name: string;
   password?: string | undefined;
+  roleId?: number | undefined;
   status: UserStatus;
 };
 export type UserProfile = Pick<User, "email" | "id" | "name" | "uuid">;

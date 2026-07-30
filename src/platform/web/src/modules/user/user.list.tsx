@@ -39,6 +39,11 @@ export function UserList({
     },
     { accessorKey: "email", header: "Email" },
     {
+      accessorKey: "role",
+      cell: ({ row }) => <WorkspaceStatusBadge label={row.original.role} tone="info" />,
+      header: "Role"
+    },
+    {
       accessorKey: "frappeEmployeeCode",
       cell: ({ row }) => row.original.frappeEmployeeCode || "—",
       header: "Employee"
@@ -105,7 +110,7 @@ export function UserList({
       data={records}
       emptyState="No users found."
       isLoading={loading}
-      minWidth="860px"
+      minWidth="960px"
     />
   );
 }

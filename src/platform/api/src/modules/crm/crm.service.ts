@@ -3,6 +3,7 @@ import type { PlatformModuleDependencies } from "../../module-dependencies.js";
 import { recordAuditEvent } from "../../database/audit.js";
 import type {
   CrmContext,
+  CrmCustomerReference,
   CrmEnquiry,
   CrmEnquiryListFilters,
   CrmEnquiryMessageCreatePayload,
@@ -103,6 +104,7 @@ export class CrmService {
   async create(input: CrmEnquirySavePayload) {
     await this.context.authorize("crm.enquiry.create");
     await this.validateAssignment(input.assignedToUserId);
+    await this.validateCustomer(input.customer);
     const record = await this.gateway.create(toLivePayload(input));
     await this.audit("created", record);
     return this.map(record);
@@ -116,6 +118,7 @@ export class CrmService {
       await this.context.authorize("crm.enquiry.assign");
     }
     await this.validateAssignment(input.assignedToUserId);
+    await this.validateCustomer(input.customer, current.customer);
     const record = await this.gateway.update(name, toLivePayload(input));
     await this.audit("updated", record);
     return { ...(await this.map(record)), jobs: await this.gateway.jobs(name) };
@@ -254,6 +257,11 @@ export class CrmService {
     return (await this.gateway.employees()).map(employeeReference);
   }
 
+  async customerReferences(search?: string): Promise<CrmCustomerReference[]> {
+    await this.requireAnyView();
+    return this.gateway.customers(search);
+  }
+
   async enquiryReferences() {
     await this.requireAnyView();
     const records = await this.gateway.list({ employee: this.employee(), view: "created" });
@@ -353,6 +361,16 @@ export class CrmService {
     const employees = await this.gateway.employees();
     if (!employees.some((employee) => employee.name === value)) {
       throw AppError.validation("Assigned employee must be an active Frappe Employee.");
+    }
+  }
+
+  private async validateCustomer(value: string, currentValue = "") {
+    const customer = value.trim();
+    if (!customer) return;
+    if (customer === currentValue.trim()) return;
+    const matches = await this.gateway.customers(customer);
+    if (!matches.some((match) => match.id === customer)) {
+      throw AppError.validation("Select an existing Frappe customer from the customer lookup.");
     }
   }
 

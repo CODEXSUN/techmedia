@@ -161,7 +161,8 @@ function UserFormBody({
       ...payload,
       ...(frappeApiKey ? { frappeApiKey } : {}),
       ...(frappeApiSecret ? { frappeApiSecret } : {}),
-      ...(password ? { password } : {})
+      ...(password ? { password } : {}),
+      ...(access.roleId ? { roleId: access.roleId } : {})
     };
   }
   return (

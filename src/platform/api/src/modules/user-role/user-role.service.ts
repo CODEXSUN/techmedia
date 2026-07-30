@@ -133,6 +133,25 @@ export function userRoleStandardAccessContract(context: {
         });
       }
       return assignment;
+    },
+    async setPrimaryRole(userId: number, roleId: number) {
+      const assignment = await repository.setPrimaryRole(
+        userId,
+        roleId,
+        stable(`user-role:${userId}:${roleId}`)
+      );
+      if (!assignment) {
+        throw AppError.validation("An existing user and active workspace role are required.");
+      }
+      await recordAuditEvent({
+        action: "primary_role_set",
+        actorEmail: context.actorEmail,
+        moduleKey: "identity.user-role",
+        recordId: assignment.id,
+        recordLabel: `${assignment.userName} - ${assignment.roleLabel}`,
+        recordUuid: assignment.uuid
+      });
+      return assignment;
     }
   };
 }

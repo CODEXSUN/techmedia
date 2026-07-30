@@ -28,6 +28,12 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
   const liveFrappeDefaults: Record<string, string[]> = {
     auditor: ["estimate.view", "quotation.view"],
     manager: [
+      "crm.enquiry.assigned.view",
+      "crm.enquiry.created.view",
+      "crm.enquiry.open.view",
+      "crm.enquiry.create",
+      "crm.enquiry.update",
+      "crm.enquiry.assign",
       "crm.job.manage",
       "estimate.view",
       "estimate.create",
@@ -37,6 +43,10 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
       "quotation.update"
     ],
     staff: [
+      "crm.enquiry.assigned.view",
+      "crm.enquiry.created.view",
+      "crm.enquiry.create",
+      "crm.enquiry.update",
       "estimate.view",
       "estimate.create",
       "estimate.update",
@@ -45,6 +55,10 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
       "quotation.update"
     ],
     user: [
+      "crm.enquiry.assigned.view",
+      "crm.enquiry.created.view",
+      "crm.enquiry.create",
+      "crm.enquiry.update",
       "estimate.view",
       "estimate.create",
       "estimate.update",

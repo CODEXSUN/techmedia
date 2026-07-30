@@ -26,6 +26,8 @@ New entries must keep database-facing work and application code work separate.
 - Added supervisor-managed manual Job Execution creation and editing through live Frappe, including
   validated employee, time, status, and hourly-rate fields with row action menus.
 - Kept Estimate creation and its existing three-dot Edit action available in the enquiry tab.
+- Replaced free-text enquiry customers with an existing-Customer autocomplete backed by live
+  Frappe, displaying only customer names and rejecting arbitrary customer values before save.
 
 ## v-1.0.15
 

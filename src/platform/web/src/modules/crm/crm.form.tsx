@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarPlus, Save, Trash2 } from "lucide-react";
 import { Button } from "@codexsun/ui/components/button";
 import { Input } from "@codexsun/ui/components/input";
@@ -13,6 +13,7 @@ import {
   WorkspaceFormGrid,
   WorkspaceUpsertDialog
 } from "@codexsun/ui/workspace/upsert";
+import { useCrmCustomerReferencesQuery } from "./crm.hooks";
 import { crmEnquirySchema } from "./crm.schema";
 import type { CrmEnquiry, CrmEnquirySavePayload, CrmUserReference } from "./crm.types";
 
@@ -80,6 +81,7 @@ export function CrmForm({
         loading={loading}
         onCancel={onCancel}
         onSubmit={onSubmit}
+        open={open}
         record={record}
         canAssign={canAssign}
         users={users}
@@ -95,6 +97,7 @@ function CrmFormBody({
   loading,
   onCancel,
   onSubmit,
+  open,
   record,
   users
 }: {
@@ -104,12 +107,23 @@ function CrmFormBody({
   loading: boolean;
   onCancel: () => void;
   onSubmit: (value: CrmEnquirySavePayload) => void;
+  open: boolean;
   record: CrmEnquiry | null;
   users: CrmUserReference[];
 }) {
   const [value, setValue] = useState(initialValue);
+  const [customerSearch, setCustomerSearch] = useState(initialValue.customer);
+  const [settledCustomerSearch, setSettledCustomerSearch] = useState(initialValue.customer);
   const [validationError, setValidationError] = useState("");
-  const shownError = validationError || error;
+  const customers = useCrmCustomerReferencesQuery(settledCustomerSearch, open);
+  const customerError = customers.error instanceof Error ? customers.error.message : "";
+  const shownError = validationError || error || customerError;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettledCustomerSearch(customerSearch), 250);
+    return () => window.clearTimeout(timer);
+  }, [customerSearch]);
+
   return (
     <form
       noValidate
@@ -161,13 +175,18 @@ function CrmFormBody({
                 />
               </WorkspaceFormField>
               <WorkspaceFormField label="Customer">
-                <Input
-                  maxLength={220}
-                  placeholder="Existing Frappe customer name"
+                <WorkspaceLookup
+                  allowTextValue={false}
+                  loading={customers.isFetching}
+                  onTextChange={setCustomerSearch}
+                  options={(customers.data ?? []).map((customer) => ({
+                    label: customer.name,
+                    value: customer.id
+                  }))}
+                  placeholder="Search existing customer"
+                  showAllOptionsOnFocus
                   value={value.customer}
-                  onChange={(event) =>
-                    setValue((current) => ({ ...current, customer: event.target.value }))
-                  }
+                  onValueChange={(customer) => setValue((current) => ({ ...current, customer }))}
                 />
               </WorkspaceFormField>
             </WorkspaceFormGrid>

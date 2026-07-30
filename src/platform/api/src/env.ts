@@ -19,6 +19,7 @@ const envSchema = z.object({
   TECHMEDIA_DB_FRESH_ON_START: z.enum(["0", "1"]).default("0"),
   TECHMEDIA_DB_RESET_CONFIRM: z.string().default(""),
   TECHMEDIA_ALLOW_PRODUCTION_DB_RESET: z.enum(["0", "1"]).default("0"),
+  TECHMEDIA_ENV_FILE_PATH: z.string().default(""),
   TECHMEDIA_INTEGRATION_ENCRYPTION_KEY: z.string().default(""),
   DEV_AUTO_LOGIN: z.enum(["0", "1"]).default("0"),
   INITIAL_ADMIN_EMAIL: z.string().default(""),

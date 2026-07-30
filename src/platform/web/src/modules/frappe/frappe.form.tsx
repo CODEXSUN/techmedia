@@ -24,6 +24,7 @@ type FormValue = {
   baseUrl: string;
   connectionName: string;
   enabled: boolean;
+  saveToEnvironment: boolean;
 };
 
 export function FrappeForm({
@@ -66,7 +67,11 @@ export function FrappeForm({
         ...(parsed.data.appSecret ? { appSecret: parsed.data.appSecret } : {}),
         baseUrl: parsed.data.baseUrl,
         ...(mode === "save"
-          ? { connectionName: value.connectionName.trim(), enabled: value.enabled }
+          ? {
+              connectionName: value.connectionName.trim(),
+              enabled: value.enabled,
+              saveToEnvironment: true as const
+            }
           : {})
       };
     }
@@ -186,6 +191,19 @@ export function FrappeForm({
               inactiveLabel="Connection disabled"
               onCheckedChange={(enabled) => setValue((current) => ({ ...current, enabled }))}
             />
+            <WorkspaceSwitchCard
+              activeLabel="Save in root .env"
+              ariaLabel="Save Frappe connection in root environment file"
+              checked={value.saveToEnvironment}
+              className="md:col-span-2"
+              description="Persist the connection and credentials in TechMedia's root .env file. Turn this off to verify without saving."
+              disabled={disabled}
+              fieldLabel="Save destination"
+              inactiveLabel="Verify only — do not save"
+              onCheckedChange={(saveToEnvironment) =>
+                setValue((current) => ({ ...current, saveToEnvironment }))
+              }
+            />
           </WorkspaceFormGrid>
         </WorkspaceFormBody>
         {canUpdate ? (
@@ -202,9 +220,9 @@ export function FrappeForm({
               <PlugZapIcon className="size-4" />
               {verifying ? "Verifying…" : "Verify connection"}
             </Button>
-            <Button disabled={loading || verifying} type="submit">
+            <Button disabled={loading || verifying || !value.saveToEnvironment} type="submit">
               <SaveIcon className="size-4" />
-              {loading ? "Saving…" : "Save connection"}
+              {loading ? "Saving…" : "Save to .env"}
             </Button>
           </WorkspaceFormActions>
         ) : null}
@@ -219,7 +237,8 @@ function valueFor(settings: FrappeConnectionSettings | null): FormValue {
     appSecret: "",
     baseUrl: settings?.baseUrl ?? "",
     connectionName: settings?.connectionName ?? "Frappe",
-    enabled: settings?.enabled ?? true
+    enabled: settings?.enabled ?? true,
+    saveToEnvironment: true
   };
 }
 

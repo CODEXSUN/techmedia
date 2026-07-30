@@ -13,7 +13,8 @@ const payload = z
     appSecret: z.string().trim().min(1).max(2_000).optional(),
     baseUrl: z.string().trim().min(1).max(500),
     connectionName: z.string().trim().min(2).max(160),
-    enabled: z.boolean()
+    enabled: z.boolean(),
+    saveToEnvironment: z.literal(true)
   })
   .strict();
 const record = z.object({
@@ -84,7 +85,8 @@ export async function registerFrappeRoutes(app: FastifyInstance) {
         ...(body.appSecret ? { appSecret: body.appSecret } : {}),
         baseUrl: body.baseUrl,
         connectionName: body.connectionName,
-        enabled: body.enabled
+        enabled: body.enabled,
+        saveToEnvironment: body.saveToEnvironment
       })
   });
   registerContractRoute(app, {

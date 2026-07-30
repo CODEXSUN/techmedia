@@ -18,7 +18,8 @@ export const frappeConnectionSchema = z
       .trim()
       .min(2, "Connection name must contain at least 2 characters.")
       .max(160),
-    enabled: z.boolean()
+    enabled: z.boolean(),
+    saveToEnvironment: z.boolean().refine(Boolean, "Select Save in .env to persist these settings.")
   })
   .refine((value) => Boolean(value.appKey) === Boolean(value.appSecret), {
     message: "Enter both the app key and app secret, or leave both blank to keep them.",

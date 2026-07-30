@@ -37,13 +37,14 @@ services:
       DEV_AUTO_LOGIN: "0"
       NODE_ENV: production
       PLATFORM_API_PORT: ${TECHMEDIA_API_INTERNAL_PORT:-7050}
+      TECHMEDIA_ENV_FILE_PATH: /workspace/techmedia/.env
     depends_on:
       mariadb:
         condition: service_healthy
     ports:
       - "${TECHMEDIA_BIND_ADDRESS:-127.0.0.1}:${TECHMEDIA_API_HOST_PORT:-7050}:${TECHMEDIA_API_INTERNAL_PORT:-7050}"
     volumes:
-      - ${TECHMEDIA_RUNTIME_ENV_FILE:-../.env}:/workspace/techmedia/.env
+      - ${TECHMEDIA_RUNTIME_ENV_FILE:-../.env}:/workspace/techmedia/.env:rw
     networks: [techmedia]
     healthcheck:
       test:

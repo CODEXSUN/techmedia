@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { dirname, join, parse } from "node:path";
+import { dirname, isAbsolute, join, parse, resolve } from "node:path";
 import { AppError } from "@codexsun/framework/errors";
+import { env } from "../../env.js";
 
 const writableKeys = [
   "FRAPPE_APP_KEY",
@@ -62,6 +63,14 @@ async function writeEnvironment(values: FrappeEnvironmentUpdate) {
 }
 
 function nearestEnvironmentFile() {
+  const configuredPath = env.TECHMEDIA_ENV_FILE_PATH.trim();
+  if (configuredPath) {
+    const candidate = isAbsolute(configuredPath)
+      ? configuredPath
+      : resolve(process.cwd(), configuredPath);
+    return existsSync(candidate) ? candidate : null;
+  }
+
   let current = process.cwd();
   while (true) {
     const candidate = join(current, ".env");

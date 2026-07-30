@@ -20,6 +20,7 @@ const record = z.object({
   id: z.number().int().positive(),
   isProtected: z.boolean(),
   name: z.string(),
+  role: z.string(),
   status,
   uuid: z.string().length(8)
 });
@@ -30,6 +31,7 @@ const payload = z.object({
   frappeEmployeeCode: z.string().trim().max(180).optional(),
   name: z.string().trim().min(2).max(180),
   password: z.string().min(8).max(128).optional(),
+  roleId: z.number().int().positive().optional(),
   status
 });
 const profilePayload = z

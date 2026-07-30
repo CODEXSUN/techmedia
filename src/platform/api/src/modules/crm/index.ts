@@ -1,5 +1,6 @@
 export { crmModule } from "./crm.module.js";
 export type {
+  CrmCustomerReference,
   CrmEnquiry,
   CrmEnquiryActivity,
   CrmEnquiryAttachment,

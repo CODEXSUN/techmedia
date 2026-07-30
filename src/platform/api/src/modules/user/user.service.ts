@@ -6,6 +6,7 @@ import {
   decryptIntegrationCredential,
   encryptIntegrationCredential
 } from "../../security/integration-credential.js";
+import { userRoleStandardAccessContract } from "../user-role/index.js";
 import { UserRepository } from "./user.repository.js";
 import type {
   User,
@@ -57,7 +58,7 @@ export class UserService {
     await this.context.authorize("identity.user.create");
     const value = normalize(input, true);
     const credentials = await this.credentialsForSave(value, null);
-    const record = await this.save(() =>
+    let record = await this.save(() =>
       this.repository.create(
         value,
         randomBytes(4).toString("hex"),
@@ -65,6 +66,13 @@ export class UserService {
         credentials
       )
     );
+    const access = userRoleStandardAccessContract({
+      actorEmail: this.context.actorEmail,
+      database: this.context.database
+    });
+    await access.ensureForUser(record.id);
+    if (value.roleId) await access.setPrimaryRole(record.id, value.roleId);
+    record = (await this.repository.find(record.id))!;
     await this.audit("created", record);
     return record;
   }
@@ -78,6 +86,9 @@ export class UserService {
       }
       if (value.name !== current.name || value.status !== current.status) {
         throw AppError.forbidden("The protected system user's name and status cannot be modified.");
+      }
+      if (value.roleId) {
+        throw AppError.forbidden("The protected system user's role cannot be modified.");
       }
     }
     const currentCredentials = await this.repository.findFrappeCredentials(current.id);
@@ -98,6 +109,13 @@ export class UserService {
         current.id,
         value.frappeEmployeeCode || null
       ))!;
+    }
+    if (value.roleId) {
+      await userRoleStandardAccessContract({
+        actorEmail: this.context.actorEmail,
+        database: this.context.database
+      }).setPrimaryRole(record.id, value.roleId);
+      record = (await this.repository.find(record.id))!;
     }
     await this.audit("updated", record);
     return record;
@@ -300,6 +318,7 @@ function normalize(input: UserSavePayload, creating: boolean): UserSavePayload {
       : {}),
     name: input.name.trim(),
     ...(password ? { password } : {}),
+    ...(input.roleId ? { roleId: input.roleId } : {}),
     status: input.status
   };
 }

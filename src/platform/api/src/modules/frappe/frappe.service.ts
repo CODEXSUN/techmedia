@@ -30,6 +30,9 @@ export class FrappeService {
 
   async save(input: FrappeConnectionSavePayload): Promise<FrappeConnectionSettings> {
     await this.context.authorize("settings.frappe.update");
+    if (!input.saveToEnvironment) {
+      throw AppError.validation("Select Save in .env before saving the Frappe connection.");
+    }
     const baseUrl = normalizeBaseUrl(input.baseUrl);
     const connectionName = input.connectionName.trim();
     const now = new Date().toISOString();

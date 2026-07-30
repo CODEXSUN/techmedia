@@ -12,6 +12,7 @@ export type User = {
   email: string;
   name: string;
   password?: string;
+  role: string;
   status: UserStatus;
   uuid: string;
 };
@@ -22,6 +23,7 @@ export type UserSavePayload = {
   frappeEmployeeCode?: string | undefined;
   name: string;
   password?: string;
+  roleId?: number;
   status: UserStatus;
 };
 export type UserAccessSelection = {

@@ -11,6 +11,7 @@ import {
   deleteCrmEnquiryMessage,
   forceDeleteCrmEnquiry,
   getCrmEnquiryOverview,
+  listCrmCustomerReferences,
   listCrmEnquiries,
   listCrmEnquiryReferences,
   listCrmUserReferences,
@@ -54,6 +55,15 @@ export function useCrmUsersQuery() {
   return useQuery({
     queryFn: listCrmUserReferences,
     queryKey: [...crmEnquiryQueryKey, "users"]
+  });
+}
+
+export function useCrmCustomerReferencesQuery(search: string, enabled = true) {
+  return useQuery({
+    enabled,
+    queryFn: () => listCrmCustomerReferences(search),
+    queryKey: [...crmEnquiryQueryKey, "customers", search.trim()],
+    staleTime: 30_000
   });
 }
 

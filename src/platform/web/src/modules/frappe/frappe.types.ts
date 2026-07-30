@@ -20,6 +20,7 @@ export type FrappeConnectionSavePayload = {
   baseUrl: string;
   connectionName: string;
   enabled: boolean;
+  saveToEnvironment: true;
 };
 
 export type FrappeConnectionVerificationPayload = {

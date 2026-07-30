@@ -23,6 +23,7 @@ export type FrappeConnectionSavePayload = {
   baseUrl: string;
   connectionName: string;
   enabled: boolean;
+  saveToEnvironment: true;
 };
 
 export type FrappeConnectionCredentials = {
@@ -58,6 +59,11 @@ export type FrappeLiveEmployee = {
   email: string;
   name: string;
   title: string;
+};
+
+export type FrappeLiveCustomerReference = {
+  id: string;
+  name: string;
 };
 
 export type FrappeLiveEnquiryMessage = {
@@ -134,6 +140,7 @@ export type FrappeLiveEnquiryMessageSavePayload = {
 
 export type FrappeLiveEnquiryGateway = {
   create: (input: FrappeLiveEnquirySavePayload) => Promise<FrappeLiveEnquiry>;
+  customers: (search?: string) => Promise<FrappeLiveCustomerReference[]>;
   delete: (name: string) => Promise<void>;
   employees: () => Promise<FrappeLiveEmployee[]>;
   get: (name: string) => Promise<FrappeLiveEnquiry>;

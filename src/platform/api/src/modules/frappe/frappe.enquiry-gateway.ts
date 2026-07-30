@@ -70,7 +70,45 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
     return (response.data ?? response.message ?? []).map(toJobExecution);
   }
 
+  async function loadCustomers(search = "") {
+    const target = await connection();
+    const normalizedSearch = search.trim();
+    const fields = normalizedSearch ? ["customer_name", "name"] : ["customer_name"];
+    const responses = await Promise.all(
+      fields.map(async (field) => {
+        const filters: unknown[] = [["disabled", "=", 0]];
+        if (normalizedSearch) filters.push([field, "like", `%${normalizedSearch}%`]);
+        const query = new URLSearchParams({
+          fields: JSON.stringify(["name", "customer_name"]),
+          filters: JSON.stringify(filters),
+          limit_page_length: "50",
+          order_by: "customer_name asc"
+        });
+        return frappeRequest<{ data?: FrappeCustomerDocument[] }>(
+          target,
+          `/api/resource/Customer?${query}`
+        );
+      })
+    );
+    const customers = new Map<string, import("./frappe.types.js").FrappeLiveCustomerReference>();
+    for (const document of responses.flatMap((response) => response.data ?? [])) {
+      const id = document.name?.trim();
+      if (!id) continue;
+      customers.set(id, {
+        id,
+        name: document.customer_name?.trim() || id
+      });
+    }
+    return [...customers.values()]
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .slice(0, 50);
+  }
+
   return {
+    async customers(search) {
+      return loadCustomers(search);
+    },
+
     async list(input) {
       const target = await connection();
       const filters: unknown[] = [];
@@ -621,6 +659,11 @@ type FrappeEmployeeDocument = {
   employee_name?: string;
   name?: string;
   user_id?: string;
+};
+
+type FrappeCustomerDocument = {
+  customer_name?: string;
+  name?: string;
 };
 
 type FrappeEnquiryDocument = {

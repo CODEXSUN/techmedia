@@ -22,6 +22,11 @@ export type CrmUserReference = {
   uuid: string;
 };
 
+export type CrmCustomerReference = {
+  id: string;
+  name: string;
+};
+
 export type CrmEnquirySchedule = { id: string; scheduledOn: string };
 export type CrmEnquiryMessage = {
   canDelete: boolean;

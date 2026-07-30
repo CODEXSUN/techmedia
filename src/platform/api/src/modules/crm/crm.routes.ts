@@ -67,7 +67,7 @@ const record = z.object({
 });
 const payload = z.object({
   assignedToUserId: z.string().trim().min(1).nullable(),
-  customer: z.string().trim().max(220),
+  customer: z.string().trim().max(140),
   enquiryDate: z.iso.date().nullable(),
   enquiryGroup: z.string().trim().max(80),
   messages: z.array(z.object({ comment: z.string().trim().min(1).max(10_000) })).max(100),
@@ -111,6 +111,13 @@ const query = z.object({
   enquiryId: z.string().trim().min(1).max(140).optional(),
   search: z.string().trim().max(220).optional(),
   view: z.enum(["assigned", "created", "open"])
+});
+const customerReferenceQuery = z.object({
+  search: z.string().trim().max(140).optional()
+});
+const customerReference = z.object({
+  id: z.string().min(1).max(140),
+  name: z.string().min(1).max(220)
 });
 const overview = z.object({
   leaderboard: z.array(
@@ -194,6 +201,12 @@ export async function registerCrmRoutes(
     url: `${path}/user-references`,
     schemas: { response: z.array(userReference) },
     handler: async ({ request }) => (await service(request)).userReferences()
+  });
+  registerContractRoute(app, {
+    method: "GET",
+    url: `${path}/customer-references`,
+    schemas: { querystring: customerReferenceQuery, response: z.array(customerReference) },
+    handler: async ({ query, request }) => (await service(request)).customerReferences(query.search)
   });
   registerContractRoute(app, {
     method: "GET",

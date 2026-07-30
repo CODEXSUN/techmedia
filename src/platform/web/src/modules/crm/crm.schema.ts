@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const crmEnquirySchema = z.object({
   assignedToUserId: z.string().trim().min(1).nullable(),
-  customer: z.string().trim().max(220),
+  customer: z.string().trim().max(140),
   enquiryDate: z.iso.date().nullable(),
   enquiryGroup: z.string().trim().max(80),
   messages: z

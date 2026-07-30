@@ -1,5 +1,6 @@
 import { apiDelete, apiGet, apiPost, apiPut } from "../../shared/api/platform-api";
 import type {
+  CrmCustomerReference,
   CrmEnquiry,
   CrmEnquiryAttachmentCreatePayload,
   CrmEnquiryCallCreatePayload,
@@ -111,6 +112,13 @@ export function addCrmEnquiryAttachment(id: string, payload: CrmEnquiryAttachmen
 
 export function listCrmUserReferences() {
   return apiGet<CrmUserReference[]>(`${path}/user-references`);
+}
+
+export function listCrmCustomerReferences(search = "") {
+  const query = new URLSearchParams();
+  if (search.trim()) query.set("search", search.trim());
+  const suffix = query.size ? `?${query}` : "";
+  return apiGet<CrmCustomerReference[]>(`${path}/customer-references${suffix}`);
 }
 
 export function listCrmEnquiryReferences() {

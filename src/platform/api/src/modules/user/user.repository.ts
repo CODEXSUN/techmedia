@@ -20,6 +20,7 @@ type Row = {
   id: number;
   is_protected: number | boolean;
   name: string;
+  role: string;
   status: UserStatus;
   uuid: string;
 };
@@ -28,7 +29,7 @@ export class UserRepository {
   constructor(private readonly database: Kysely<TechMediaDatabase>) {}
   async list(filters: UserListFilters = {}) {
     const term = `%${(filters.search ?? "").trim().toLowerCase()}%`;
-    const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected,
+    const result = await sql<Row>`SELECT id,uuid,name,email,role,status,is_protected,
       frappe_api_key_ciphertext,frappe_api_secret_ciphertext,frappe_verification_status,
       frappe_authenticated_user,frappe_employee_code,frappe_last_checked_at,frappe_last_verified_at FROM users
       WHERE (${filters.search ?? ""}='' OR LOWER(name) LIKE ${term} OR LOWER(email) LIKE ${term}) ORDER BY name`.execute(
@@ -37,14 +38,14 @@ export class UserRepository {
     return result.rows.map(mapRow);
   }
   async find(id: string | number) {
-    const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected,
+    const result = await sql<Row>`SELECT id,uuid,name,email,role,status,is_protected,
       frappe_api_key_ciphertext,frappe_api_secret_ciphertext,frappe_verification_status,
       frappe_authenticated_user,frappe_employee_code,frappe_last_checked_at,frappe_last_verified_at
       FROM users WHERE id=${Number(id)} LIMIT 1`.execute(this.database);
     return result.rows[0] ? mapRow(result.rows[0]) : null;
   }
   async findByEmail(email: string) {
-    const result = await sql<Row>`SELECT id,uuid,name,email,status,is_protected,
+    const result = await sql<Row>`SELECT id,uuid,name,email,role,status,is_protected,
       frappe_api_key_ciphertext,frappe_api_secret_ciphertext,frappe_verification_status,
       frappe_authenticated_user,frappe_employee_code,frappe_last_checked_at,frappe_last_verified_at
       FROM users WHERE LOWER(email)=LOWER(${email.trim()}) LIMIT 1`.execute(this.database);
@@ -206,6 +207,7 @@ function mapRow(row: Row): User {
     id: Number(row.id),
     isProtected: Boolean(row.is_protected),
     name: row.name,
+    role: row.role,
     status: row.status,
     uuid: row.uuid
   };

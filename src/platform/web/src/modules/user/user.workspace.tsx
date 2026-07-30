@@ -20,7 +20,7 @@ import { buildShowingLabel } from "@codexsun/ui/workspace/utils";
 import { UserForm } from "./user.form";
 import { useUserMutations, useUsersQuery } from "./user.hooks";
 import { UserList } from "./user.list";
-import { useUserRoleLookups, useUserRoleMutations, useUserRolesQuery } from "../user-role";
+import { useUserRoleLookups } from "../user-role";
 import type {
   User,
   UserAccessSelection,
@@ -31,9 +31,7 @@ type PendingAction = { record: User; type: "force-delete" | "restore" | "suspend
 export function UserWorkspace({ actorEmail }: { actorEmail: string }) {
   const query = useUsersQuery();
   const mutations = useUserMutations();
-  const userRoleQuery = useUserRolesQuery();
   const userRoleLookups = useUserRoleLookups();
-  const userRoleMutations = useUserRoleMutations();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -59,38 +57,20 @@ export function UserWorkspace({ actorEmail }: { actorEmail: string }) {
   const saveError = mutations.create.error ?? mutations.update.error;
   const selectedAccess = useMemo<UserAccessSelection>(() => {
     const assignedRole = editing
-      ? (userRoleQuery.data ?? []).find(
-          (assignment) => assignment.userId === editing.id && assignment.status === "active"
-        )
+      ? userRoleLookups.data?.second.find((role) => role.key === editing.role)
       : undefined;
     const defaultRole = userRoleLookups.data?.second.find(
       (role) => role.key === "user" && role.status === "active"
     );
     return {
-      roleId: assignedRole?.roleId ?? defaultRole?.id ?? null
+      roleId: assignedRole?.id ?? defaultRole?.id ?? null
     };
-  }, [editing, userRoleLookups.data, userRoleQuery.data]);
-  async function applyRole(userId: number, access: UserAccessSelection) {
-    if (!access.roleId) return;
-    const currentUserRole = (userRoleQuery.data ?? []).find(
-      (assignment) => assignment.userId === userId && assignment.roleId === access.roleId
-    );
-    if (!currentUserRole) {
-      await userRoleMutations.create.mutateAsync({
-        roleId: access.roleId,
-        status: "active",
-        userId
-      });
-    } else if (currentUserRole.status !== "active") {
-      await userRoleMutations.activate.mutateAsync(currentUserRole);
-    }
-  }
-  async function save(value: UserSavePayload, access: UserAccessSelection) {
+  }, [editing, userRoleLookups.data]);
+  async function save(value: UserSavePayload) {
     try {
       const record = editing
         ? await mutations.update.mutateAsync({ id: editing.id, payload: value })
         : await mutations.create.mutateAsync(value);
-      if (!record.isProtected) await applyRole(record.id, access);
       if (value.frappeApiKey || value.frappeApiSecret) {
         try {
           const verification = await mutations.verifyFrappe.mutateAsync(record);
@@ -207,14 +187,9 @@ export function UserWorkspace({ actorEmail }: { actorEmail: string }) {
       />
       <UserForm
         {...(saveError instanceof Error ? { error: saveError.message } : {})}
-        loading={
-          mutations.create.isPending ||
-          mutations.update.isPending ||
-          userRoleMutations.create.isPending ||
-          userRoleMutations.activate.isPending
-        }
+        loading={mutations.create.isPending || mutations.update.isPending}
         onCancel={() => setEditing(undefined)}
-        onSubmit={(value, access) => void save(value, access)}
+        onSubmit={(value) => void save(value)}
         onVerify={verifyFrappe}
         open={editing !== undefined}
         record={editing ?? null}

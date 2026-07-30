@@ -65,7 +65,7 @@ export class UserRoleRepository {
     const parents = await sql<{
       role_id: number | null;
       user_count: number | string;
-    }>`SELECT (SELECT id FROM roles WHERE \`key\`=${roleKey} AND status='active' LIMIT 1) role_id,(SELECT COUNT(*) FROM users WHERE id=${userId} AND status='active') user_count`.execute(
+    }>`SELECT (SELECT id FROM roles WHERE \`key\`=${roleKey} AND status='active' LIMIT 1) role_id,(SELECT COUNT(*) FROM users WHERE id=${userId}) user_count`.execute(
       this.database
     );
     const roleId = Number(parents.rows[0]?.role_id ?? 0);
@@ -73,6 +73,23 @@ export class UserRoleRepository {
     await sql`INSERT INTO user_roles (uuid,user_id,role_id,status,is_protected) VALUES (${uuid},${userId},${roleId},'active',FALSE) ON DUPLICATE KEY UPDATE status='active'`.execute(
       this.database
     );
+    return this.findByUserAndRoleKey(userId, roleKey);
+  }
+  async setPrimaryRole(userId: number, roleId: number, uuid: string) {
+    const parent = await sql<{
+      role_key: string | null;
+      user_count: number | string;
+    }>`SELECT
+      (SELECT \`key\` FROM roles WHERE id=${roleId} AND status='active' LIMIT 1) role_key,
+      (SELECT COUNT(*) FROM users WHERE id=${userId}) user_count`.execute(this.database);
+    const roleKey = parent.rows[0]?.role_key;
+    if (!roleKey || !Number(parent.rows[0]?.user_count ?? 0)) return null;
+    await sql`UPDATE user_roles SET status='inactive'
+      WHERE user_id=${userId} AND role_id<>${roleId} AND is_protected=FALSE`.execute(this.database);
+    await sql`INSERT INTO user_roles (uuid,user_id,role_id,status,is_protected)
+      VALUES (${uuid},${userId},${roleId},'active',FALSE)
+      ON DUPLICATE KEY UPDATE status='active'`.execute(this.database);
+    await sql`UPDATE users SET role=${roleKey} WHERE id=${userId}`.execute(this.database);
     return this.findByUserAndRoleKey(userId, roleKey);
   }
   async update(id: number, v: UserRoleSavePayload) {

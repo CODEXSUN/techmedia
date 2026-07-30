@@ -114,6 +114,11 @@ export type CrmUserReference = {
   uuid: string;
 };
 
+export type CrmCustomerReference = {
+  id: string;
+  name: string;
+};
+
 export type CrmEnquiry = {
   activities: CrmEnquiryActivity[];
   assignedTo: CrmUserReference | null;
