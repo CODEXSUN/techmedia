@@ -81,6 +81,8 @@ export function CrmWorkspace({
   canRefresh,
   canUpdateEstimate,
   canUpdateQuotation,
+  showActivity,
+  showProperties,
   canUpdate,
   view
 }: {
@@ -95,6 +97,8 @@ export function CrmWorkspace({
   canUpdate: boolean;
   canUpdateEstimate: boolean;
   canUpdateQuotation: boolean;
+  showActivity: boolean;
+  showProperties: boolean;
   view: CrmEnquiryView;
 }) {
   const [search, setSearch] = useState("");
@@ -173,6 +177,8 @@ export function CrmWorkspace({
         canUpdate={canUpdate}
         canUpdateEstimate={canUpdateEstimate}
         canUpdateQuotation={canUpdateQuotation}
+        showActivity={showActivity}
+        showProperties={showProperties}
         onBack={() => setViewing(null)}
         {...(nextViewing ? { onNext: () => void loadRecord(nextViewing, "view") } : {})}
         onRecordChange={setViewing}

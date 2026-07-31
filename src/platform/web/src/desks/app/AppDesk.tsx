@@ -86,6 +86,8 @@ export function AppDesk() {
   const permissions = claims.permissions ?? [];
   const administrator = canAccessAdministratorSettings(claims.role);
   const canManageCrmListActions = claims.role === "admin" || claims.role === "auditor";
+  const showCrmActivity = claims.role === "admin";
+  const showCrmProperties = claims.role !== "manager" && claims.role !== "user";
   const requestedPage = pageFromPath(pathname, claims.role);
   const page = accessiblePage(requestedPage, administrator);
   const select = (next: Page) => void navigate({ to: `/app/${next.replaceAll(".", "/")}` });
@@ -144,7 +146,15 @@ export function AppDesk() {
       >
         <main className="mx-auto w-[calc(100%-2rem)] max-w-[92rem] space-y-5 py-4 lg:w-[calc(100%-3rem)] lg:py-5">
           <Suspense fallback={<GlobalLoader />}>
-            {renderPage(page, claims, permissions, administrator, canManageCrmListActions)}
+            {renderPage(
+              page,
+              claims,
+              permissions,
+              administrator,
+              canManageCrmListActions,
+              showCrmActivity,
+              showCrmProperties
+            )}
           </Suspense>
         </main>
       </ApplicationLayout>
@@ -157,7 +167,9 @@ function renderPage(
   claims: Claims,
   permissions: string[],
   administrator: boolean,
-  canManageCrmListActions: boolean
+  canManageCrmListActions: boolean,
+  showCrmActivity: boolean,
+  showCrmProperties: boolean
 ) {
   if (isAdministratorPage(page) && !administrator) {
     return (
@@ -218,6 +230,8 @@ function renderPage(
       canForceDelete={permissions.includes("crm.enquiry.force-delete")}
       canManageJobs={permissions.includes("crm.job.manage")}
       canRefresh={canManageCrmListActions}
+      showActivity={showCrmActivity}
+      showProperties={showCrmProperties}
       canSuspend={false}
       canUpdate={permissions.includes("crm.enquiry.update")}
       canUpdateEstimate={

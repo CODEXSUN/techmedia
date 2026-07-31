@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.19
+Current version: 1.0.20
 
-Release tag: v-1.0.19
+Release tag: v-1.0.20
 
-Changelog label: v 1.0.19
+Changelog label: v 1.0.20
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -34,6 +34,23 @@ New entries must keep database-facing work and application code work separate.
   containers and volumes, network and port settings; verifies the build in Docker; creates a
   retained, validated database backup; gates replacement on migrations and seeds; verifies both
   HTTP endpoints; and restores the previous API and Web images when replacement fails.
+
+## v-1.0.20
+
+### [v 1.0.20] 2026-07-31 10:30 am - Enquiry detail visibility controls
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.20.
+- Made CRM Overview the landing page after sign-in for every role, while retaining the
+  Administrator-only Application workspace in the workspace switcher.
+- Simplified enquiry detail for operational roles by removing Reply and creation metadata, hiding
+  Quotation, Tasks, and Attachments tabs, limiting Activity to Administrator, and hiding Properties
+  for User and Manager.
 
 ## v-1.0.19
 

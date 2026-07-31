@@ -4,7 +4,6 @@ import {
   Activity,
   ArrowLeft,
   ArrowRight,
-  CalendarDays,
   Check,
   CornerUpLeft,
   Ellipsis,
@@ -80,7 +79,9 @@ export function CrmShow({
   onBack,
   onNext,
   onRecordChange,
-  record
+  record,
+  showActivity,
+  showProperties
 }: {
   canAssign: boolean;
   canCreateEstimate: boolean;
@@ -93,6 +94,8 @@ export function CrmShow({
   onNext?: () => void;
   onRecordChange: (record: CrmEnquiry) => void;
   record: CrmEnquiry;
+  showActivity: boolean;
+  showProperties: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<CrmShowTab>("comments");
   const childMutations = useCrmEnquiryChildMutations(onRecordChange);
@@ -188,8 +191,6 @@ export function CrmShow({
               "updated"
             )
           }
-          onOpenAttachments={() => setActiveTab("attachments")}
-          onOpenCalendar={() => setActiveTab("tasks")}
         />
       ),
       label: (
@@ -277,7 +278,11 @@ export function CrmShow({
       label: <TabLabel icon={<Activity className="size-4" />} label="Activity" />,
       value: "activity"
     }
-  ];
+  ].filter(
+    (tab) =>
+      !["attachments", "quotation", "tasks"].includes(tab.value) &&
+      (tab.value !== "activity" || showActivity)
+  );
 
   return (
     <WorkspacePage
@@ -299,7 +304,11 @@ export function CrmShow({
     >
       <EnquirySummary record={record} />
 
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div
+        className={
+          showProperties ? "grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]" : undefined
+        }
+      >
         <div className="min-w-0 overflow-hidden rounded-md border border-border/70 bg-card/95 shadow-sm">
           <WorkspaceAnimatedTabs
             contentClassName="mt-0 pb-0"
@@ -310,17 +319,19 @@ export function CrmShow({
           />
         </div>
 
-        <EnquiryProperties
-          canAssign={canAssign}
-          canUpdate={canUpdate}
-          jobLoading={jobLoading}
-          loading={enquiryMutations.update.isPending}
-          record={record}
-          users={users.data ?? []}
-          onSave={updateProperties}
-          onStartJob={startJob}
-          onStopJob={stopJob}
-        />
+        {showProperties ? (
+          <EnquiryProperties
+            canAssign={canAssign}
+            canUpdate={canUpdate}
+            jobLoading={jobLoading}
+            loading={enquiryMutations.update.isPending}
+            record={record}
+            users={users.data ?? []}
+            onSave={updateProperties}
+            onStartJob={startJob}
+            onStopJob={stopJob}
+          />
+        ) : null}
       </div>
     </WorkspacePage>
   );
@@ -533,18 +544,6 @@ function EnquirySummary({ record }: { record: CrmEnquiry }) {
             />
             <WorkspaceStatusBadge label={capitalize(record.priority)} tone="neutral" />
           </div>
-          <div className="space-y-0.5 text-xs leading-5 text-muted-foreground sm:text-right">
-            <p>
-              Created by{" "}
-              <span className="font-medium text-foreground">{record.createdBy.name}</span>
-            </p>
-            <p>
-              Created at{" "}
-              <time className="font-medium text-foreground" dateTime={record.createdAt}>
-                {formatDateTime(record.createdAt)}
-              </time>
-            </p>
-          </div>
         </div>
       </div>
     </section>
@@ -555,20 +554,16 @@ function CommentsTab({
   loading,
   onAdd,
   onDelete,
-  onOpenAttachments,
-  onOpenCalendar,
   onUpdate,
   record
 }: {
   loading: boolean;
   onAdd: (input: { comment: string; messageType: "comment" | "reply" }) => Promise<unknown>;
   onDelete: (message: CrmEnquiry["messages"][number]) => Promise<unknown>;
-  onOpenAttachments: () => void;
-  onOpenCalendar: () => void;
   onUpdate: (message: CrmEnquiry["messages"][number], comment: string) => Promise<unknown>;
   record: CrmEnquiry;
 }) {
-  const [messageType, setMessageType] = useState<"comment" | "reply">("comment");
+  const messageType = defaultCommentMessageType();
   const [comment, setComment] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState("");
@@ -579,7 +574,6 @@ function CommentsTab({
   const commentCount = record.messages.filter(
     (message) => message.messageType === "comment"
   ).length;
-  const replyCount = record.messages.length - commentCount;
 
   function addLocation() {
     setComment((current) => `${current}<p>Location: </p>`);
@@ -604,7 +598,6 @@ function CommentsTab({
         <p className="text-xs text-muted-foreground">
           {commentCount} {commentCount === 1 ? "comment" : "comments"}
           <span aria-hidden="true"> · </span>
-          {replyCount} {replyCount === 1 ? "reply" : "replies"}
         </p>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto bg-card px-5 pb-5 pt-2">
@@ -771,26 +764,6 @@ function CommentsTab({
       </div>
 
       <div className="sticky bottom-0 border-t border-border/80 bg-card/95 p-3 backdrop-blur">
-        <div className="mb-2 flex items-center gap-1">
-          <Button
-            size="sm"
-            type="button"
-            variant={messageType === "reply" ? "secondary" : "ghost"}
-            onClick={() => setMessageType("reply")}
-          >
-            <CornerUpLeft className="size-4" />
-            Reply
-          </Button>
-          <Button
-            size="sm"
-            type="button"
-            variant={messageType === "comment" ? "secondary" : "ghost"}
-            onClick={() => setMessageType("comment")}
-          >
-            <MessageSquare className="size-4" />
-            Comment
-          </Button>
-        </div>
         <div className="overflow-hidden rounded-md border border-border/80 bg-background shadow-sm">
           <WorkspaceMinimalEditor
             className="!rounded-none !border-0 !bg-background shadow-none [&_.tiptap]:min-h-24"
@@ -803,18 +776,6 @@ function CommentsTab({
             className="flex items-center gap-1 border-t border-border/70 bg-muted/25 px-2 py-1.5"
             role="toolbar"
           >
-            <Button
-              aria-label="Open attachments"
-              className="size-7 text-muted-foreground"
-              disabled={loading}
-              size="icon"
-              title="Attachments"
-              type="button"
-              variant="ghost"
-              onClick={onOpenAttachments}
-            >
-              <Paperclip className="size-4" />
-            </Button>
             <Button
               aria-label="Add location"
               className="size-7 text-muted-foreground"
@@ -838,19 +799,6 @@ function CommentsTab({
               onClick={addEmoji}
             >
               <Smile className="size-4" />
-            </Button>
-            <span aria-hidden="true" className="mx-1 h-5 w-px bg-border/70" />
-            <Button
-              aria-label="Open dated follow-ups"
-              className="size-7 text-muted-foreground"
-              disabled={loading}
-              size="icon"
-              title="Calendar"
-              type="button"
-              variant="ghost"
-              onClick={onOpenCalendar}
-            >
-              <CalendarDays className="size-4" />
             </Button>
           </div>
         </div>
@@ -1360,6 +1308,10 @@ function EditablePropertyRow({
 
 function TabSurface({ children }: { children: ReactNode }) {
   return <section className="flex min-h-[calc(100dvh-21rem)] flex-col">{children}</section>;
+}
+
+function defaultCommentMessageType(): "comment" | "reply" {
+  return "comment";
 }
 
 function TabRecordCount({ count }: { count: number }) {
