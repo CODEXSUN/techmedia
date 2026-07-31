@@ -18,6 +18,12 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
     .where("status", "=", "active")
     .executeTakeFirst();
   if (!admin) return;
+  await sql`DELETE rp FROM role_permissions rp
+    INNER JOIN roles r ON r.id=rp.role_id
+    INNER JOIN permissions p ON p.id=rp.permission_id
+    WHERE r.\`key\` IN ('manager','staff','user')
+      AND p.\`key\`='crm.enquiry.create'
+      AND rp.is_protected=TRUE`.execute(database);
   const permissions = await database.selectFrom("permissions").select("id").execute();
   for (const permission of permissions) {
     await sql`INSERT INTO role_permissions (uuid,role_id,permission_id,status,is_protected)
@@ -26,12 +32,18 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
   }
 
   const liveFrappeDefaults: Record<string, string[]> = {
-    auditor: ["estimate.view", "quotation.view"],
-    manager: [
+    auditor: [
       "crm.enquiry.assigned.view",
       "crm.enquiry.created.view",
       "crm.enquiry.open.view",
       "crm.enquiry.create",
+      "estimate.view",
+      "quotation.view"
+    ],
+    manager: [
+      "crm.enquiry.assigned.view",
+      "crm.enquiry.created.view",
+      "crm.enquiry.open.view",
       "crm.enquiry.update",
       "crm.enquiry.assign",
       "crm.job.manage",
@@ -45,7 +57,6 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
     staff: [
       "crm.enquiry.assigned.view",
       "crm.enquiry.created.view",
-      "crm.enquiry.create",
       "crm.enquiry.update",
       "estimate.view",
       "estimate.create",
@@ -57,7 +68,6 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
     user: [
       "crm.enquiry.assigned.view",
       "crm.enquiry.created.view",
-      "crm.enquiry.create",
       "crm.enquiry.update",
       "estimate.view",
       "estimate.create",

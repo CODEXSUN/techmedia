@@ -37,8 +37,8 @@ type PendingAction = {
 };
 
 const viewDetails: Record<CrmEnquiryView, { description: string; title: string }> = {
-  assigned: { description: "Enquiries assigned to your user account.", title: "My Enquiry" },
-  created: { description: "Enquiries created by your account.", title: "Enquiry created by me" },
+  assigned: { description: "Enquiries assigned to your user account.", title: "My Job" },
+  created: { description: "Enquiries created by your account.", title: "My Calls" },
   open: {
     description: "Active unresolved enquiries not assigned to any user.",
     title: "Open Enquiry"
@@ -78,6 +78,7 @@ export function CrmWorkspace({
   canCreateQuotation,
   canForceDelete,
   canManageJobs,
+  canRefresh,
   canUpdateEstimate,
   canUpdateQuotation,
   canUpdate,
@@ -89,6 +90,7 @@ export function CrmWorkspace({
   canCreateQuotation: boolean;
   canForceDelete: boolean;
   canManageJobs: boolean;
+  canRefresh: boolean;
   canSuspend: boolean;
   canUpdate: boolean;
   canUpdateEstimate: boolean;
@@ -182,27 +184,31 @@ export function CrmWorkspace({
   return (
     <WorkspacePage
       actions={
-        <div className="flex items-center gap-2">
-          <Button
-            className="h-9 rounded-md"
-            disabled={query.isFetching}
-            onClick={() => void query.refetch()}
-            type="button"
-            variant="outline"
-          >
-            <RefreshCw className={cn("size-4", query.isFetching && "animate-spin")} /> Refresh
-          </Button>
-          {canCreate ? (
-            <Button
-              className="h-9 rounded-md"
-              disabled={users.isLoading || !users.data?.length}
-              onClick={() => setEditing(null)}
-              type="button"
-            >
-              <Plus className="size-4" /> New enquiry
-            </Button>
-          ) : null}
-        </div>
+        canRefresh || canCreate ? (
+          <div className="flex items-center gap-2">
+            {canRefresh ? (
+              <Button
+                className="h-9 rounded-md"
+                disabled={query.isFetching}
+                onClick={() => void query.refetch()}
+                type="button"
+                variant="outline"
+              >
+                <RefreshCw className={cn("size-4", query.isFetching && "animate-spin")} /> Refresh
+              </Button>
+            ) : null}
+            {canCreate ? (
+              <Button
+                className="h-9 rounded-md"
+                disabled={users.isLoading || !users.data?.length}
+                onClick={() => setEditing(null)}
+                type="button"
+              >
+                <Plus className="size-4" /> New enquiry
+              </Button>
+            ) : null}
+          </div>
+        ) : null
       }
       description={details.description}
       technicalName={`page.crm.enquiry.${view}`}
@@ -232,7 +238,7 @@ export function CrmWorkspace({
         }}
         onSearchValueChange={setSearch}
         onShowAllColumns={() => setVisibleColumns(allEnquiryColumnsVisible())}
-        searchPlaceholder="Search title or enquiry ID"
+        searchPlaceholder="Search ID, enquiry details, phone, or customer"
         searchValue={search}
       />
       <CrmList

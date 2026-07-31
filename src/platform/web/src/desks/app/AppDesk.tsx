@@ -85,6 +85,7 @@ export function AppDesk() {
   const claims = readClaims();
   const permissions = claims.permissions ?? [];
   const administrator = canAccessAdministratorSettings(claims.role);
+  const canManageCrmListActions = claims.role === "admin" || claims.role === "auditor";
   const requestedPage = pageFromPath(pathname, claims.role);
   const page = accessiblePage(requestedPage, administrator);
   const select = (next: Page) => void navigate({ to: `/app/${next.replaceAll(".", "/")}` });
@@ -143,7 +144,7 @@ export function AppDesk() {
       >
         <main className="mx-auto w-[calc(100%-2rem)] max-w-[92rem] space-y-5 py-4 lg:w-[calc(100%-3rem)] lg:py-5">
           <Suspense fallback={<GlobalLoader />}>
-            {renderPage(page, claims, permissions, administrator)}
+            {renderPage(page, claims, permissions, administrator, canManageCrmListActions)}
           </Suspense>
         </main>
       </ApplicationLayout>
@@ -151,7 +152,13 @@ export function AppDesk() {
   );
 }
 
-function renderPage(page: Page, claims: Claims, permissions: string[], administrator: boolean) {
+function renderPage(
+  page: Page,
+  claims: Claims,
+  permissions: string[],
+  administrator: boolean,
+  canManageCrmListActions: boolean
+) {
   if (isAdministratorPage(page) && !administrator) {
     return (
       <CrmOverview signedInUser={{ email: claims.email, name: claims.name ?? claims.email }} />
@@ -197,7 +204,11 @@ function renderPage(page: Page, claims: Claims, permissions: string[], administr
   return (
     <CrmWorkspace
       canAssign={permissions.includes("crm.enquiry.assign")}
-      canCreate={permissions.includes("crm.enquiry.create")}
+      canCreate={
+        canManageCrmListActions &&
+        page === "crm.created" &&
+        permissions.includes("crm.enquiry.create")
+      }
       canCreateEstimate={
         permissions.includes("estimate.create") || permissions.includes("crm.enquiry.create")
       }
@@ -206,6 +217,7 @@ function renderPage(page: Page, claims: Claims, permissions: string[], administr
       }
       canForceDelete={permissions.includes("crm.enquiry.force-delete")}
       canManageJobs={permissions.includes("crm.job.manage")}
+      canRefresh={canManageCrmListActions}
       canSuspend={false}
       canUpdate={permissions.includes("crm.enquiry.update")}
       canUpdateEstimate={
@@ -236,8 +248,8 @@ function buildMenu(
         isActive: true,
         items: [
           { ...item("Overview", "crm.overview"), icon: CircleGaugeIcon },
-          item("My Enquiry", "crm.assigned"),
-          item("Enquiry created by me", "crm.created"),
+          item("My Job", "crm.assigned"),
+          item("My Calls", "crm.created"),
           item("Open Enquiry", "crm.open")
         ],
         title: "CRM"
@@ -311,8 +323,8 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
 
 function titleFor(page: Page) {
   const labels: Partial<Record<Page, string>> = {
-    "crm.assigned": "My Enquiry",
-    "crm.created": "Enquiry created by me",
+    "crm.assigned": "My Job",
+    "crm.created": "My Calls",
     "crm.open": "Open Enquiry",
     "estimate.list": "Estimate",
     "settings.frappe.overview": "Frappe connection",

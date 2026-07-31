@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.17
+Current version: 1.0.19
 
-Release tag: v-1.0.17
+Release tag: v-1.0.19
 
-Changelog label: v 1.0.17
+Changelog label: v 1.0.19
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -34,6 +34,44 @@ New entries must keep database-facing work and application code work separate.
   containers and volumes, network and port settings; verifies the build in Docker; creates a
   retained, validated database backup; gates replacement on migrations and seeds; verifies both
   HTTP endpoints; and restores the previous API and Web images when replacement fails.
+
+## v-1.0.19
+
+### [v 1.0.19] 2026-07-31 9:53 am - CRM action controls and role permissions
+
+#### Database Changes
+
+- Database update: Yes.
+- Updated repeatable role-permission seeds so Auditor receives the live CRM list/create access,
+  while Manager, Staff, and User no longer receive the seeded `crm.enquiry.create` permission.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.19.
+- Expanded all CRM enquiry-list searches to match enquiry ID, enquiry details, phone number, and
+  customer name, including multi-word filters within the signed-in user's permitted live list.
+- Renamed the assigned and created CRM views to My Job and My Calls, and limited New enquiry to
+  the My Calls view.
+- Restricted the CRM Refresh and New enquiry controls to Administrator and Auditor in the desk UI.
+
+## v-1.0.18
+
+### [v 1.0.18] 2026-07-31 9:27 am - Version update
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.18.
+- Made the application Frappe connection persist safely to the configured root `.env`, creating it
+  from `.env.example` when a first-time installation has not created it yet, and refreshing the
+  running API configuration after a successful save.
+- Improved the Frappe settings error when the mounted runtime `.env` is not writable by the API
+  process.
+- Allowed the protected administrator to save and verify its own Frappe credentials without
+  changing its protected role assignment.
 
 ## v-1.0.17
 

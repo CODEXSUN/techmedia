@@ -35,12 +35,12 @@ export class CrmService {
     await this.context.authorize(viewPermissions[filters.view]);
     const records = await this.gateway.list({
       employee: this.employee(),
-      view: filters.view,
-      ...(filters.search ? { search: filters.search } : {})
+      view: filters.view
     });
     const filtered = records
       .filter((record) => matchesStatus(record.status, filters.status))
-      .filter((record) => !filters.enquiryId || record.name === filters.enquiryId);
+      .filter((record) => !filters.enquiryId || record.name === filters.enquiryId)
+      .filter((record) => matchesEnquirySearch(record, filters.search));
     return this.mapMany(filtered);
   }
 
@@ -432,6 +432,31 @@ function plainText(value: string) {
     .replace(/&#39;|&apos;/giu, "'")
     .replace(/\s+/gu, " ")
     .trim();
+}
+
+/**
+ * Search stays within the live, permission-scoped enquiry list. Frappe's resource
+ * filters are AND-only for this query, so applying it here gives one consistent
+ * match across all enquiry columns rather than restricting search to the document ID.
+ */
+function matchesEnquirySearch(record: LiveRecord, search?: string) {
+  const terms = (search ?? "")
+    .trim()
+    .toLocaleLowerCase()
+    .split(/\s+/u)
+    .map((term) => term.replace(/^#+/u, ""))
+    .filter(Boolean);
+  if (!terms.length) return true;
+  const searchable = [
+    record.name,
+    String(numericId(record.name)),
+    record.enquiryMessage,
+    record.mobile,
+    record.customer
+  ]
+    .map((value) => plainText(value).toLocaleLowerCase())
+    .join(" ");
+  return terms.every((term) => searchable.includes(term));
 }
 
 function numericId(name: string) {

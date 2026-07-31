@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, parse, resolve } from "node:path";
 import { AppError } from "@codexsun/framework/errors";
 import { env } from "../../env.js";
@@ -28,15 +28,8 @@ export function updateFrappeEnvironment(values: FrappeEnvironmentUpdate) {
 
 async function writeEnvironment(values: FrappeEnvironmentUpdate) {
   const path = nearestEnvironmentFile();
-  if (!path) {
-    throw new AppError({
-      code: "FRAPPE_SETTINGS_FILE_MISSING",
-      message: "The TechMedia .env file could not be found.",
-      statusCode: 500
-    });
-  }
   try {
-    const current = await readFile(path, "utf8");
+    const current = await readEnvironmentFile(path);
     const lineEnding = current.includes("\r\n") ? "\r\n" : "\n";
     const pending = new Map(Object.entries(values));
     const lines = current.split(/\r?\n/u).map((line) => {
@@ -52,11 +45,13 @@ async function writeEnvironment(values: FrappeEnvironmentUpdate) {
       encoding: "utf8",
       mode: 0o600
     });
+    Object.assign(env, values);
+    Object.assign(process.env, values);
   } catch (error) {
     if (error instanceof AppError) throw error;
     throw new AppError({
       code: "FRAPPE_SETTINGS_SAVE_FAILED",
-      message: "The Frappe settings could not be saved to the TechMedia .env file.",
+      message: saveErrorMessage(error),
       statusCode: 500
     });
   }
@@ -68,7 +63,7 @@ function nearestEnvironmentFile() {
     const candidate = isAbsolute(configuredPath)
       ? configuredPath
       : resolve(process.cwd(), configuredPath);
-    return existsSync(candidate) ? candidate : null;
+    return candidate;
   }
 
   let current = process.cwd();
@@ -76,9 +71,38 @@ function nearestEnvironmentFile() {
     const candidate = join(current, ".env");
     if (existsSync(candidate)) return candidate;
     const parent = dirname(current);
-    if (parent === current || current === parse(current).root) return null;
+    if (parent === current || current === parse(current).root) return join(process.cwd(), ".env");
     current = parent;
   }
+}
+
+async function readEnvironmentFile(path: string) {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
+    await mkdir(dirname(path), { recursive: true });
+    const examplePath = join(dirname(path), ".env.example");
+    try {
+      return await readFile(examplePath, "utf8");
+    } catch (exampleError) {
+      if (isMissingFile(exampleError)) return "";
+      throw exampleError;
+    }
+  }
+}
+
+function isMissingFile(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+
+function saveErrorMessage(error: unknown) {
+  const code =
+    typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  if (code === "EACCES" || code === "EPERM" || code === "EROFS") {
+    return "The TechMedia .env file is not writable by the API process. Make the configured runtime .env file writable, then save again.";
+  }
+  return "The Frappe settings could not be saved to the TechMedia .env file.";
 }
 
 function environmentLine(key: string, value: string) {

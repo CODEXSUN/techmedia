@@ -162,7 +162,7 @@ function UserFormBody({
       ...(frappeApiKey ? { frappeApiKey } : {}),
       ...(frappeApiSecret ? { frappeApiSecret } : {}),
       ...(password ? { password } : {}),
-      ...(access.roleId ? { roleId: access.roleId } : {})
+      ...(access.roleId && !record?.isProtected ? { roleId: access.roleId } : {})
     };
   }
   return (

@@ -79,7 +79,7 @@ export class UserService {
   async update(id: string, input: UserSavePayload) {
     await this.context.authorize("identity.user.update");
     const current = await this.required(id);
-    const value = normalize(input, false);
+    let value = normalize(input, false);
     if (current.isProtected) {
       if (this.context.actorEmail.toLowerCase() !== current.email.toLowerCase()) {
         throw AppError.forbidden("The protected system user can only edit its own account.");
@@ -87,9 +87,10 @@ export class UserService {
       if (value.name !== current.name || value.status !== current.status) {
         throw AppError.forbidden("The protected system user's name and status cannot be modified.");
       }
-      if (value.roleId) {
-        throw AppError.forbidden("The protected system user's role cannot be modified.");
-      }
+      // The edit form always carries the current role. Ignore that no-op value so a
+      // protected administrator can still maintain its own Frappe credentials.
+      const { roleId: _roleId, ...protectedValue } = value;
+      value = protectedValue;
     }
     const currentCredentials = await this.repository.findFrappeCredentials(current.id);
     const credentials = await this.credentialsForSave(value, currentCredentials);

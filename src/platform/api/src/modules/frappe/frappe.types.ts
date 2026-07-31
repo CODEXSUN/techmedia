@@ -149,11 +149,7 @@ export type FrappeLiveEnquiryGateway = {
     name: string,
     input: FrappeLiveJobExecutionSavePayload
   ) => Promise<FrappeLiveJobExecution>;
-  list: (input: {
-    employee: string;
-    search?: string;
-    view: FrappeLiveEnquiryView;
-  }) => Promise<FrappeLiveEnquiry[]>;
+  list: (input: { employee: string; view: FrappeLiveEnquiryView }) => Promise<FrappeLiveEnquiry[]>;
   update: (name: string, input: FrappeLiveEnquirySavePayload) => Promise<FrappeLiveEnquiry>;
   updateMessages: (
     name: string,

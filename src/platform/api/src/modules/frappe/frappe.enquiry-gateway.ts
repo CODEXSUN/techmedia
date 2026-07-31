@@ -118,9 +118,6 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         filters.push(["assigned_to_employee", "is", "not set"]);
         filters.push(["status", "not in", ["Won", "Lost"]]);
       }
-      if (input.search?.trim()) {
-        filters.push(["name", "like", `%${input.search.trim()}%`]);
-      }
       const query = new URLSearchParams({
         fields: JSON.stringify(enquiryFields),
         filters: JSON.stringify(filters),
