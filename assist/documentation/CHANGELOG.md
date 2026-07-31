@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.16
+Current version: 1.0.17
 
-Release tag: v-1.0.16
+Release tag: v-1.0.17
 
-Changelog label: v 1.0.16
+Changelog label: v 1.0.17
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -34,6 +34,18 @@ New entries must keep database-facing work and application code work separate.
   containers and volumes, network and port settings; verifies the build in Docker; creates a
   retained, validated database backup; gates replacement on migrations and seeds; verifies both
   HTTP endpoints; and restores the previous API and Web images when replacement fails.
+
+## v-1.0.17
+
+### [v 1.0.17] 2026-07-31 5:44 am - Version update
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.17.
 
 ## v-1.0.16
 

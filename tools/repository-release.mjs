@@ -2,6 +2,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { platform } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { createInterface } from "node:readline";
 
@@ -128,33 +129,52 @@ function checkVersions() {
 
 async function githubNow() {
   const dryRun = args.includes("--dry-run");
-  const allowMutation = args.includes("--yes");
-  const version = rootVersion();
-  const entry = latestEntry(version);
-  const defaultSubject = `#${String(reference(version)).padStart(2, "0")} - ${entry.title}`;
-  const subject = option("--message") ?? defaultSubject;
-
-  if (!/^#\d{2,}\s+-\s+\S/u.test(subject)) {
-    throw new Error('Commit subject must use "#00 - message" format.');
-  }
-
+  const autoApprove = args.includes("--yes");
+  const currentVersion = rootVersion();
+  const nextVersion = nextPatch(currentVersion);
+  let shouldBump = autoApprove && args.includes("--bump");
+  let title = option("--title") ?? "Version update";
   const status = git(["status", "--porcelain"], true);
   const files = status ? status.split(/\r?\n/u).filter(Boolean) : [];
   console.log(`Repository: ${readJson(join(root, "package.json")).name}`);
-  console.log(`Version:    ${version}`);
-  console.log(`Subject:    ${subject}`);
+  console.log(`Version:    ${currentVersion}${shouldBump ? ` -> ${nextVersion}` : ""}`);
   console.log(`Changes:    ${files.length}`);
   files.forEach((file) => console.log(`  ${file}`));
 
   if (dryRun) {
-    console.log("Dry run only. No pull, add, commit, or push was performed.");
+    console.log(`Would offer patch bump: ${currentVersion} -> ${nextVersion}`);
+    console.log(`Default title: ${title}`);
+    console.log("Dry run only. No version bump, pull, add, commit, or push was performed.");
     return;
   }
 
-  if (!allowMutation && !(await confirm("Pull, stage all changes, commit, and push? [y/N] "))) {
-    throw new Error("Cancelled.");
+  if (!autoApprove) {
+    await withPrompt(async (ask) => {
+      shouldBump = isYes(
+        await ask(`Bump next version (${currentVersion} -> ${nextVersion})? [y/N]: `)
+      );
+      if (shouldBump) {
+        title = (await ask(`Version title [${title}]: `, title)).trim() || title;
+      }
+      const version = shouldBump ? nextVersion : currentVersion;
+      const subject = releaseSubject(version, shouldBump ? title : latestEntry(version).title);
+      console.log(`Version:    ${version}`);
+      console.log(`Subject:    ${subject}`);
+      if (
+        !isYes(
+          await ask(
+            `Continue with ${shouldBump ? "version bump, pull, commit, and push" : "pull, commit, and push"}? [y/N]: `
+          )
+        )
+      ) {
+        throw new Error("Cancelled.");
+      }
+    });
   }
 
+  if (shouldBump) bumpVersion(title);
+  const version = rootVersion();
+  const subject = releaseSubject(version, shouldBump ? title : latestEntry(version).title);
   const upstream = gitQuiet(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]);
   if (upstream) git(["pull", "--rebase", "--autostash"]);
 
@@ -163,6 +183,10 @@ async function githubNow() {
   if (staged) git(["commit", "-m", subject]);
   else console.log("No staged changes; skipping commit.");
   git(["push"]);
+}
+
+function releaseSubject(version, title) {
+  return `#${String(reference(version)).padStart(2, "0")} - ${title}`;
 }
 
 function rootVersion() {
@@ -324,18 +348,52 @@ function gitQuiet(gitArgs) {
   }
 }
 
-async function confirm(question) {
+async function withPrompt(callback) {
+  if (!process.stdin.isTTY && platform() === "win32") {
+    return callback(askWindowsModal);
+  }
   if (!process.stdin.isTTY) {
     throw new Error("Interactive terminal required; pass --yes only after reviewing --dry-run.");
   }
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    return await new Promise((resolveAnswer) => {
-      readline.question(question, (answer) =>
-        resolveAnswer(["y", "yes"].includes(answer.trim().toLowerCase()))
-      );
-    });
+    return await callback(
+      (question, defaultValue = "") =>
+        new Promise((resolveAnswer) => {
+          readline.question(question, (answer) => resolveAnswer(answer || defaultValue));
+        })
+    );
   } finally {
     readline.close();
   }
+}
+
+function isYes(value) {
+  return ["y", "yes"].includes(value.trim().toLowerCase());
+}
+
+function askWindowsModal(question, defaultValue = "") {
+  const confirmation = /\[y\/N\]:\s*$/iu.test(question);
+  const script = confirmation
+    ? [
+        "Add-Type -AssemblyName System.Windows.Forms",
+        `$result = [System.Windows.Forms.MessageBox]::Show(${quotePowerShellString(
+          question.replace(/\s*\[y\/N\]:\s*$/iu, "")
+        )}, 'TechMedia release', 'YesNo', 'Question')`,
+        "if ($result -eq 'Yes') { 'yes' } else { 'no' }"
+      ].join("; ")
+    : [
+        "Add-Type -AssemblyName Microsoft.VisualBasic",
+        `[Microsoft.VisualBasic.Interaction]::InputBox(${quotePowerShellString(
+          question
+        )}, 'TechMedia release', ${quotePowerShellString(defaultValue)})`
+      ].join("; ");
+  return execFileSync("powershell.exe", ["-NoProfile", "-STA", "-Command", script], {
+    encoding: "utf8",
+    windowsHide: false
+  }).trim();
+}
+
+function quotePowerShellString(value) {
+  return `'${value.replaceAll("'", "''")}'`;
 }
