@@ -110,7 +110,9 @@ const messageUpdatePayload = z.object({ comment: z.string().trim().min(1).max(10
 const query = z.object({
   enquiryId: z.string().trim().min(1).max(140).optional(),
   search: z.string().trim().max(220).optional(),
-  status: z.enum(["active", "open", "follow", "escalation", "won", "lost"]).optional(),
+  status: z
+    .enum(["active", "in-progress", "closed", "open", "follow", "escalation", "won", "lost"])
+    .optional(),
   view: z.enum(["assigned", "created", "open"])
 });
 const customerReferenceQuery = z.object({

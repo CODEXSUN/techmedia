@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 CONTAINER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$CONTAINER_DIR/.." && pwd)"
@@ -9,10 +10,28 @@ COMPOSE_FILE="$CONTAINER_DIR/docker-compose.yml"
 BACKUP_DIR="$CONTAINER_DIR/backups"
 ASSUME_YES=false
 CHECK_ONLY=false
+ALLOW_DIRTY=false
+LOCK_FILE="${TMPDIR:-/tmp}/techmedia-update.lock"
+backup_file="not-created"
+backup_temp=""
+backup_checksum="not-created"
+metadata_file="not-created"
+migration_result="not-started"
+source_commit="unknown"
+source_dirty="unknown"
+source_version="unknown"
+built_api_image="not-built"
+built_web_image="not-built"
+
+cleanup_partial_files() {
+  [[ -z "$backup_temp" ]] || rm -f -- "$backup_temp" || true
+  [[ "$metadata_file" == not-created ]] || rm -f -- "${metadata_file}.partial" || true
+}
+trap cleanup_partial_files EXIT
 
 usage() {
   cat <<'EOF'
-Usage: bash update.sh [--check] [--yes]
+Usage: bash update.sh [--check] [--yes] [--allow-dirty]
 
 Safely update an existing TechMedia Docker installation while preserving:
 
@@ -32,6 +51,7 @@ removes volumes, changes credentials, pulls source, or updates unrelated contain
 
 Options:
       --check Validate the existing deployment without rebuilding containers.
+      --allow-dirty Build uncommitted source after recording a prominent warning.
   -y, --yes  Apply the update without an interactive confirmation.
   -h, --help Show this help.
 
@@ -47,6 +67,9 @@ while (($# > 0)); do
     --check)
       CHECK_ONLY=true
       ;;
+    --allow-dirty)
+      ALLOW_DIRTY=true
+      ;;
     -h|--help)
       usage
       exit 0
@@ -59,6 +82,18 @@ while (($# > 0)); do
   esac
   shift
 done
+
+if [[ "$CHECK_ONLY" != true ]]; then
+  command -v flock >/dev/null 2>&1 || {
+    echo "flock is required to serialize TechMedia deployment updates." >&2
+    exit 69
+  }
+  exec 9>"$LOCK_FILE"
+  flock -n 9 || {
+    echo "Another TechMedia update is already running (lock: $LOCK_FILE)." >&2
+    exit 75
+  }
+fi
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -116,8 +151,75 @@ require_setting() {
   }
 }
 
+positive_integer() {
+  [[ "$1" =~ ^[1-9][0-9]*$ ]]
+}
+
+read_source_version() {
+  sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+    "$ROOT_DIR/package.json" | head -n 1
+}
+
+validate_release_contract() {
+  source_version="$(read_source_version)"
+  [[ -n "$source_version" ]] || {
+    echo "Could not read the source version from $ROOT_DIR/package.json." >&2
+    exit 78
+  }
+
+  local key configured
+  for key in TECHMEDIA_VERSION TECHMEDIA_IMAGE_TAG TECHMEDIA_MIGRATION_COMPATIBLE_VERSION; do
+    configured="$(file_value "$DEPLOY_ENV" "$key")"
+    [[ "$configured" == "$source_version" ]] || {
+      echo "Release version mismatch: package.json is $source_version but $key is ${configured:-unset}." >&2
+      echo "Review the release and update $DEPLOY_ENV before building; mixed versions are refused." >&2
+      exit 78
+    }
+  done
+}
+
+inspect_source_state() {
+  require_command git
+  git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+    echo "TechMedia update source is not a Git worktree: $ROOT_DIR" >&2
+    exit 78
+  }
+  source_commit="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+  if [[ -n "$(git -C "$ROOT_DIR" status --porcelain --untracked-files=normal)" ]]; then
+    source_dirty=true
+    echo "WARNING: the TechMedia Git worktree contains uncommitted or untracked files." >&2
+    echo "Commit: $source_commit" >&2
+    if [[ "$ALLOW_DIRTY" != true ]]; then
+      echo "Commit/stash the changes, or rerun with --allow-dirty to deploy and record them." >&2
+      exit 78
+    fi
+    echo "Continuing because --allow-dirty was explicitly supplied; this build is not reproducible from the commit alone." >&2
+  else
+    source_dirty=false
+  fi
+}
+
+available_megabytes() {
+  df -Pk "$1" | awk 'NR == 2 { print int($4 / 1024) }'
+}
+
+require_free_space() {
+  local path="$1" required_mb="$2" label="$3" available_mb
+  available_mb="$(available_megabytes "$path")"
+  positive_integer "$available_mb" || {
+    echo "Could not determine free space for $label at $path." >&2
+    exit 74
+  }
+  [[ "$available_mb" -ge "$required_mb" ]] || {
+    echo "Insufficient free space for $label: ${available_mb} MB available, ${required_mb} MB required at $path." >&2
+    exit 74
+  }
+  echo "  Disk space for $label: ${available_mb} MB available (${required_mb} MB minimum)"
+}
+
 require_command docker
 require_command curl
+require_command sha256sum
 docker info >/dev/null 2>&1 || {
   echo "Docker Engine is not reachable." >&2
   exit 69
@@ -130,6 +232,8 @@ docker compose version >/dev/null 2>&1 || {
 require_file "$RUNTIME_ENV"
 require_file "$DEPLOY_ENV"
 require_file "$COMPOSE_FILE"
+validate_release_contract
+inspect_source_state
 
 for key in DB_NAME DB_USER DB_PASSWORD JWT_SECRET INITIAL_ADMIN_EMAIL INITIAL_ADMIN_PASSWORD; do
   require_setting "$RUNTIME_ENV" "$key"
@@ -150,6 +254,8 @@ network_external="$(file_value "$DEPLOY_ENV" TECHMEDIA_NETWORK_EXTERNAL false)"
 image_registry="$(file_value "$DEPLOY_ENV" TECHMEDIA_IMAGE_REGISTRY techmedia)"
 image_tag="$(file_value "$DEPLOY_ENV" TECHMEDIA_IMAGE_TAG local)"
 backup_retention="$(file_value "$DEPLOY_ENV" TECHMEDIA_BACKUP_RETENTION 10)"
+minimum_backup_mb="$(file_value "$DEPLOY_ENV" TECHMEDIA_UPDATE_MIN_BACKUP_FREE_MB 1024)"
+minimum_docker_mb="$(file_value "$DEPLOY_ENV" TECHMEDIA_UPDATE_MIN_DOCKER_FREE_MB 5120)"
 database="$(file_value "$RUNTIME_ENV" DB_NAME)"
 database_user="$(file_value "$RUNTIME_ENV" DB_USER)"
 database_password="$(file_value "$RUNTIME_ENV" DB_PASSWORD)"
@@ -163,9 +269,56 @@ done
   echo "DB_NAME contains unsupported characters: $database" >&2
   exit 78
 }
-[[ "$backup_retention" =~ ^[1-9][0-9]*$ ]] || {
-  echo "TECHMEDIA_BACKUP_RETENTION must be a positive integer." >&2
-  exit 78
+for setting in \
+  "TECHMEDIA_BACKUP_RETENTION:$backup_retention" \
+  "TECHMEDIA_UPDATE_MIN_BACKUP_FREE_MB:$minimum_backup_mb" \
+  "TECHMEDIA_UPDATE_MIN_DOCKER_FREE_MB:$minimum_docker_mb"; do
+  key="${setting%%:*}"
+  value="${setting#*:}"
+  positive_integer "$value" || {
+    echo "$key must be a positive integer; received: $value" >&2
+    exit 78
+  }
+done
+
+write_deployment_metadata() {
+  local status="$1" api_digest="$2" web_digest="$3"
+  [[ "$metadata_file" != not-created ]] || return 0
+  cat >"${metadata_file}.partial" <<EOF
+{
+  "timestamp": "$timestamp",
+  "status": "$status",
+  "sourceCommit": "$source_commit",
+  "sourceDirty": $source_dirty,
+  "applicationVersion": "$source_version",
+  "migrationCompatibilityVersion": "$(file_value "$DEPLOY_ENV" TECHMEDIA_MIGRATION_COMPATIBLE_VERSION)",
+  "apiImageDigest": "$api_digest",
+  "webImageDigest": "$web_digest",
+  "previousApiImageDigest": "$old_api_image",
+  "previousWebImageDigest": "$old_web_image",
+  "migrationResult": "$migration_result",
+  "backupPath": "$backup_file",
+  "backupSha256": "$backup_checksum"
+}
+EOF
+  mv -- "${metadata_file}.partial" "$metadata_file"
+  chmod 600 "$metadata_file" 2>/dev/null || true
+}
+
+prune_old_backups() {
+  local retention="$1" count=0 old_backup backup_name backup_timestamp
+  while IFS= read -r old_backup; do
+    count=$((count + 1))
+    if [[ "$count" -gt "$retention" ]]; then
+      backup_name="${old_backup##*/}"
+      backup_timestamp="${backup_name#${project}-${database}-}"
+      backup_timestamp="${backup_timestamp%.sql}"
+      rm -f -- "$old_backup" "${old_backup}.sha256"
+      rm -f -- "$resolved_backup_dir/techmedia-deployment-$backup_timestamp.json"
+      echo "Removed expired backup: $old_backup"
+    fi
+  done < <(find "$resolved_backup_dir" -maxdepth 1 -type f \
+    -name "${project}-${database}-*.sql" -printf '%T@ %p\n' | sort -nr | cut -d' ' -f2-)
 }
 
 for service_spec in "$api_container:api" "$web_container:web"; do
@@ -214,6 +367,20 @@ fi
 
 compose config --quiet
 
+mkdir -p "$BACKUP_DIR"
+resolved_backup_dir="$(cd "$BACKUP_DIR" && pwd -P)"
+[[ "$resolved_backup_dir" != "/" && "$resolved_backup_dir" != "$ROOT_DIR" ]] || {
+  echo "Refusing to use unsafe backup directory: $resolved_backup_dir" >&2
+  exit 78
+}
+docker_root="$(docker info --format '{{.DockerRootDir}}')"
+[[ -n "$docker_root" && -d "$docker_root" ]] || {
+  echo "Docker did not report a readable storage root: ${docker_root:-unset}" >&2
+  exit 69
+}
+require_free_space "$resolved_backup_dir" "$minimum_backup_mb" "MariaDB backup"
+require_free_space "$docker_root" "$minimum_docker_mb" "Docker build storage"
+
 if container_is_running "$api_container"; then
   docker exec "$api_container" node -e \
     "require('node:fs').accessSync(process.env.TECHMEDIA_ENV_FILE_PATH, require('node:fs').constants.R_OK | require('node:fs').constants.W_OK)" \
@@ -230,10 +397,13 @@ echo "  Runtime configuration: $RUNTIME_ENV (preserved)"
 echo "  Deployment configuration: $DEPLOY_ENV (preserved)"
 echo "  Compose project: $project"
 echo "  Infrastructure: $infrastructure (preserved)"
+echo "  Release: source and application image tag locked to $source_version"
+echo "  Source commit: $source_commit (dirty: $source_dirty)"
 echo "  Preflight: production build and repository checks in Docker"
 echo "  Rebuild: $api_container and $web_container"
-echo "  Backup: timestamped SQL dump in $BACKUP_DIR (keep $backup_retention)"
-echo "  Database: migrate and seed before application replacement"
+echo "  Backup: SHA-256 verified SQL dump in $BACKUP_DIR (keep $backup_retention)"
+echo "  Database: version-approved migrate and seed before application replacement"
+echo "  Audit: deployment metadata beside the retained backup"
 echo "  Database containers and volumes: untouched"
 echo "  Source code: current repository checkout"
 
@@ -264,17 +434,14 @@ fi
 
 echo "Building the verification, API, and Web images."
 compose build verify api web
+built_api_image="$(docker image inspect --format '{{.Id}}' "$api_image")"
+built_web_image="$(docker image inspect --format '{{.Id}}' "$web_image")"
 
-mkdir -p "$BACKUP_DIR"
-resolved_backup_dir="$(cd "$BACKUP_DIR" && pwd -P)"
-[[ "$resolved_backup_dir" != "/" && "$resolved_backup_dir" != "$ROOT_DIR" ]] || {
-  echo "Refusing to use unsafe backup directory: $resolved_backup_dir" >&2
-  exit 78
-}
 chmod 700 "$resolved_backup_dir" 2>/dev/null || true
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup_file="$resolved_backup_dir/${project}-${database}-${timestamp}.sql"
 backup_temp="${backup_file}.partial"
+metadata_file="$resolved_backup_dir/techmedia-deployment-$timestamp.json"
 
 echo "Creating MariaDB backup: $backup_file"
 if ! MSYS_NO_PATHCONV=1 docker exec \
@@ -300,17 +467,18 @@ if [[ ! -s "$backup_temp" ]] ||
   exit 74
 fi
 mv -- "$backup_temp" "$backup_file"
+backup_temp=""
 chmod 600 "$backup_file" 2>/dev/null || true
-
-mapfile -t backup_files < <(
-  find "$resolved_backup_dir" -maxdepth 1 -type f \
-    -name "${project}-${database}-*.sql" -print | sort -r
-)
-if ((${#backup_files[@]} > backup_retention)); then
-  for ((index = backup_retention; index < ${#backup_files[@]}; index++)); do
-    rm -f -- "${backup_files[$index]}"
-  done
-fi
+backup_checksum="$(sha256sum "$backup_file" | awk '{print $1}')"
+printf '%s  %s\n' "$backup_checksum" "$(basename "$backup_file")" >"${backup_file}.sha256"
+chmod 600 "${backup_file}.sha256" 2>/dev/null || true
+(cd "$resolved_backup_dir" && sha256sum --check "$(basename "${backup_file}.sha256")") \
+  >/dev/null || {
+  echo "MariaDB backup SHA-256 verification failed; the running application was not replaced." >&2
+  exit 74
+}
+write_deployment_metadata "backup-verified" "$built_api_image" "$built_web_image"
+prune_old_backups "$backup_retention"
 
 echo "Verifying runtime environment access with the new API image."
 compose run --rm --no-deps api node -e \
@@ -318,17 +486,25 @@ compose run --rm --no-deps api node -e \
 
 echo "Running database migrations with the new API image."
 if ! compose run --rm --no-deps api npm run db:migrate; then
+  migration_result="migration-failed"
+  write_deployment_metadata "migration-failed" "$built_api_image" "$built_web_image"
   echo "Migration failed; existing application containers remain in place." >&2
   echo "Validated backup: $backup_file" >&2
   exit 70
 fi
+migration_result="migration-completed"
+write_deployment_metadata "migration-completed" "$built_api_image" "$built_web_image"
 
 echo "Running repeatable database seeds with the new API image."
 if ! compose run --rm --no-deps api npm run db:seed; then
+  migration_result="seed-failed"
+  write_deployment_metadata "seed-failed" "$built_api_image" "$built_web_image"
   echo "Database seed failed; existing application containers remain in place." >&2
   echo "Validated backup: $backup_file" >&2
   exit 70
 fi
+migration_result="completed"
+write_deployment_metadata "database-completed" "$built_api_image" "$built_web_image"
 
 rollback_application() {
   local reason="$1" rollback_status=0
@@ -345,8 +521,11 @@ rollback_application() {
     --wait-timeout 300 || rollback_status=$?
   set -e
   if ((rollback_status == 0)); then
+    write_deployment_metadata "rolled-back" "$built_api_image" "$built_web_image"
     echo "Previous application containers restored. Database backup: $backup_file" >&2
+    echo "Applied database migrations and seeds were not reversed; use the validated backup only under the approved recovery plan." >&2
   else
+    write_deployment_metadata "rollback-failed" "$built_api_image" "$built_web_image"
     echo "Automatic application rollback failed. Database backup: $backup_file" >&2
   fi
   exit 70
@@ -378,9 +557,15 @@ if ! curl --fail --silent --show-error --max-time 15 \
   rollback_application "Web HTTP verification failed: $web_url"
 fi
 
+new_api_image="$(docker inspect --format '{{.Image}}' "$api_container")"
+new_web_image="$(docker inspect --format '{{.Image}}' "$web_container")"
+write_deployment_metadata "completed" "$new_api_image" "$new_web_image"
+
 echo
 echo "TechMedia Docker update completed."
 echo "Web: http://$(file_value "$DEPLOY_ENV" TECHMEDIA_BIND_ADDRESS 127.0.0.1):$(file_value "$DEPLOY_ENV" TECHMEDIA_WEB_HOST_PORT 7060)/"
 echo "API health: http://$(file_value "$DEPLOY_ENV" TECHMEDIA_BIND_ADDRESS 127.0.0.1):$(file_value "$DEPLOY_ENV" TECHMEDIA_API_HOST_PORT 7050)/health"
 echo "Validated database backup: $backup_file"
+echo "Backup SHA-256: $backup_checksum"
+echo "Deployment metadata: $metadata_file"
 echo "Existing credentials, MariaDB data, and Frappe user mappings were preserved."

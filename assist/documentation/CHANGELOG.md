@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.20
+Current version: 1.0.21
 
-Release tag: v-1.0.20
+Release tag: v-1.0.21
 
-Changelog label: v 1.0.20
+Changelog label: v 1.0.21
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -17,23 +17,45 @@ New entries must keep database-facing work and application code work separate.
 
 ### Database Changes
 
-- Database update: Yes.
-- Added the repeatable `crm.job.manage` permission and assigned it to the protected Manager role;
-  no schema or business tables were added.
+- Database update: No.
 
 ### App Codebase Changes
 
-- Added supervisor-managed manual Job Execution creation and editing through live Frappe, including
-  validated employee, time, status, and hourly-rate fields with row action menus.
-- Kept Estimate creation and its existing three-dot Edit action available in the enquiry tab.
-- Replaced free-text enquiry customers with an existing-Customer autocomplete backed by live
-  Frappe, displaying only customer names and rejecting arbitrary customer values before save.
-- Made each user's assigned role visible by its human-readable label in the Users list and
-  included role keys and labels in user search.
-- Added a guarded Docker updater that preserves existing environment credentials, MariaDB
-  containers and volumes, network and port settings; verifies the build in Docker; creates a
-  retained, validated database backup; gates replacement on migrations and seeds; verifies both
-  HTTP endpoints; and restores the previous API and Web images when replacement fails.
+- None.
+
+## v-1.0.21
+
+### [v 1.0.21] 2026-08-01 1:37 pm - CRM workspace navigation and guarded live updates
+
+#### Database Changes
+
+- Database update: Yes.
+- Added the repeatable `crm.job.manage` permission for Manager and granted the protected
+  `crm.enquiry.create` permission to Manager, Staff, and User so every standard role can create an
+  enquiry from My Calls; no schema or business tables were added.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.21.
+- Added supervisor-managed Job Execution creation and editing through live Frappe, retained
+  Estimate editing, replaced free-text customers with a validated live-Customer lookup, and made
+  assigned role labels searchable in the Users list.
+- Added WhatsApp actions to My Job and My Calls enquiry details using the `wa.me` message format,
+  with Windows app launch first and a timed WhatsApp Web fallback.
+- Restricted Open Enquiry navigation and API permission exposure to Administrator, while making
+  New enquiry available to every standard role in My Calls.
+- Reworked the application shell with the Shadcn stone/Inter default theme, a fixed global header,
+  global CRM search, compact sidebar/workspace spacing, bright app and user menus, an Account app,
+  Administrator-only Add user, and a dismissible welcome notification with a pulsing unread dot.
+- Removed the CRM overview hero; made statistic cards hoverable and link to their filtered lists;
+  added live muted count badges to My Job and My Calls; reset open detail/upsert state on every
+  sidebar selection; and added theme-aware enquiry row hover highlighting.
+- Hardened Docker updates with committed-source enforcement and an explicit dirty override,
+  source/image/migration-compatible version locking, an exclusive host lock, backup and Docker
+  disk-space preflight, SHA-256 backup verification and retention, and per-attempt deployment JSON.
+- Preserved existing credentials, topology, MariaDB data, and Frappe mappings during updates;
+  replacement failures restore prior API/Web images without claiming to reverse applied database
+  migrations or repeatable seeds.
 
 ## v-1.0.20
 

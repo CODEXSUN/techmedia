@@ -64,5 +64,9 @@ export function identityContext(request: FastifyRequest) {
 }
 
 function isAdministratorPermission(permission: string) {
-  return permission.startsWith("identity.") || permission.startsWith("settings.");
+  return (
+    permission === "crm.enquiry.open.view" ||
+    permission.startsWith("identity.") ||
+    permission.startsWith("settings.")
+  );
 }

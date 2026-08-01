@@ -15,7 +15,8 @@ import {
   WorkspaceTableEmptyState,
   WorkspaceTableHeaderCell,
   WorkspaceTableLoadingState,
-  WorkspaceTablePanel
+  WorkspaceTablePanel,
+  workspaceTableRowClass
 } from "@codexsun/ui/workspace/table";
 import type { CrmEnquiry, CrmEnquiryColumnVisibility, CrmEnquiryPriority } from "./crm.types";
 
@@ -93,7 +94,7 @@ export function CrmList({
             </thead>
             <tbody>
               {records.map((record) => (
-                <tr className="border-b border-border/70 last:border-b-0" key={record.id}>
+                <tr className={workspaceTableRowClass} key={record.id}>
                   {visibleColumns.id ? (
                     <td className="w-[72px] min-w-[72px] max-w-[72px] truncate px-4 py-2.5 font-mono text-xs tabular-nums">
                       {onSelect && record.lifecycleStatus === "active" ? (

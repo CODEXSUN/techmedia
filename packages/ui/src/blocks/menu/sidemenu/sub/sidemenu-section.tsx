@@ -21,6 +21,7 @@ import {
 } from "../../../../components/sidebar";
 
 export type SidemenuSubItem = {
+  badge?: number | string;
   icon?: LucideIcon;
   isActive?: boolean;
   items?: SidemenuSubItem[];
@@ -154,15 +155,28 @@ function SidemenuSubItemNode({ item }: { item: SidemenuSubItem }) {
           <button type="button" onClick={item.onSelect}>
             {Icon ? <Icon className="size-4 shrink-0" /> : null}
             <span>{item.title}</span>
+            {item.badge !== undefined ? <SidemenuSubBadge item={item} /> : null}
           </button>
         ) : (
           <a href={item.url ?? "#"}>
             {Icon ? <Icon className="size-4 shrink-0" /> : null}
             <span>{item.title}</span>
+            {item.badge !== undefined ? <SidemenuSubBadge item={item} /> : null}
           </a>
         )}
       </SidebarMenuSubButton>
     </SidebarMenuSubItem>
+  );
+}
+
+function SidemenuSubBadge({ item }: { item: SidemenuSubItem }) {
+  return (
+    <span
+      aria-label={`${item.badge} ${item.title}`}
+      className="ml-auto inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground ring-1 ring-border"
+    >
+      {item.badge}
+    </span>
   );
 }
 

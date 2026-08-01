@@ -26,16 +26,19 @@ import type { SidemenuItem } from "../blocks/menu/sidemenu/sub/sidemenu-section"
 import { SidebarInset, SidebarProvider } from "../components/sidebar";
 
 type AppLayoutProps = {
+  addUserHref?: string;
   brand?: SidebarBrand;
   children: ReactNode;
+  globalSearchPlaceholder?: string;
+  globalSearchValue?: string;
   headerTitle?: ReactNode;
   homeHref?: string;
   logoutHref?: string;
   menuItems?: SidemenuItem[];
+  onGlobalSearchValueChange?: (value: string) => void;
   onLogout?: () => void | Promise<void>;
   profileHref?: string;
   showHomeAction?: boolean;
-  showThemeAction?: boolean;
   subtitle?: ReactNode;
   showSidebarUser?: boolean;
   title?: ReactNode;
@@ -170,16 +173,19 @@ export const defaultUserMenuItems: SidebarUserMenuItem[] = [
 ];
 
 export function AppLayout({
+  addUserHref,
   brand = defaultSidebarBrand,
   children,
+  globalSearchPlaceholder,
+  globalSearchValue,
   headerTitle = "Documents",
   homeHref = "/workspace",
   logoutHref = "/login",
   menuItems = defaultAppMenuItems,
+  onGlobalSearchValueChange,
   onLogout,
   profileHref,
   showHomeAction = true,
-  showThemeAction = true,
   showSidebarUser = true,
   subtitle,
   title,
@@ -191,48 +197,55 @@ export function AppLayout({
 }: AppLayoutProps) {
   return (
     <SidebarProvider
+      className="flex-col"
       style={
         {
           "--sidebar-width": "19rem"
         } as CSSProperties
       }
     >
-      <AppSidebar
-        brand={brand}
-        items={menuItems}
-        showUserMenu={showSidebarUser}
+      <TopMenu
+        {...(addUserHref ? { addUserHref } : {})}
+        {...(globalSearchPlaceholder ? { globalSearchPlaceholder } : {})}
+        {...(globalSearchValue !== undefined ? { globalSearchValue } : {})}
+        homeHref={homeHref}
+        logoutHref={logoutHref}
+        {...(onGlobalSearchValueChange ? { onGlobalSearchValueChange } : {})}
+        {...(onLogout ? { onLogout } : {})}
+        pageTitle={String(headerTitle)}
+        {...(profileHref ? { profileHref } : {})}
+        showHomeAction={showHomeAction}
+        showPageTitle={showPageTitle}
         user={user}
-        userMenuItems={userMenuItems}
-        variant="inset"
-        versionLabel={versionLabel}
+        workspaceItems={workspaceItems}
       />
-      <SidebarInset>
-        <TopMenu
-          homeHref={homeHref}
-          logoutHref={logoutHref}
-          {...(onLogout ? { onLogout } : {})}
-          pageTitle={String(headerTitle)}
-          {...(profileHref ? { profileHref } : {})}
-          showHomeAction={showHomeAction}
-          showThemeAction={showThemeAction}
-          showPageTitle={showPageTitle}
+      <div className="flex min-h-0 flex-1">
+        <AppSidebar
+          brand={brand}
+          className="md:!bottom-auto md:!top-14 md:!h-[calc(100svh-3.5rem)] md:!p-1"
+          items={menuItems}
+          showUserMenu={showSidebarUser}
           user={user}
-          workspaceItems={workspaceItems}
+          userMenuItems={userMenuItems}
+          variant="inset"
+          versionLabel={versionLabel}
         />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            {title || subtitle ? (
-              <div className="border-b bg-background px-4 py-5 lg:px-6">
-                {title ? (
-                  <h2 className="m-0 text-2xl font-semibold leading-tight">{title}</h2>
-                ) : null}
-                {subtitle ? <p className="mt-1 text-muted-foreground">{subtitle}</p> : null}
-              </div>
-            ) : null}
-            {children}
+        <SidebarInset className="md:!m-1 md:!ml-0">
+          <div className="flex flex-1 flex-col">
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              {title || subtitle ? (
+                <div className="border-b bg-background px-4 py-5 lg:px-6">
+                  {title ? (
+                    <h2 className="m-0 text-2xl font-semibold leading-tight">{title}</h2>
+                  ) : null}
+                  {subtitle ? <p className="mt-1 text-muted-foreground">{subtitle}</p> : null}
+                </div>
+              ) : null}
+              {children}
+            </div>
           </div>
-        </div>
-      </SidebarInset>
+        </SidebarInset>
+      </div>
     </SidebarProvider>
   );
 }

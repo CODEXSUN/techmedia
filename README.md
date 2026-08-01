@@ -98,6 +98,10 @@ To validate the current deployment without rebuilding anything:
 bash update.sh --check
 ```
 
+The updater deploys committed source by default. For an explicitly accepted emergency build from
+an uncommitted checkout, use `bash update.sh --allow-dirty`; the dirty state and source commit are
+recorded in the deployment metadata.
+
 On Windows with Git Bash:
 
 ```powershell
@@ -105,14 +109,21 @@ On Windows with Git Bash:
 ```
 
 The updater requires the existing root `.env`, `.container/deploy.env`, and Compose-owned
-TechMedia containers. Before downtime, it validates container ownership and runtime-file access,
-runs the production build and repository checks in Docker with development dependencies, rebuilds
-the API and Web images, creates and validates a timestamped MariaDB dump, and runs migrations plus
+TechMedia containers. Before each release, update `TECHMEDIA_VERSION`, `TECHMEDIA_IMAGE_TAG`, and
+`TECHMEDIA_MIGRATION_COMPATIBLE_VERSION` in `.container/deploy.env` to the exact `package.json`
+version after reviewing migrations and repeatable seeds for compatibility with the running image.
+Mixed source/image versions are refused.
+
+Before downtime, the updater validates container ownership, runtime-file access, committed source,
+available backup/build storage, and an exclusive host update lock. It runs the production build and
+repository checks in Docker with development dependencies, rebuilds the versioned API and Web
+images, creates a timestamped MariaDB dump, verifies its SHA-256 checksum, and runs migrations plus
 repeatable seeds with the new API image. It then recreates only the two application containers,
 waits for Docker health, and probes both published HTTP endpoints. A failed replacement restores
-the prior API and Web images automatically; the SQL backup is retained for manual database
-recovery. `TECHMEDIA_BACKUP_RETENTION` in `.container/deploy.env` controls the number of retained
-backups and defaults to 10.
+the prior API and Web images automatically; applied database changes are not automatically reversed.
+The SQL backup, checksum sidecar, and per-attempt deployment JSON are retained for audited manual
+recovery. `TECHMEDIA_BACKUP_RETENTION` controls retained backup sets; the two
+`TECHMEDIA_UPDATE_MIN_*_FREE_MB` settings control disk-space preflight thresholds.
 
 The updater does not rerun interactive setup, modify either environment file, change credentials,
 recreate MariaDB, remove volumes, or touch shared infrastructure.

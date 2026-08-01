@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { Fragment, lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CircleGaugeIcon,
@@ -6,6 +6,7 @@ import {
   PlugZapIcon,
   Settings2Icon,
   ShieldCheckIcon,
+  UserRoundIcon,
   UserRoundPlusIcon
 } from "lucide-react";
 import { GlobalLoader } from "@codexsun/ui/components/global-loader";
@@ -13,11 +14,9 @@ import { ApplicationLayout } from "@codexsun/ui/layouts/application-layout";
 import type { SidemenuItem } from "@codexsun/ui/blocks/menu/sidemenu/sub/sidemenu-section";
 import { AuthGate } from "../../shared/auth/AuthGate";
 import { getToken, logout } from "../../shared/api/platform-api";
-import {
-  applicationEntryPath,
-  canAccessAdministratorSettings,
-  canSelectApplicationTheme
-} from "./app-shell-access";
+import { useCrmOverviewQuery } from "../../modules/crm";
+import type { CrmEnquiryOverview } from "../../modules/crm";
+import { applicationEntryPath, canAccessAdministratorSettings } from "./app-shell-access";
 
 const UserWorkspace = lazy(() =>
   import("../../modules/user").then((module) => ({ default: module.UserWorkspace }))
@@ -88,10 +87,18 @@ export function AppDesk() {
   const canManageCrmListActions = claims.role === "admin" || claims.role === "auditor";
   const showCrmActivity = claims.role === "admin";
   const showCrmProperties = claims.role !== "manager" && claims.role !== "user";
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [menuNavigationRevision, setMenuNavigationRevision] = useState(0);
   const requestedPage = pageFromPath(pathname, claims.role);
   const page = accessiblePage(requestedPage, administrator);
-  const select = (next: Page) => void navigate({ to: `/app/${next.replaceAll(".", "/")}` });
-  const menuItems = buildMenu(page, select, administrator);
+  const crmOverviewQuery = useCrmOverviewQuery(
+    page.startsWith("crm.") || page.startsWith("estimate.")
+  );
+  const select = (next: Page) => {
+    setMenuNavigationRevision((revision) => revision + 1);
+    void navigate({ to: `/app/${next.replaceAll(".", "/")}` });
+  };
+  const menuItems = buildMenu(page, select, administrator, crmOverviewQuery.data?.stats);
 
   useEffect(() => {
     if (page !== requestedPage) {
@@ -107,14 +114,18 @@ export function AppDesk() {
   return (
     <AuthGate>
       <ApplicationLayout
+        {...(administrator ? { addUserHref: "/app/identity/users" } : {})}
         brand={{ subtitle: "single-client workspace", title: "TechMedia" }}
+        globalSearchPlaceholder="Search CRM enquiries"
+        globalSearchValue={globalSearch}
         headerTitle={titleFor(page)}
         menuItems={menuItems}
         onLogout={handleLogout}
+        onGlobalSearchValueChange={setGlobalSearch}
         profileHref="/app/identity/profile"
         showHomeAction={false}
+        showPageTitle={false}
         showSidebarUser={false}
-        showThemeAction={canSelectApplicationTheme(claims.role)}
         subtitle={null}
         title={null}
         user={{
@@ -125,6 +136,14 @@ export function AppDesk() {
         versionLabel={`v ${__APP_VERSION__}`}
         workspaceItems={[
           {
+            active: page === "identity.profile",
+            avatar: true,
+            description: "Your TechMedia profile and Frappe credentials.",
+            icon: UserRoundIcon,
+            title: "Account",
+            url: "/app/identity/profile"
+          },
+          {
             active: page.startsWith("crm.") || page.startsWith("estimate."),
             description: "Live Frappe enquiry and estimate workflows.",
             icon: MessagesSquareIcon,
@@ -134,27 +153,33 @@ export function AppDesk() {
           ...(administrator
             ? [
                 {
-                  active: page.startsWith("identity.") || page.startsWith("settings."),
+                  active:
+                    (page.startsWith("identity.") && page !== "identity.profile") ||
+                    page.startsWith("settings."),
                   description: "Identity, Frappe connection, and user credentials.",
                   icon: PlugZapIcon,
-                  title: "Application",
+                  title: "Admin",
                   url: "/app/settings/frappe/overview"
                 }
               ]
             : [])
         ]}
       >
-        <main className="mx-auto w-[calc(100%-2rem)] max-w-[92rem] space-y-5 py-4 lg:w-[calc(100%-3rem)] lg:py-5">
+        <main className="w-full space-y-4 px-2 py-2 lg:px-3 lg:py-3">
           <Suspense fallback={<GlobalLoader />}>
-            {renderPage(
-              page,
-              claims,
-              permissions,
-              administrator,
-              canManageCrmListActions,
-              showCrmActivity,
-              showCrmProperties
-            )}
+            <Fragment key={`${page}-${menuNavigationRevision}`}>
+              {renderPage(
+                page,
+                claims,
+                permissions,
+                administrator,
+                canManageCrmListActions,
+                showCrmActivity,
+                showCrmProperties,
+                globalSearch,
+                setGlobalSearch
+              )}
+            </Fragment>
           </Suspense>
         </main>
       </ApplicationLayout>
@@ -169,12 +194,12 @@ function renderPage(
   administrator: boolean,
   canManageCrmListActions: boolean,
   showCrmActivity: boolean,
-  showCrmProperties: boolean
+  showCrmProperties: boolean,
+  globalSearch: string,
+  onGlobalSearchValueChange: (value: string) => void
 ) {
   if (isAdministratorPage(page) && !administrator) {
-    return (
-      <CrmOverview signedInUser={{ email: claims.email, name: claims.name ?? claims.email }} />
-    );
+    return <CrmOverview />;
   }
   if (page === "identity.users") return <UserWorkspace actorEmail={claims.email} />;
   if (page === "identity.roles") return <RoleWorkspace />;
@@ -196,9 +221,7 @@ function renderPage(
     );
   }
   if (page === "crm.overview") {
-    return (
-      <CrmOverview signedInUser={{ email: claims.email, name: claims.name ?? claims.email }} />
-    );
+    return <CrmOverview />;
   }
   if (page === "estimate.list") {
     return (
@@ -216,11 +239,7 @@ function renderPage(
   return (
     <CrmWorkspace
       canAssign={permissions.includes("crm.enquiry.assign")}
-      canCreate={
-        canManageCrmListActions &&
-        page === "crm.created" &&
-        permissions.includes("crm.enquiry.create")
-      }
+      canCreate={page === "crm.created"}
       canCreateEstimate={
         permissions.includes("estimate.create") || permissions.includes("crm.enquiry.create")
       }
@@ -240,6 +259,8 @@ function renderPage(
       canUpdateQuotation={
         permissions.includes("quotation.update") || permissions.includes("crm.enquiry.update")
       }
+      onSearchValueChange={onGlobalSearchValueChange}
+      searchValue={globalSearch}
       view={view}
     />
   );
@@ -248,9 +269,11 @@ function renderPage(
 function buildMenu(
   page: Page,
   select: (page: Page) => void,
-  administrator: boolean
+  administrator: boolean,
+  crmStats?: CrmEnquiryOverview["stats"]
 ): SidemenuItem[] {
-  const item = (title: string, target: Page) => ({
+  const item = (title: string, target: Page, badge?: number) => ({
+    ...(badge !== undefined ? { badge } : {}),
     isActive: page === target,
     onSelect: () => select(target),
     title
@@ -262,9 +285,9 @@ function buildMenu(
         isActive: true,
         items: [
           { ...item("Overview", "crm.overview"), icon: CircleGaugeIcon },
-          item("My Job", "crm.assigned"),
-          item("My Calls", "crm.created"),
-          item("Open Enquiry", "crm.open")
+          item("My Job", "crm.assigned", crmStats?.myEnquiries),
+          item("My Calls", "crm.created", crmStats?.createdByMe),
+          ...(administrator ? [item("Open Enquiry", "crm.open")] : [])
         ],
         title: "CRM"
       }
@@ -308,7 +331,9 @@ function accessiblePage(page: Page, administrator: boolean): Page {
 
 function isAdministratorPage(page: Page) {
   return (
-    page.startsWith("settings.") || (page.startsWith("identity.") && page !== "identity.profile")
+    page === "crm.open" ||
+    page.startsWith("settings.") ||
+    (page.startsWith("identity.") && page !== "identity.profile")
   );
 }
 

@@ -170,7 +170,12 @@ prepare_deploy_environment() {
   version="$(grep -m1 '"version"' "$ROOT_DIR/package.json" | cut -d'"' -f4)"
   node_version="$(grep -m1 '"node"' "$ROOT_DIR/package.json" | cut -d'"' -f4 | sed 's/^[^0-9]*//')"
   npm_version="$(grep -m1 '"packageManager"' "$ROOT_DIR/package.json" | cut -d'"' -f4 | sed 's/^npm@//')"
+  set_file_value "$DEPLOY_ENV" TECHMEDIA_VERSION "$version"
   set_file_value "$DEPLOY_ENV" TECHMEDIA_IMAGE_TAG "$version"
+  set_file_value "$DEPLOY_ENV" TECHMEDIA_MIGRATION_COMPATIBLE_VERSION "$version"
+  set_default_if_empty "$DEPLOY_ENV" TECHMEDIA_BACKUP_RETENTION 10
+  set_default_if_empty "$DEPLOY_ENV" TECHMEDIA_UPDATE_MIN_BACKUP_FREE_MB 1024
+  set_default_if_empty "$DEPLOY_ENV" TECHMEDIA_UPDATE_MIN_DOCKER_FREE_MB 5120
   set_file_value "$DEPLOY_ENV" NODE_RUNTIME_VERSION "$node_version"
   set_file_value "$DEPLOY_ENV" NPM_RUNTIME_VERSION "$npm_version"
   chmod 600 "$DEPLOY_ENV" 2>/dev/null || true

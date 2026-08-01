@@ -81,6 +81,8 @@ export function CrmWorkspace({
   canRefresh,
   canUpdateEstimate,
   canUpdateQuotation,
+  onSearchValueChange,
+  searchValue,
   showActivity,
   showProperties,
   canUpdate,
@@ -97,12 +99,13 @@ export function CrmWorkspace({
   canUpdate: boolean;
   canUpdateEstimate: boolean;
   canUpdateQuotation: boolean;
+  onSearchValueChange: (value: string) => void;
+  searchValue: string;
   showActivity: boolean;
   showProperties: boolean;
   view: CrmEnquiryView;
 }) {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<CrmEnquiryStatusFilter>("active");
+  const [statusFilter, setStatusFilter] = useState<CrmEnquiryStatusFilter>(statusFilterFromUrl);
   const [visibleColumns, setVisibleColumns] = useState<CrmEnquiryColumnVisibility>(
     defaultEnquiryColumnVisibility
   );
@@ -114,7 +117,7 @@ export function CrmWorkspace({
   const query = useCrmEnquiriesQuery({
     view,
     status: statusFilter,
-    ...(search ? { search } : {})
+    ...(searchValue ? { search: searchValue } : {})
   });
   const users = useCrmUsersQuery();
   const mutations = useCrmEnquiryMutations();
@@ -140,7 +143,7 @@ export function CrmWorkspace({
     }
   }
 
-  useEffect(() => setPage(1), [view, search, statusFilter]);
+  useEffect(() => setPage(1), [view, searchValue, statusFilter]);
 
   async function save(value: CrmEnquirySavePayload) {
     try {
@@ -183,6 +186,7 @@ export function CrmWorkspace({
         {...(nextViewing ? { onNext: () => void loadRecord(nextViewing, "view") } : {})}
         onRecordChange={setViewing}
         record={viewing}
+        view={view}
       />
     );
   }
@@ -231,6 +235,8 @@ export function CrmWorkspace({
           }))}
         filterOptions={[
           { id: "active", label: "Active (open, follow, escalation)" },
+          { id: "in-progress", label: "In progress (follow, escalation)" },
+          { id: "closed", label: "Closed (won, lost)" },
           { id: "open", label: "Open" },
           { id: "follow", label: "Follow" },
           { id: "escalation", label: "Escalation" },
@@ -242,10 +248,10 @@ export function CrmWorkspace({
           setStatusFilter(value as CrmEnquiryStatusFilter);
           setPage(1);
         }}
-        onSearchValueChange={setSearch}
+        onSearchValueChange={onSearchValueChange}
         onShowAllColumns={() => setVisibleColumns(allEnquiryColumnsVisible())}
         searchPlaceholder="Search ID, enquiry details, phone, or customer"
-        searchValue={search}
+        searchValue={searchValue}
       />
       <CrmList
         error={query.isError}
@@ -300,6 +306,23 @@ export function CrmWorkspace({
       />
     </WorkspacePage>
   );
+}
+
+function statusFilterFromUrl(): CrmEnquiryStatusFilter {
+  if (typeof window === "undefined") return "active";
+  const value = new URLSearchParams(window.location.search).get("status");
+  return [
+    "active",
+    "in-progress",
+    "closed",
+    "open",
+    "follow",
+    "escalation",
+    "won",
+    "lost"
+  ].includes(value ?? "")
+    ? (value as CrmEnquiryStatusFilter)
+    : "active";
 }
 
 function CrmActionDialog({

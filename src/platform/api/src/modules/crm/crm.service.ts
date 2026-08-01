@@ -486,6 +486,8 @@ function isInProgress(status: string) {
 
 function matchesStatus(status: string, filter?: CrmEnquiryStatusFilter) {
   if (!filter || filter === "active") return !isClosed(status);
+  if (filter === "closed") return isClosed(status);
+  if (filter === "in-progress") return isInProgress(status);
   return status.trim().toLowerCase() === filter;
 }
 

@@ -15,16 +15,20 @@ import type { SidemenuItem } from "../blocks/menu/sidemenu/sub/sidemenu-section"
 
 type ApplicationLayoutProps = {
   actions?: ReactNode;
+  addUserHref?: string;
   brand?: SidebarBrand;
   children: ReactNode;
+  globalSearchPlaceholder?: string;
+  globalSearchValue?: string;
   menuItems?: SidemenuItem[];
+  onGlobalSearchValueChange?: (value: string) => void;
   headerTitle?: ReactNode;
   homeHref?: string;
   onLogout?: () => void | Promise<void>;
   profileHref?: string;
   showHomeAction?: boolean;
+  showPageTitle?: boolean;
   showSidebarUser?: boolean;
-  showThemeAction?: boolean;
   subtitle?: ReactNode;
   title?: ReactNode;
   user?: SidebarUser;
@@ -84,16 +88,20 @@ const applicationWorkspaceItems = [
 
 export function ApplicationLayout({
   actions,
+  addUserHref,
   brand,
   children,
+  globalSearchPlaceholder,
+  globalSearchValue,
   headerTitle = "Overview",
   homeHref = "/",
   menuItems = applicationMenuItems,
+  onGlobalSearchValueChange,
   onLogout,
   profileHref,
   showHomeAction = true,
+  showPageTitle = true,
   showSidebarUser = true,
-  showThemeAction = true,
   subtitle = "Tenant application workspace.",
   title = "Application Desk",
   user,
@@ -102,21 +110,25 @@ export function ApplicationLayout({
 }: ApplicationLayoutProps) {
   return (
     <AppLayout
+      {...(addUserHref ? { addUserHref } : {})}
       brand={{
         ...brand,
         href: brand?.href ?? "/app",
         subtitle: brand?.subtitle ?? "application workspace",
         title: brand?.title ?? "Application Desk"
       }}
+      {...(globalSearchPlaceholder ? { globalSearchPlaceholder } : {})}
+      {...(globalSearchValue !== undefined ? { globalSearchValue } : {})}
       headerTitle={headerTitle}
       homeHref={homeHref}
       logoutHref="/login"
       menuItems={menuItems}
+      {...(onGlobalSearchValueChange ? { onGlobalSearchValueChange } : {})}
       {...(onLogout ? { onLogout } : {})}
       {...(profileHref ? { profileHref } : {})}
       showHomeAction={showHomeAction}
+      showPageTitle={showPageTitle}
       showSidebarUser={showSidebarUser}
-      showThemeAction={showThemeAction}
       subtitle={subtitle}
       title={title}
       {...(user ? { user } : {})}

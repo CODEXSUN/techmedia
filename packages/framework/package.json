@@ -1,6 +1,6 @@
 {
   "name": "@codexsun/framework",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "private": true,
   "description": "TechMedia-owned framework runtime and stable application contracts",
   "type": "module",

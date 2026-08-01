@@ -80,6 +80,7 @@ function bumpVersion() {
 
   for (const file of packageFiles()) updatePackage(file, currentVersion, nextVersion);
   updateLockfile(currentVersion, nextVersion);
+  updateDeploymentReleaseContract(nextVersion);
   updateChangelog(nextVersion, title, databaseUpdate);
 
   console.log(`Bumped ${currentVersion} -> ${nextVersion}`);
@@ -245,6 +246,22 @@ function updateLockfile(currentVersion, nextVersion) {
     }
   }
   writeJson(file, lock);
+}
+
+function updateDeploymentReleaseContract(nextVersion) {
+  const file = join(root, ".container", "deploy.env.example");
+  if (!existsSync(file)) return;
+  let source = readFileSync(file, "utf8");
+  for (const key of [
+    "TECHMEDIA_VERSION",
+    "TECHMEDIA_IMAGE_TAG",
+    "TECHMEDIA_MIGRATION_COMPATIBLE_VERSION"
+  ]) {
+    const pattern = new RegExp(`^${key}=.*$`, "mu");
+    if (!pattern.test(source)) throw new Error(`Deployment sample is missing ${key}.`);
+    source = source.replace(pattern, `${key}=${nextVersion}`);
+  }
+  writeFileSync(file, source, "utf8");
 }
 
 function updateChangelog(nextVersion, title, databaseUpdate) {

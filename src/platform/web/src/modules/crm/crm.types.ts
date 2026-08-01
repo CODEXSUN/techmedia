@@ -1,6 +1,6 @@
 export type CrmEnquiryPriority = "low" | "normal" | "high" | "urgent";
 export type CrmEnquiryStatus = "escalation" | "follow" | "lost" | "open" | "won";
-export type CrmEnquiryStatusFilter = CrmEnquiryStatus | "active";
+export type CrmEnquiryStatusFilter = CrmEnquiryStatus | "active" | "closed" | "in-progress";
 export type CrmEnquiryLifecycleStatus = "active" | "suspended";
 export type CrmEnquiryView = "assigned" | "created" | "open";
 export type CrmEnquiryColumnId =

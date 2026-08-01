@@ -33,10 +33,10 @@ export const designSystemVariants = [
   graphiteVariant
 ] satisfies DesignSystemVariant[];
 
-export const defaultDesignSystemVariantId: DesignSystemVariantId = "default";
+export const defaultDesignSystemVariantId: DesignSystemVariantId = "shadcn";
 
 export function getDesignSystemVariant(id: string | null | undefined): DesignSystemVariant {
-  return designSystemVariants.find((variant) => variant.id === id) ?? defaultVariant;
+  return designSystemVariants.find((variant) => variant.id === id) ?? shadcnVariant;
 }
 
 export function isDesignSystemVariantId(id: string): id is DesignSystemVariantId {
