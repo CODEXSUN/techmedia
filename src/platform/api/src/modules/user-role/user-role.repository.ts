@@ -85,7 +85,9 @@ export class UserRoleRepository {
     const roleKey = parent.rows[0]?.role_key;
     if (!roleKey || !Number(parent.rows[0]?.user_count ?? 0)) return null;
     await sql`UPDATE user_roles SET status='inactive'
-      WHERE user_id=${userId} AND role_id<>${roleId} AND is_protected=FALSE`.execute(this.database);
+      WHERE user_id=${userId} AND role_id<>${roleId} AND (is_protected=FALSE OR user_id<>1)`.execute(
+      this.database
+    );
     await sql`INSERT INTO user_roles (uuid,user_id,role_id,status,is_protected)
       VALUES (${uuid},${userId},${roleId},'active',FALSE)
       ON DUPLICATE KEY UPDATE status='active'`.execute(this.database);

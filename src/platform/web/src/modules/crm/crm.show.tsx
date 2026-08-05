@@ -4,23 +4,20 @@ import {
   Activity,
   ArrowLeft,
   ArrowRight,
+  Ban,
   Check,
   CornerUpLeft,
   Ellipsis,
   ListChecks,
-  MapPin,
   MessageSquare,
   Paperclip,
   Pencil,
   Plus,
   ReceiptText,
   Send,
-  Smile,
   Square,
-  Star,
   ScrollText,
   Timer,
-  Trash2,
   X
 } from "lucide-react";
 import {
@@ -167,36 +164,21 @@ export function CrmShow({
       content: (
         <CommentsTab
           key={`comments-${record.id}`}
-          loading={
-            childMutations.message.isPending ||
-            childMutations.messageDelete.isPending ||
-            childMutations.messageUpdate.isPending
-          }
+          loading={childMutations.message.isPending || childMutations.messageSuspend.isPending}
           record={record}
           onAdd={(input) =>
             saveChild(input.messageType === "reply" ? "Reply" : "Comment", () =>
               childMutations.message.mutateAsync([record.frappeName, input])
             )
           }
-          onDelete={(message) =>
+          onSuspend={(message) =>
             saveChild(
               message.messageType === "reply" ? "Reply" : "Comment",
-              () => childMutations.messageDelete.mutateAsync([record.frappeName, message.id]),
-              "deleted"
+              () => childMutations.messageSuspend.mutateAsync([record.frappeName, message.id]),
+              "suspended"
             )
           }
-          onUpdate={(message, comment) =>
-            saveChild(
-              message.messageType === "reply" ? "Reply" : "Comment",
-              () =>
-                childMutations.messageUpdate.mutateAsync([
-                  record.frappeName,
-                  message.id,
-                  { comment }
-                ]),
-              "updated"
-            )
-          }
+          onUpdate={async () => undefined}
         />
       ),
       label: (
@@ -314,14 +296,18 @@ export function CrmShow({
               WhatsApp
             </Button>
           ) : null}
-          <Button onClick={onBack} type="button" variant="outline">
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-          <Button disabled={!onNext} onClick={onNext} type="button">
-            Next
-            <ArrowRight className="size-4" />
-          </Button>
+          {view === "open" ? (
+            <>
+              <Button onClick={onBack} type="button" variant="outline">
+                <ArrowLeft className="size-4" />
+                Back
+              </Button>
+              <Button disabled={!onNext} onClick={onNext} type="button">
+                Next
+                <ArrowRight className="size-4" />
+              </Button>
+            </>
+          ) : null}
         </div>
       }
       className="!w-full !max-w-none px-1 lg:px-2"
@@ -579,13 +565,13 @@ function EnquirySummary({ record }: { record: CrmEnquiry }) {
 function CommentsTab({
   loading,
   onAdd,
-  onDelete,
+  onSuspend,
   onUpdate,
   record
 }: {
   loading: boolean;
   onAdd: (input: { comment: string; messageType: "comment" | "reply" }) => Promise<unknown>;
-  onDelete: (message: CrmEnquiry["messages"][number]) => Promise<unknown>;
+  onSuspend: (message: CrmEnquiry["messages"][number]) => Promise<unknown>;
   onUpdate: (message: CrmEnquiry["messages"][number], comment: string) => Promise<unknown>;
   record: CrmEnquiry;
 }) {
@@ -593,30 +579,12 @@ function CommentsTab({
   const [comment, setComment] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState("");
-  const [starredMessageIds, setStarredMessageIds] = useState<Set<string>>(() => new Set());
-  const [deletingMessage, setDeletingMessage] = useState<CrmEnquiry["messages"][number] | null>(
+  const [suspendingMessage, setSuspendingMessage] = useState<CrmEnquiry["messages"][number] | null>(
     null
   );
   const commentCount = record.messages.filter(
     (message) => message.messageType === "comment"
   ).length;
-
-  function addLocation() {
-    setComment((current) => `${current}<p>Location: </p>`);
-  }
-
-  function addEmoji() {
-    setComment((current) => `${current}<p>🙂</p>`);
-  }
-
-  function toggleStar(messageId: string) {
-    setStarredMessageIds((current) => {
-      const next = new Set(current);
-      if (next.has(messageId)) next.delete(messageId);
-      else next.add(messageId);
-      return next;
-    });
-  }
 
   return (
     <section className="flex min-h-[calc(100dvh-21rem)] flex-col">
@@ -631,25 +599,22 @@ function CommentsTab({
           {record.messages.map((message, messageIndex) => {
             const author = messageAuthorDetails(record, message.createdByUserId);
             const isReply = message.messageType === "reply";
-            const isStarred = starredMessageIds.has(message.id);
             const nextMessage = record.messages[messageIndex + 1];
             const endsConversationGroup = !nextMessage || nextMessage.messageType === "comment";
             return (
               <div
                 className={
-                  endsConversationGroup
-                    ? "mb-2 border-b border-border/70 pb-2 last:mb-0 last:border-b-0"
-                    : ""
+                  endsConversationGroup ? "border-b border-border/70 py-0.5 last:border-b-0" : ""
                 }
                 key={message.id}
               >
                 <article
-                  className={`relative py-2 pl-8 ${
+                  className={`relative py-1.5 pl-8 ${
                     isReply ? "ml-7 border-l border-border/70 md:ml-10" : ""
                   }`}
                 >
                   <div
-                    className={`absolute top-2.5 flex items-center justify-center rounded-full border border-border bg-card text-muted-foreground ${
+                    className={`absolute top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground ${
                       isReply ? "-left-2.5 size-5" : "left-0 size-6"
                     }`}
                   >
@@ -659,7 +624,7 @@ function CommentsTab({
                       <MessageSquare className="size-3.5" />
                     )}
                   </div>
-                  <div className="bg-card px-2 py-0.5">
+                  <div className="bg-card px-2">
                     <div className="flex min-w-0 items-start gap-2">
                       <div className="min-w-0 flex-1">
                         {editingMessageId === message.id ? (
@@ -704,34 +669,19 @@ function CommentsTab({
                           </div>
                         ) : (
                           <div
-                            className="prose prose-sm max-w-none rounded-md bg-muted/20 px-3 py-2 text-sm leading-5 text-foreground [&_p]:my-0 [&_p+p]:mt-2"
+                            className={`prose prose-sm max-w-none rounded-md bg-muted/20 px-3 py-0.5 text-base leading-6 text-foreground [&_p]:my-0 [&_p+p]:mt-2 ${message.isSuspended ? "opacity-60 line-through [&_*]:line-through" : ""}`}
                             dangerouslySetInnerHTML={{ __html: sanitizeRichText(message.comment) }}
                           />
                         )}
                       </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <time
-                          className="shrink-0 text-[10px] text-muted-foreground/75"
-                          dateTime={message.createdAt}
-                        >
-                          {formatDateTime(message.createdAt)}
-                        </time>
-                        <Button
-                          aria-label={
-                            isStarred ? "Unstar conversation entry" : "Star conversation entry"
-                          }
-                          aria-pressed={isStarred}
-                          className="size-6 shrink-0"
-                          size="icon"
-                          title={isStarred ? "Unstar" : "Star"}
-                          type="button"
-                          variant="ghost"
-                          onClick={() => toggleStar(message.id)}
-                        >
-                          <Star
-                            className={`size-3 ${isStarred ? "fill-current text-amber-500" : ""}`}
-                          />
-                        </Button>
+                      <div className="flex shrink-0 items-center gap-1 pt-0.5">
+                        <p className="whitespace-nowrap text-xs text-muted-foreground/75">
+                          <span className="font-medium text-foreground/70">{author.name}</span>
+                          <span aria-hidden="true"> - </span>
+                          <time dateTime={message.createdAt}>
+                            {formatDateTime(message.createdAt)}
+                          </time>
+                        </p>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -746,37 +696,29 @@ function CommentsTab({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-36">
-                            <DropdownMenuItem
-                              disabled={loading || !message.canEdit}
-                              onSelect={() => {
-                                setEditingMessageId(message.id);
-                                setEditingComment(message.comment);
-                              }}
-                            >
-                              <Pencil className="mr-2 size-4" />
-                              Edit
-                            </DropdownMenuItem>
+                            {message.isSuspended && !message.isSuspended ? (
+                              <DropdownMenuItem
+                                disabled={loading || !message.canSuspend}
+                                onSelect={() => {
+                                  setEditingMessageId(message.id);
+                                  setEditingComment(message.comment);
+                                }}
+                              >
+                                <Pencil className="mr-2 size-4" />
+                                Edit
+                              </DropdownMenuItem>
+                            ) : null}
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
-                              disabled={loading || !message.canDelete}
-                              onSelect={() => setDeletingMessage(message)}
+                              disabled={loading || !message.canSuspend}
+                              onSelect={() => setSuspendingMessage(message)}
                             >
-                              <Trash2 className="mr-2 size-4" />
-                              Delete
+                              <Ban className="mr-2 size-4" />
+                              Suspend
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                    </div>
-                    <div className="mt-1 flex min-w-0 items-center justify-end gap-1.5 pr-1">
-                      <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-medium text-muted-foreground/80">
-                        {author.name.charAt(0).toUpperCase()}
-                      </span>
-                      <p className="min-w-0 truncate text-[11px] text-muted-foreground/75">
-                        <span className="font-medium text-foreground/60">{author.name}</span>
-                        {author.email ? <span> - {author.email}</span> : null}{" "}
-                        <span>{isReply ? "added a reply" : "added a comment"}</span>
-                      </p>
                     </div>
                   </div>
                 </article>
@@ -799,78 +741,50 @@ function CommentsTab({
           />
           <div
             aria-label="Comment tools"
-            className="flex items-center gap-1 border-t border-border/70 bg-muted/25 px-2 py-1.5"
+            className="flex items-center justify-end border-t border-border/70 bg-muted/25 px-2 py-1.5"
             role="toolbar"
           >
             <Button
-              aria-label="Add location"
-              className="size-7 text-muted-foreground"
-              disabled={loading}
-              size="icon"
-              title="Location"
+              disabled={loading || !plainText(comment)}
+              size="sm"
               type="button"
-              variant="ghost"
-              onClick={addLocation}
+              onClick={() =>
+                void onAdd({ comment: comment.trim(), messageType })
+                  .then(() => setComment(""))
+                  .catch(() => undefined)
+              }
             >
-              <MapPin className="size-4" />
-            </Button>
-            <Button
-              aria-label="Add emoji"
-              className="size-7 text-muted-foreground"
-              disabled={loading}
-              size="icon"
-              title="Emoji"
-              type="button"
-              variant="ghost"
-              onClick={addEmoji}
-            >
-              <Smile className="size-4" />
+              <Send className="size-4" />
+              {messageType === "reply" ? "Reply" : "Comment"}
             </Button>
           </div>
-        </div>
-        <div className="mt-2 flex justify-end">
-          <Button
-            disabled={loading || !plainText(comment)}
-            type="button"
-            onClick={() =>
-              void onAdd({ comment: comment.trim(), messageType })
-                .then(() => setComment(""))
-                .catch(() => undefined)
-            }
-          >
-            <Send className="size-4" />
-            {messageType === "reply" ? "Reply" : "Comment"}
-          </Button>
         </div>
       </div>
 
       <AlertDialog
-        open={deletingMessage !== null}
-        onOpenChange={(open) => !open && setDeletingMessage(null)}
+        open={suspendingMessage !== null}
+        onOpenChange={(open) => !open && setSuspendingMessage(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this conversation entry?</AlertDialogTitle>
+            <AlertDialogTitle>Suspend this conversation entry?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes your latest{" "}
-              {deletingMessage?.messageType === "reply" ? "reply" : "comment"}. Older entries cannot
-              be deleted after a newer comment or reply is added.
+              This keeps the entry in the enquiry history and marks it as suspended.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={loading || !deletingMessage}
+              disabled={loading || !suspendingMessage}
               onClick={(event) => {
                 event.preventDefault();
-                if (!deletingMessage) return;
-                void onDelete(deletingMessage)
-                  .then(() => setDeletingMessage(null))
+                if (!suspendingMessage) return;
+                void onSuspend(suspendingMessage)
+                  .then(() => setSuspendingMessage(null))
                   .catch(() => undefined);
               }}
             >
-              Delete
+              Suspend
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1518,33 +1432,13 @@ function buildWhatsAppTargets(record: Pick<CrmEnquiry, "id" | "mobile" | "title"
   const message = `Hello, regarding enquiry #${record.id}: ${enquiryDisplayTitle(record)}`;
   const encodedMessage = encodeURIComponent(message);
   return {
-    app: `whatsapp://send?phone=${phone}&text=${encodedMessage}`,
     web: `https://wa.me/${phone}?text=${encodedMessage}`
   };
 }
 
 function openWhatsApp(targets: NonNullable<ReturnType<typeof buildWhatsAppTargets>>) {
-  let fallbackTimer: number | undefined;
-  const clearFallback = () => {
-    if (fallbackTimer !== undefined) window.clearTimeout(fallbackTimer);
-    document.removeEventListener("visibilitychange", handleVisibilityChange);
-  };
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === "hidden") clearFallback();
-  };
-
-  document.addEventListener("visibilitychange", handleVisibilityChange);
-  fallbackTimer = window.setTimeout(() => {
-    clearFallback();
-    if (document.visibilityState === "visible") window.location.assign(targets.web);
-  }, 2_000);
-
-  try {
-    window.location.assign(targets.app);
-  } catch {
-    clearFallback();
-    window.location.assign(targets.web);
-  }
+  const page = window.open(targets.web, "_blank", "noopener,noreferrer");
+  if (page) page.opener = null;
 }
 
 function WhatsAppIcon() {

@@ -80,10 +80,7 @@ export class UserService {
     await this.context.authorize("identity.user.update");
     const current = await this.required(id);
     let value = normalize(input, false);
-    if (current.isProtected) {
-      if (this.context.actorEmail.toLowerCase() !== current.email.toLowerCase()) {
-        throw AppError.forbidden("The protected system user can only edit its own account.");
-      }
+    if (current.id === 1) {
       if (value.name !== current.name || value.status !== current.status) {
         throw AppError.forbidden("The protected system user's name and status cannot be modified.");
       }
@@ -143,7 +140,7 @@ export class UserService {
   }
   private async mutable(id: string): Promise<User> {
     const record = await this.required(id);
-    if (record.isProtected) throw AppError.forbidden("Protected users cannot be modified.");
+    if (record.id === 1) throw AppError.forbidden("The protected system user cannot be modified.");
     return record;
   }
   private async required(id: string): Promise<User> {

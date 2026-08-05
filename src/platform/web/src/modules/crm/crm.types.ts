@@ -30,12 +30,12 @@ export type CrmCustomerReference = {
 
 export type CrmEnquirySchedule = { id: string; scheduledOn: string };
 export type CrmEnquiryMessage = {
-  canDelete: boolean;
-  canEdit: boolean;
+  canSuspend: boolean;
   comment: string;
   createdAt: string;
   createdByUserId: string | null;
   id: string;
+  isSuspended: boolean;
   messageType: "comment" | "reply";
   parentMessageId: string | null;
 };
@@ -162,9 +162,6 @@ export type CrmEnquiryMessageCreatePayload = {
   comment: string;
   messageType: "comment" | "reply";
   parentMessageId?: string | null | undefined;
-};
-export type CrmEnquiryMessageUpdatePayload = {
-  comment: string;
 };
 export type CrmEnquiryEmailCreatePayload = {
   body: string;

@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.21
+Current version: 1.0.22
 
-Release tag: v-1.0.21
+Release tag: v-1.0.22
 
-Changelog label: v 1.0.21
+Changelog label: v 1.0.22
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -21,7 +21,32 @@ New entries must keep database-facing work and application code work separate.
 
 ### App Codebase Changes
 
-- None.
+- Removed Back and Next controls from My Job enquiry detail, and changed WhatsApp to open its web
+  conversation in a separate browser tab.
+- Reconciled the root workspace install and lockfile so the declared Inter font package resolves
+  for the Vite development server and production web build.
+- Made every My Job and My Calls enquiry row open its detail page, while keeping the row action
+  menu independent for supported actions.
+- Refined enquiry comments with compact aligned rows, larger readable content, a single author and
+  timestamp line, and an editor footer containing only the Comment action.
+- Replaced comment edit/delete with non-destructive suspension: the latest message remains in live
+  Frappe history and is rendered fully struck through after suspension.
+- Removed Back and Next navigation from both My Job and My Calls enquiry details; these controls
+  remain available only in Open Enquiry.
+- Restricted the immutable system-user guard to user ID 1, allowing administrators to edit and
+  reassign the role of every other administrator through the Users workspace.
+
+## v-1.0.22
+
+### [v 1.0.22] 2026-08-05 9:15 am - CRM comment quality and navigation
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.22.
 
 ## v-1.0.21
 

@@ -6,7 +6,6 @@ import type {
   CrmEnquiryCallCreatePayload,
   CrmEnquiryEmailCreatePayload,
   CrmEnquiryMessageCreatePayload,
-  CrmEnquiryMessageUpdatePayload,
   CrmEnquiryNoteCreatePayload,
   CrmEnquiryOverview,
   CrmEnquiryReference,
@@ -65,16 +64,8 @@ export function addCrmEnquiryMessage(id: string, payload: CrmEnquiryMessageCreat
   return apiPost<CrmEnquiry>(`${path}/${id}/messages`, payload);
 }
 
-export function updateCrmEnquiryMessage(
-  id: string,
-  messageId: string,
-  payload: CrmEnquiryMessageUpdatePayload
-) {
-  return apiPut<CrmEnquiry>(`${path}/${id}/messages/${messageId}`, payload);
-}
-
-export function deleteCrmEnquiryMessage(id: string, messageId: string) {
-  return apiDelete<CrmEnquiry>(`${path}/${id}/messages/${messageId}`);
+export function suspendCrmEnquiryMessage(id: string, messageId: string) {
+  return apiPost<CrmEnquiry>(`${path}/${id}/messages/${messageId}/suspend`, {});
 }
 
 export function startCrmEnquiryJob(id: string) {

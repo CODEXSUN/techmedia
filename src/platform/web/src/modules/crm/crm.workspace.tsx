@@ -262,6 +262,9 @@ export function CrmWorkspace({
             }
           : {})}
         {...(canUpdate ? { onSelect: (record) => void loadRecord(record, "edit") } : {})}
+        {...(view === "assigned" || view === "created"
+          ? { onRowClick: (record) => void loadRecord(record, "view") }
+          : {})}
         onView={(record) => void loadRecord(record, "view")}
         records={visibleRecords}
         visibleColumns={{

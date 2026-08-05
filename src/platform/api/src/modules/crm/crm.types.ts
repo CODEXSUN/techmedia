@@ -21,14 +21,14 @@ export type CrmStoredEnquiryMessage = {
 };
 
 export type CrmEnquiryMessage = {
-  canDelete: boolean;
-  canEdit: boolean;
+  canSuspend: boolean;
   comment: string;
   createdAt: string;
   createdByUserId: string | null;
   id: string;
   messageType: "comment" | "reply";
   parentMessageId: string | null;
+  isSuspended: boolean;
 };
 
 export type CrmJobExecution = {
@@ -154,10 +154,6 @@ export type CrmEnquiryMessageCreatePayload = {
   comment: string;
   messageType: "comment" | "reply";
   parentMessageId?: string | null | undefined;
-};
-
-export type CrmEnquiryMessageUpdatePayload = {
-  comment: string;
 };
 
 export type CrmEnquiryEmailCreatePayload = {

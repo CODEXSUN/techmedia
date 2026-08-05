@@ -24,6 +24,7 @@ export function CrmList({
   error,
   loading,
   onForceDelete,
+  onRowClick,
   onRestore,
   onSelect,
   onSuspend,
@@ -34,6 +35,7 @@ export function CrmList({
   error: boolean;
   loading: boolean;
   onForceDelete?: (record: CrmEnquiry) => void;
+  onRowClick?: (record: CrmEnquiry) => void;
   onRestore?: (record: CrmEnquiry) => void;
   onSelect?: (record: CrmEnquiry) => void;
   onSuspend?: (record: CrmEnquiry) => void;
@@ -94,13 +96,36 @@ export function CrmList({
             </thead>
             <tbody>
               {records.map((record) => (
-                <tr className={workspaceTableRowClass} key={record.id}>
+                <tr
+                  className={`${workspaceTableRowClass} ${
+                    onRowClick
+                      ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
+                      : ""
+                  }`}
+                  key={record.id}
+                  onClick={onRowClick ? () => onRowClick(record) : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onRowClick(record);
+                          }
+                        }
+                      : undefined
+                  }
+                  tabIndex={onRowClick ? 0 : undefined}
+                >
                   {visibleColumns.id ? (
                     <td className="w-[72px] min-w-[72px] max-w-[72px] truncate px-4 py-2.5 font-mono text-xs tabular-nums">
-                      {onSelect && record.lifecycleStatus === "active" ? (
+                      {onRowClick ? (
                         <button
                           className="cursor-pointer font-medium hover:underline"
-                          onClick={() => onSelect(record)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onView(record);
+                          }}
                           type="button"
                         >
                           #{record.id}
@@ -115,7 +140,10 @@ export function CrmList({
                       {record.mobile ? (
                         <button
                           className="cursor-pointer font-medium hover:underline"
-                          onClick={() => onView(record)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onView(record);
+                          }}
                           type="button"
                         >
                           {record.mobile}
@@ -130,7 +158,10 @@ export function CrmList({
                       {record.customer ? (
                         <button
                           className="max-w-48 cursor-pointer truncate text-left font-medium hover:underline"
-                          onClick={() => onView(record)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onView(record);
+                          }}
                           type="button"
                         >
                           {record.customer}
@@ -144,7 +175,10 @@ export function CrmList({
                     <td className="max-w-80 px-4 py-2.5">
                       <button
                         className="line-clamp-2 cursor-pointer text-left font-medium hover:underline"
-                        onClick={() => onView(record)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onView(record);
+                        }}
                         type="button"
                       >
                         {plainText(record.workspace) || plainText(record.title)}

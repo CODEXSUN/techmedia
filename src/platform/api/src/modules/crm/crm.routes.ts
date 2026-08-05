@@ -15,12 +15,12 @@ const userReference = z.object({
   uuid: z.string().min(1)
 });
 const message = z.object({
-  canDelete: z.boolean(),
-  canEdit: z.boolean(),
+  canSuspend: z.boolean(),
   comment: z.string(),
   createdAt: z.iso.datetime(),
   createdByUserId: z.string().nullable(),
   id: z.string().min(1),
+  isSuspended: z.boolean(),
   messageType: z.enum(["comment", "reply"]),
   parentMessageId: z.string().nullable()
 });
@@ -106,7 +106,6 @@ const jobPayload = z
       });
     }
   });
-const messageUpdatePayload = z.object({ comment: z.string().trim().min(1).max(10_000) });
 const query = z.object({
   enquiryId: z.string().trim().min(1).max(140).optional(),
   search: z.string().trim().max(220).optional(),
@@ -224,18 +223,11 @@ export async function registerCrmRoutes(
       (await service(request)).addMessage(params.id, body)
   });
   registerContractRoute(app, {
-    method: "PUT",
-    url: `${path}/:id/messages/:messageId`,
-    schemas: { body: messageUpdatePayload, params: messageParams, response: record },
-    handler: async ({ body, params, request }) =>
-      (await service(request)).updateMessage(params.id, params.messageId, body)
-  });
-  registerContractRoute(app, {
-    method: "DELETE",
-    url: `${path}/:id/messages/:messageId`,
+    method: "POST",
+    url: `${path}/:id/messages/:messageId/suspend`,
     schemas: { params: messageParams, response: record },
     handler: async ({ params, request }) =>
-      (await service(request)).deleteMessage(params.id, params.messageId)
+      (await service(request)).suspendMessage(params.id, params.messageId)
   });
   registerContractRoute(app, {
     method: "DELETE",

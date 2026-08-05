@@ -7,7 +7,6 @@ import { WorkspaceTable } from "@codexsun/ui/workspace/table";
 import type { User } from "./user.types";
 
 export function UserList({
-  actorEmail,
   loading,
   onEdit,
   onForceDelete,
@@ -16,7 +15,6 @@ export function UserList({
   records,
   roleLabels
 }: {
-  actorEmail: string;
   loading: boolean;
   onEdit: (record: User) => void;
   onForceDelete: (record: User) => void;
@@ -34,9 +32,7 @@ export function UserList({
     },
     {
       accessorKey: "name",
-      cell: ({ row }) => (
-        <RecordName actorEmail={actorEmail} record={row.original} onEdit={onEdit} />
-      ),
+      cell: ({ row }) => <RecordName record={row.original} onEdit={onEdit} />,
       header: "User"
     },
     { accessorKey: "email", header: "Email" },
@@ -97,7 +93,6 @@ export function UserList({
     {
       cell: ({ row }) => (
         <Actions
-          actorEmail={actorEmail}
           record={row.original}
           onEdit={onEdit}
           onForceDelete={onForceDelete}
@@ -121,16 +116,8 @@ export function UserList({
     />
   );
 }
-function RecordName({
-  actorEmail,
-  onEdit,
-  record
-}: {
-  actorEmail: string;
-  onEdit: (record: User) => void;
-  record: User;
-}) {
-  return record.isProtected && record.email.toLowerCase() !== actorEmail.toLowerCase() ? (
+function RecordName({ onEdit, record }: { onEdit: (record: User) => void; record: User }) {
+  return record.id === 1 ? (
     <span className="font-medium">{record.name}</span>
   ) : (
     <button
@@ -143,14 +130,12 @@ function RecordName({
   );
 }
 function Actions({
-  actorEmail,
   onEdit,
   onForceDelete,
   onRestore,
   onSuspend,
   record
 }: {
-  actorEmail: string;
   onEdit: (record: User) => void;
   onForceDelete: (record: User) => void;
   onRestore: (record: User) => void;
@@ -163,10 +148,8 @@ function Actions({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      {record.isProtected && record.email.toLowerCase() !== actorEmail.toLowerCase() ? (
+      {record.id === 1 ? (
         <WorkspaceProtectedIndicator label="Protected user" />
-      ) : record.isProtected ? (
-        <WorkspaceRowActions onEdit={() => onEdit(record)} title={record.name} />
       ) : (
         <WorkspaceRowActions
           actions={[

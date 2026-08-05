@@ -7,7 +7,6 @@ import type {
   CrmEnquiry,
   CrmEnquiryListFilters,
   CrmEnquiryMessageCreatePayload,
-  CrmEnquiryMessageUpdatePayload,
   CrmEnquiryOverview,
   CrmEnquirySavePayload,
   CrmEnquiryStatusFilter,
@@ -24,6 +23,20 @@ const viewPermissions: Record<CrmEnquiryView, string> = {
   created: "crm.enquiry.created.view",
   open: "crm.enquiry.open.view"
 };
+
+const suspendedMessagePrefix = "<s>";
+const suspendedMessageSuffix = "</s>";
+
+function isSuspendedMessage(comment: string) {
+  const normalized = comment.trim();
+  return (
+    normalized.startsWith(suspendedMessagePrefix) && normalized.endsWith(suspendedMessageSuffix)
+  );
+}
+
+function suspendMessage(comment: string) {
+  return `${suspendedMessagePrefix}${comment}${suspendedMessageSuffix}`;
+}
 
 export class CrmService {
   constructor(
@@ -127,46 +140,25 @@ export class CrmService {
     return this.map(await this.gateway.updateMessages(name, messages));
   }
 
-  async updateMessage(name: string, messageId: string, input: CrmEnquiryMessageUpdatePayload) {
+  async suspendMessage(name: string, messageId: string) {
     await this.context.authorize("crm.enquiry.update");
     const current = await this.gateway.get(name);
     await this.authorizeRecord(current);
     const index = current.messages.findIndex((message) => message.name === messageId);
     if (index < 0) throw AppError.notFound("Conversation entry was not found in Frappe.");
     if (index !== current.messages.length - 1) {
-      throw AppError.conflict("Only the latest conversation entry can be edited.");
+      throw AppError.conflict("Only the latest conversation entry can be suspended.");
     }
-    const messages = current.messages.map(({ comment, name: childName, parentMessage }) => ({
-      comment,
-      name: childName,
-      parentMessage
-    }));
-    const comment = input.comment.trim();
-    if (!plainText(comment)) throw AppError.validation("Comment cannot be empty.");
-    messages[index] = {
-      comment,
-      name: messages[index]!.name,
-      parentMessage: messages[index]!.parentMessage
-    };
-    return this.map(await this.gateway.updateMessages(name, messages));
-  }
-
-  async deleteMessage(name: string, messageId: string) {
-    await this.context.authorize("crm.enquiry.update");
-    const current = await this.gateway.get(name);
-    await this.authorizeRecord(current);
-    const index = current.messages.findIndex((message) => message.name === messageId);
-    if (index < 0) throw AppError.notFound("Conversation entry was not found in Frappe.");
-    if (index !== current.messages.length - 1) {
-      throw AppError.conflict("Only the latest conversation entry can be deleted.");
+    if (isSuspendedMessage(current.messages[index]!.comment)) {
+      throw AppError.conflict("This conversation entry is already suspended.");
     }
-    const messages = current.messages
-      .filter((_, messageIndex) => messageIndex !== index)
-      .map(({ comment, name: childName, parentMessage }) => ({
-        comment,
+    const messages = current.messages.map(
+      ({ comment, name: childName, parentMessage }, messageIndex) => ({
+        comment: messageIndex === index ? suspendMessage(comment) : comment,
         name: childName,
         parentMessage
-      }));
+      })
+    );
     return this.map(await this.gateway.updateMessages(name, messages));
   }
 
@@ -286,16 +278,15 @@ export class CrmService {
       jobs: [],
       lifecycleStatus: "active" as const,
       messages: record.messages.map((message, index) => ({
-        canDelete:
-          message.createdBy === this.context.actorEmail &&
+        canSuspend:
           index === record.messages.length - 1 &&
-          !record.messages.some((candidate) => candidate.parentMessage === message.name),
-        canEdit:
-          message.createdBy === this.context.actorEmail && index === record.messages.length - 1,
+          !record.messages.some((candidate) => candidate.parentMessage === message.name) &&
+          !isSuspendedMessage(message.comment),
         comment: message.comment,
         createdAt: message.createdAt ?? record.modifiedAt,
         createdByUserId: message.createdBy,
         id: message.name,
+        isSuspended: isSuspendedMessage(message.comment),
         messageType: message.parentMessage ? ("reply" as const) : ("comment" as const),
         parentMessageId: message.parentMessage
       })),

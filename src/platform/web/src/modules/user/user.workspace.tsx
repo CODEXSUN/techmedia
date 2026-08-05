@@ -28,7 +28,7 @@ import type {
   UserSavePayload
 } from "./user.types";
 type PendingAction = { record: User; type: "force-delete" | "restore" | "suspend" };
-export function UserWorkspace({ actorEmail }: { actorEmail: string }) {
+export function UserWorkspace({ actorEmail: _actorEmail }: { actorEmail: string }) {
   const query = useUsersQuery();
   const mutations = useUserMutations();
   const userRoleLookups = useUserRoleLookups();
@@ -168,7 +168,6 @@ export function UserWorkspace({ actorEmail }: { actorEmail: string }) {
         searchValue={search}
       />
       <UserList
-        actorEmail={actorEmail}
         loading={query.isFetching && !query.data}
         onEdit={setEditing}
         onForceDelete={(record) => setPendingAction({ record, type: "force-delete" })}

@@ -8,7 +8,6 @@ import {
   addCrmEnquiryTask,
   createCrmEnquiryJob,
   createCrmEnquiry,
-  deleteCrmEnquiryMessage,
   forceDeleteCrmEnquiry,
   getCrmEnquiryOverview,
   listCrmCustomerReferences,
@@ -18,7 +17,7 @@ import {
   startCrmEnquiryJob,
   stopCrmEnquiryJob,
   updateCrmEnquiryJob,
-  updateCrmEnquiryMessage,
+  suspendCrmEnquiryMessage,
   updateCrmEnquiry
 } from "./crm.services";
 import type {
@@ -121,14 +120,9 @@ export function useCrmEnquiryChildMutations(onSaved: (record: CrmEnquiry) => voi
         addCrmEnquiryMessage(...input),
       onSuccess: done
     }),
-    messageDelete: useMutation({
-      mutationFn: (input: Parameters<typeof deleteCrmEnquiryMessage>) =>
-        deleteCrmEnquiryMessage(...input),
-      onSuccess: done
-    }),
-    messageUpdate: useMutation({
-      mutationFn: (input: Parameters<typeof updateCrmEnquiryMessage>) =>
-        updateCrmEnquiryMessage(...input),
+    messageSuspend: useMutation({
+      mutationFn: (input: Parameters<typeof suspendCrmEnquiryMessage>) =>
+        suspendCrmEnquiryMessage(...input),
       onSuccess: done
     }),
     jobStart: useMutation({
