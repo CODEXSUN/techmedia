@@ -8,6 +8,8 @@ import type {
   CrmEnquiryMessageCreatePayload,
   CrmEnquiryNoteCreatePayload,
   CrmEnquiryOverview,
+  CrmReport,
+  CrmReportName,
   CrmEnquiryReference,
   CrmEnquirySavePayload,
   CrmEnquiryStatusFilter,
@@ -34,6 +36,19 @@ export function listCrmEnquiries(input: {
 
 export function getCrmEnquiryOverview() {
   return apiGet<CrmEnquiryOverview>(`${path}/overview`);
+}
+
+export function getCrmReport(
+  name: CrmReportName,
+  filters: { assignedToEmployee?: string; fromDate?: string; group?: string; toDate?: string }
+) {
+  const query = new URLSearchParams();
+  if (filters.fromDate) query.set("fromDate", filters.fromDate);
+  if (filters.toDate) query.set("toDate", filters.toDate);
+  if (filters.assignedToEmployee) query.set("assignedToEmployee", filters.assignedToEmployee);
+  if (filters.group) query.set("group", filters.group);
+  const suffix = query.size ? `?${query}` : "";
+  return apiGet<CrmReport>(`${path}/reports/${name}${suffix}`);
 }
 
 export function getCrmEnquiry(name: string) {

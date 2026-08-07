@@ -6,15 +6,32 @@ export const crmEnquirySchema = z.object({
   enquiryDate: z.iso.date().nullable(),
   enquiryGroup: z.string().trim().max(80),
   messages: z
-    .array(z.object({ comment: z.string().trim().min(1, "Message cannot be empty.").max(10_000) }))
+    .array(
+      z.object({
+        comment: z.string().trim().min(1, "Message cannot be empty.").max(10_000),
+        mode: z.enum(["comment", "reply"]).optional()
+      })
+    )
     .max(100),
   mobile: z.string().trim().min(5, "Mobile is required.").max(40),
   priority: z.enum(["low", "normal", "high", "urgent"]),
   schedules: z
     .array(z.object({ scheduledOn: z.iso.date("Choose a valid schedule date.") }))
     .max(20, "An enquiry can contain up to 20 schedule dates."),
-  status: z.enum(["open", "follow", "escalation", "won", "lost"]),
-  title: z.string().trim().min(2, "Title is required.").max(220),
+  status: z.enum([
+    "new",
+    "open",
+    "follow",
+    "hold-for-approval",
+    "hold-for-spares",
+    "hold-for-job-out",
+    "long-hold",
+    "escalation",
+    "won",
+    "lost",
+    "reopen"
+  ]),
+  title: z.string().trim().max(220),
   workspace: z.string().trim().max(100_000)
 });
 

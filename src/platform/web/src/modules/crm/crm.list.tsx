@@ -1,5 +1,7 @@
 import { format } from "date-fns";
 import {
+  ArrowDown,
+  ArrowUp,
   Ban,
   CircleCheck,
   CircleDot,
@@ -18,7 +20,12 @@ import {
   WorkspaceTablePanel,
   workspaceTableRowClass
 } from "@codexsun/ui/workspace/table";
-import type { CrmEnquiry, CrmEnquiryColumnVisibility, CrmEnquiryPriority } from "./crm.types";
+import type {
+  CrmEnquiry,
+  CrmEnquiryColumnId,
+  CrmEnquiryColumnVisibility,
+  CrmEnquiryPriority
+} from "./crm.types";
 
 export function CrmList({
   error,
@@ -27,9 +34,11 @@ export function CrmList({
   onRowClick,
   onRestore,
   onSelect,
+  onSort,
   onSuspend,
   onView,
   records,
+  sort,
   visibleColumns
 }: {
   error: boolean;
@@ -38,9 +47,11 @@ export function CrmList({
   onRowClick?: (record: CrmEnquiry) => void;
   onRestore?: (record: CrmEnquiry) => void;
   onSelect?: (record: CrmEnquiry) => void;
+  onSort: (column: CrmEnquiryColumnId) => void;
   onSuspend?: (record: CrmEnquiry) => void;
   onView: (record: CrmEnquiry) => void;
   records: CrmEnquiry[];
+  sort: { column: CrmEnquiryColumnId; direction: "asc" | "desc" };
   visibleColumns: CrmEnquiryColumnVisibility;
 }) {
   return (
@@ -52,41 +63,41 @@ export function CrmList({
               <tr>
                 {visibleColumns.id ? (
                   <WorkspaceTableHeaderCell className="w-[72px] min-w-[72px] max-w-[72px]">
-                    ID
+                    <SortHeader column="id" label="ID" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.mobile ? (
-                  <WorkspaceTableHeaderCell>Mobile</WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell><SortHeader column="mobile" label="Mobile" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.customer ? (
-                  <WorkspaceTableHeaderCell>Customer</WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell><SortHeader column="customer" label="Customer" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.title ? (
-                  <WorkspaceTableHeaderCell>Enquiry details</WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell><SortHeader column="title" label="Enquiry details" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.enquiryGroup ? (
-                  <WorkspaceTableHeaderCell>List in</WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell><SortHeader column="enquiryGroup" label="List in" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.dueDate ? (
-                  <WorkspaceTableHeaderCell>Due date</WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell><SortHeader column="dueDate" label="Due date" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.priority ? (
                   <WorkspaceTableHeaderCell
                     aria-label="Priority"
                     className="w-12 min-w-12 max-w-12 p-0 text-center"
                   >
-                    <span className="sr-only">Priority</span>
+                    <SortHeader column="priority" label="Priority" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.createdBy ? (
-                  <WorkspaceTableHeaderCell>User</WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell><SortHeader column="createdBy" label="User" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.assignedTo ? (
-                  <WorkspaceTableHeaderCell>Assigned to</WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell><SortHeader column="assignedTo" label="Assigned to" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.status ? (
                   <WorkspaceTableHeaderCell className="w-24 min-w-24 max-w-24">
-                    Status
+                    <SortHeader column="status" label="Status" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 <WorkspaceTableHeaderCell className="w-16 min-w-16 max-w-16 text-right">
@@ -174,14 +185,14 @@ export function CrmList({
                   {visibleColumns.title ? (
                     <td className="max-w-80 px-4 py-2.5">
                       <button
-                        className="line-clamp-2 cursor-pointer text-left font-medium hover:underline"
+                        className="block w-full truncate cursor-pointer text-left font-medium hover:underline"
                         onClick={(event) => {
                           event.stopPropagation();
                           onView(record);
                         }}
                         type="button"
                       >
-                        {plainText(record.workspace) || plainText(record.title)}
+                        {plainText(record.title) || plainText(record.workspace)}
                       </button>
                     </td>
                   ) : null}
@@ -281,6 +292,32 @@ export function CrmList({
         ) : null}
       </WorkspaceTablePanel>
     </TooltipProvider>
+  );
+}
+
+function SortHeader({
+  column,
+  label,
+  onSort,
+  sort
+}: {
+  column: CrmEnquiryColumnId;
+  label: string;
+  onSort: (column: CrmEnquiryColumnId) => void;
+  sort: { column: CrmEnquiryColumnId; direction: "asc" | "desc" };
+}) {
+  const active = sort.column === column;
+  const Icon = sort.direction === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <button
+      aria-label={`Sort by ${label}`}
+      className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+      onClick={() => onSort(column)}
+      type="button"
+    >
+      {label}
+      {active ? <Icon className="size-3" /> : null}
+    </button>
   );
 }
 

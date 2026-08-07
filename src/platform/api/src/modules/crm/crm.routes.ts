@@ -7,7 +7,19 @@ import { CrmService } from "./crm.service.js";
 
 const path = "/crm/enquiries";
 const priority = z.enum(["low", "normal", "high", "urgent"]);
-const status = z.enum(["open", "follow", "escalation", "won", "lost"]);
+const status = z.enum([
+  "new",
+  "open",
+  "follow",
+  "hold-for-approval",
+  "hold-for-spares",
+  "hold-for-job-out",
+  "long-hold",
+  "escalation",
+  "won",
+  "lost",
+  "reopen"
+]);
 const userReference = z.object({
   email: z.string(),
   id: z.string().min(1),
@@ -70,12 +82,19 @@ const payload = z.object({
   customer: z.string().trim().max(140),
   enquiryDate: z.iso.date().nullable(),
   enquiryGroup: z.string().trim().max(80),
-  messages: z.array(z.object({ comment: z.string().trim().min(1).max(10_000) })).max(100),
+  messages: z
+    .array(
+      z.object({
+        comment: z.string().trim().min(1).max(10_000),
+        mode: z.enum(["comment", "reply"]).optional()
+      })
+    )
+    .max(100),
   mobile: z.string().trim().min(5).max(40),
   priority,
   schedules: z.array(z.object({ scheduledOn: z.iso.date() })).max(20),
   status,
-  title: z.string().trim().min(2).max(220),
+  title: z.string().trim().max(220),
   workspace: z.string().trim().max(100_000)
 });
 const params = z.object({ id: z.string().trim().min(1).max(140) });
@@ -129,6 +148,16 @@ const overview = z.object({
     myEnquiries: z.number().int().nonnegative()
   })
 });
+const reportQuery = z.object({
+  assignedToEmployee: z.string().trim().max(140).optional(),
+  fromDate: z.iso.date().optional(),
+  group: z.string().trim().max(140).optional(),
+  toDate: z.iso.date().optional()
+});
+const report = z.object({
+  columns: z.array(z.object({ fieldname: z.string(), label: z.string() })),
+  rows: z.array(z.record(z.string(), z.union([z.number(), z.string(), z.null()])))
+});
 
 export async function registerCrmRoutes(
   app: FastifyInstance,
@@ -144,6 +173,28 @@ export async function registerCrmRoutes(
         ...(query.enquiryId ? { enquiryId: query.enquiryId } : {}),
         ...(query.search ? { search: query.search } : {}),
         ...(query.status ? { status: query.status } : {})
+      })
+  });
+  registerContractRoute(app, {
+    method: "GET",
+    url: `${path}/reports/list-in-status`,
+    schemas: { querystring: reportQuery, response: report },
+    handler: async ({ query, request }) =>
+      (await service(request)).report("list-in-status", {
+        assigned_to_employee: query.assignedToEmployee ?? null,
+        from_date: query.fromDate ?? null,
+        to_date: query.toDate ?? null
+      })
+  });
+  registerContractRoute(app, {
+    method: "GET",
+    url: `${path}/reports/owner-status`,
+    schemas: { querystring: reportQuery, response: report },
+    handler: async ({ query, request }) =>
+      (await service(request)).report("owner-status", {
+        from_date: query.fromDate ?? null,
+        group: query.group ?? null,
+        to_date: query.toDate ?? null
       })
   });
   registerContractRoute(app, {

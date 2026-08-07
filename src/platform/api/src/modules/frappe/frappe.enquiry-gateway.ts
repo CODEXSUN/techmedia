@@ -21,6 +21,7 @@ const enquiryFields = [
   "assigned_to_employee",
   "priority",
   "status",
+  "title",
   "creation",
   "modified"
 ];
@@ -131,6 +132,23 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       return (response.data ?? []).map((document) => toEnquiry(document));
     },
 
+    async queryReport(input) {
+      const target = await connection();
+      const response = await frappeRequest<FrappeQueryReportResponse>(
+        target,
+        "/api/v2/method/frappe.desk.query_report.run",
+        {
+          body: JSON.stringify({
+            filters: input.filters,
+            ignore_prepared_report: true,
+            report_name: input.reportName
+          }),
+          method: "POST"
+        }
+      );
+      return toQueryReport(response);
+    },
+
     async get(name) {
       return hydrate(await connection(), requiredName(name));
     },
@@ -175,7 +193,7 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       return hydrate(target, enquiryName, response.data);
     },
 
-    async updateMessages(name, messages) {
+    async updateMessages(name, messages, status) {
       const target = await connection();
       const enquiryName = requiredName(name);
       const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
@@ -183,8 +201,10 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         `/api/resource/Enquiry/${encodeURIComponent(enquiryName)}`,
         {
           body: JSON.stringify({
-            enquiry_messages: messages.map(({ comment, name: childName, parentMessage }) => ({
+            ...(status ? { status: toFrappeStatus(status) } : {}),
+            enquiry_messages: messages.map(({ comment, mode, name: childName, parentMessage }) => ({
               comment: richText(comment),
+              ...(mode ? { mode: mode === "reply" ? "Reply" : "Comment" } : {}),
               ...(childName ? { name: childName } : {}),
               ...(parentMessage ? { parent_message: parentMessage } : {})
             }))
@@ -350,8 +370,9 @@ function toPayload(
     enquiry_details: input.enquiryMessage,
     ...(includeMessages
       ? {
-          enquiry_messages: input.messages.map(({ comment }) => ({
-            comment: richText(comment)
+          enquiry_messages: input.messages.map(({ comment, mode }) => ({
+            comment: richText(comment),
+            ...(mode ? { mode: mode === "reply" ? "Reply" : "Comment" } : {})
           }))
         }
       : {}),
@@ -359,6 +380,7 @@ function toPayload(
     mobile: input.mobile,
     priority: toFrappePriority(input.priority),
     status: toFrappeStatus(input.status),
+    title: input.title,
     user_employee: userEmployee
   };
 }
@@ -387,6 +409,7 @@ function toEnquiry(
     name: document.name,
     priority: fromFrappePriority(document.priority),
     status: document.status?.trim() || "Open",
+    title: document.title?.trim() || "",
     userEmployee: document.user_employee?.trim() ?? ""
   };
 }
@@ -546,9 +569,15 @@ function timestamp(value?: string) {
 
 function toFrappeStatus(value: string) {
   const normalized = value.trim().toLowerCase();
+  if (normalized === "new") return "New";
   if (normalized === "won") return "Won";
   if (normalized === "lost") return "Lost";
-  if (normalized === "follow") return "Follow";
+  if (normalized === "reopen") return "Re-open";
+  if (normalized === "follow") return "Open";
+  if (normalized === "hold-for-approval") return "Hold for Approval";
+  if (normalized === "hold-for-spares") return "Hold for Spares";
+  if (normalized === "hold-for-job-out") return "Hold for Job-Out";
+  if (normalized === "long-hold") return "Long Hold";
   if (normalized === "escalation") return "Escalation";
   return "Open";
 }
@@ -683,6 +712,7 @@ type FrappeEnquiryDocument = {
   name: string;
   priority?: string;
   status?: string;
+  title?: string;
   user_employee?: string;
 };
 
@@ -734,3 +764,49 @@ type FrappeVersionData = {
   removed?: Array<[string, unknown]>;
   row_changed?: Array<[string, number, string, Array<[string, unknown, unknown]>]>;
 };
+
+type FrappeQueryReportColumn = {
+  fieldname?: string;
+  label?: string;
+};
+
+type FrappeQueryReportResponse = {
+  data?: FrappeQueryReportResult;
+  message?: FrappeQueryReportResult;
+};
+
+type FrappeQueryReportResult = {
+  columns?: FrappeQueryReportColumn[];
+  result?: Array<Record<string, unknown> | unknown[]>;
+};
+
+function toQueryReport(response: FrappeQueryReportResponse) {
+  const result = response.data ?? response.message;
+  const columns = (result?.columns ?? []).map((column, index) => ({
+    fieldname: column.fieldname?.trim() || `column_${index + 1}`,
+    label: column.label?.trim() || column.fieldname?.trim() || `Column ${index + 1}`
+  }));
+  return {
+    columns,
+    rows: (result?.result ?? []).map((row) => toQueryReportRow(row, columns))
+  };
+}
+
+function toQueryReportRow(
+  row: Record<string, unknown> | unknown[],
+  columns: Array<{ fieldname: string; label: string }>
+) {
+  if (Array.isArray(row)) {
+    return Object.fromEntries(
+      columns.map((column, index) => [column.fieldname, reportCell(row[index])])
+    );
+  }
+  return Object.fromEntries(
+    columns.map((column) => [column.fieldname, reportCell(row[column.fieldname])])
+  );
+}
+
+function reportCell(value: unknown): number | string | null {
+  if (typeof value === "number" || typeof value === "string") return value;
+  return null;
+}

@@ -2,7 +2,18 @@ import type { Kysely } from "kysely";
 import type { TechMediaDatabase } from "../../database/schema.js";
 
 export type CrmEnquiryPriority = "low" | "normal" | "high" | "urgent";
-export type CrmEnquiryStatus = "escalation" | "follow" | "lost" | "open" | "won";
+export type CrmEnquiryStatus =
+  | "escalation"
+  | "follow"
+  | "hold-for-approval"
+  | "hold-for-job-out"
+  | "hold-for-spares"
+  | "long-hold"
+  | "lost"
+  | "new"
+  | "open"
+  | "reopen"
+  | "won";
 export type CrmEnquiryStatusFilter = CrmEnquiryStatus | "active" | "closed" | "in-progress";
 export type CrmEnquiryLifecycleStatus = "active" | "suspended";
 export type CrmEnquiryView = "assigned" | "created" | "open";
@@ -186,7 +197,7 @@ export type CrmEnquirySavePayload = {
   customer: string;
   enquiryDate: string | null;
   enquiryGroup: string;
-  messages: Array<{ comment: string }>;
+  messages: Array<{ comment: string; mode?: "comment" | "reply" | undefined }>;
   mobile: string;
   priority: CrmEnquiryPriority;
   schedules: Array<{ scheduledOn: string }>;
@@ -211,6 +222,18 @@ export type CrmEnquiryOverview = {
     inProgress: number;
     myEnquiries: number;
   };
+};
+
+export type CrmReportName = "list-in-status" | "owner-status";
+
+export type CrmReportColumn = {
+  fieldname: string;
+  label: string;
+};
+
+export type CrmReport = {
+  columns: CrmReportColumn[];
+  rows: Array<Record<string, number | string | null>>;
 };
 
 export type CrmContext = {

@@ -8,6 +8,8 @@ import type {
   CrmEnquiryListFilters,
   CrmEnquiryMessageCreatePayload,
   CrmEnquiryOverview,
+  CrmReport,
+  CrmReportName,
   CrmEnquirySavePayload,
   CrmEnquiryStatusFilter,
   CrmEnquiryView,
@@ -84,6 +86,17 @@ export class CrmService {
     };
   }
 
+  async report(name: CrmReportName, filters: Record<string, string | null>): Promise<CrmReport> {
+    await this.context.authorize("crm.report.view");
+    return this.gateway.queryReport({
+      filters,
+      reportName:
+        name === "list-in-status"
+          ? "Enquiry List-In wise Status"
+          : "Enquiry Owner wise Status"
+    });
+  }
+
   async create(input: CrmEnquirySavePayload) {
     await this.context.authorize("crm.enquiry.create");
     await this.validateAssignment(input.assignedToUserId);
@@ -119,9 +132,15 @@ export class CrmService {
     await this.context.authorize("crm.enquiry.update");
     const current = await this.gateway.get(name);
     await this.authorizeRecord(current);
-    const messages: Array<{ comment: string; name?: string; parentMessage?: string | null }> =
+    const messages: Array<{
+      comment: string;
+      mode?: "comment" | "reply";
+      name?: string;
+      parentMessage?: string | null;
+    }> =
       current.messages.map(({ comment, name: childName, parentMessage }) => ({
         comment,
+        ...(parentMessage ? { mode: "reply" as const } : { mode: "comment" as const }),
         name: childName,
         parentMessage
       }));
@@ -136,8 +155,8 @@ export class CrmService {
     if (input.messageType === "reply" && !parentMessage) {
       throw AppError.validation("Add a comment before adding a reply.");
     }
-    messages.push({ comment, parentMessage });
-    return this.map(await this.gateway.updateMessages(name, messages));
+    messages.push({ comment, mode: input.messageType, parentMessage });
+    return this.map(await this.gateway.updateMessages(name, messages, current.status));
   }
 
   async suspendMessage(name: string, messageId: string) {
@@ -155,11 +174,12 @@ export class CrmService {
     const messages = current.messages.map(
       ({ comment, name: childName, parentMessage }, messageIndex) => ({
         comment: messageIndex === index ? suspendMessage(comment) : comment,
+        ...(parentMessage ? { mode: "reply" as const } : { mode: "comment" as const }),
         name: childName,
         parentMessage
       })
     );
-    return this.map(await this.gateway.updateMessages(name, messages));
+    return this.map(await this.gateway.updateMessages(name, messages, current.status));
   }
 
   async startJob(name: string) {
@@ -298,7 +318,7 @@ export class CrmService {
         : [],
       status: fromFrappeStatus(record.status),
       tasks: [],
-      title: displayTitle(record),
+      title: record.title || displayTitle(record),
       updatedAt: record.modifiedAt,
       uuid: record.name,
       workspace: record.enquiryMessage
@@ -385,11 +405,12 @@ function toLivePayload(input: CrmEnquirySavePayload) {
     enquiryGroup: input.enquiryGroup.trim(),
     enquiryMessage: input.workspace.trim() || input.title.trim(),
     messages: input.messages
-      .map(({ comment }) => ({ comment: comment.trim() }))
+      .map(({ comment, mode }) => ({ comment: comment.trim(), ...(mode ? { mode } : {}) }))
       .filter(({ comment }) => plainText(comment)),
     mobile: input.mobile.trim(),
     priority: input.priority,
-    status: input.status
+    status: input.status,
+    title: input.title.trim() || titleFromWorkspace(input.workspace)
   };
 }
 
@@ -408,6 +429,10 @@ function employeeReference(employee: {
 
 function displayTitle(record: Pick<LiveRecord, "enquiryMessage" | "name">) {
   return plainText(record.enquiryMessage) || record.name;
+}
+
+function titleFromWorkspace(value: string) {
+  return plainText(value).split(/\s+/u).slice(0, 8).join(" ") || "Enquiry";
 }
 
 function plainText(value: string) {
@@ -460,9 +485,15 @@ function numericId(name: string) {
 
 function fromFrappeStatus(value: string): CrmEnquiry["status"] {
   const normalized = value.trim().toLowerCase();
+  if (normalized === "new") return "new";
   if (normalized === "won") return "won";
   if (normalized === "lost") return "lost";
+  if (normalized === "re-open" || normalized === "reopen") return "reopen";
   if (normalized === "follow") return "follow";
+  if (normalized === "hold for approval") return "hold-for-approval";
+  if (normalized === "hold for spares") return "hold-for-spares";
+  if (normalized === "hold for job-out") return "hold-for-job-out";
+  if (normalized === "long hold") return "long-hold";
   if (normalized === "escalation") return "escalation";
   return "open";
 }
@@ -472,7 +503,14 @@ function isClosed(status: string) {
 }
 
 function isInProgress(status: string) {
-  return ["follow", "escalation"].includes(status.trim().toLowerCase());
+  return [
+    "follow",
+    "hold for approval",
+    "hold for spares",
+    "hold for job-out",
+    "long hold",
+    "escalation"
+  ].includes(status.trim().toLowerCase());
 }
 
 function matchesStatus(status: string, filter?: CrmEnquiryStatusFilter) {

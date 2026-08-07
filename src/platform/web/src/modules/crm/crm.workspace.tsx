@@ -36,6 +36,11 @@ type PendingAction = {
   type: "force-delete";
 };
 
+type EnquirySort = {
+  column: CrmEnquiryColumnId;
+  direction: "asc" | "desc";
+};
+
 const viewDetails: Record<CrmEnquiryView, { description: string; title: string }> = {
   assigned: { description: "Enquiries assigned to your user account.", title: "My Job" },
   created: { description: "Enquiries created by your account.", title: "My Calls" },
@@ -111,6 +116,7 @@ export function CrmWorkspace({
   );
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(100);
+  const [sort, setSort] = useState<EnquirySort>({ column: "id", direction: "desc" });
   const [editing, setEditing] = useState<CrmEnquiry | null | undefined>(undefined);
   const [viewing, setViewing] = useState<CrmEnquiry | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -123,9 +129,13 @@ export function CrmWorkspace({
   const mutations = useCrmEnquiryMutations();
   const initialLoading = query.data === undefined && query.isFetching;
   const records = query.data ?? [];
-  const totalPages = Math.max(1, Math.ceil(records.length / rowsPerPage));
+  const sortedRecords = [...records].sort((left, right) => compareEnquiries(left, right, sort));
+  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages);
-  const visibleRecords = records.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const visibleRecords = sortedRecords.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
   const viewingIndex = viewing ? records.findIndex((record) => record.id === viewing.id) : -1;
   const nextViewing =
     viewingIndex >= 0 && viewingIndex < records.length - 1 ? records[viewingIndex + 1] : undefined;
@@ -266,7 +276,14 @@ export function CrmWorkspace({
           ? { onRowClick: (record) => void loadRecord(record, "view") }
           : {})}
         onView={(record) => void loadRecord(record, "view")}
+        onSort={(column) =>
+          setSort((current) => ({
+            column,
+            direction: current.column === column && current.direction === "asc" ? "desc" : "asc"
+          }))
+        }
         records={visibleRecords}
+        sort={sort}
         visibleColumns={{
           ...visibleColumns,
           assignedTo: view === "assigned" ? false : visibleColumns.assignedTo
@@ -311,6 +328,39 @@ export function CrmWorkspace({
   );
 }
 
+function compareEnquiries(left: CrmEnquiry, right: CrmEnquiry, sort: EnquirySort) {
+  const direction = sort.direction === "asc" ? 1 : -1;
+  const values: Record<CrmEnquiryColumnId, string | number> = {
+    assignedTo: left.assignedTo?.name ?? "",
+    createdBy: left.createdBy.name,
+    customer: left.customer,
+    dueDate: left.enquiryDate ?? "",
+    enquiryGroup: left.enquiryGroup,
+    id: left.id,
+    mobile: left.mobile,
+    priority: left.priority,
+    status: left.status,
+    title: left.title || left.workspace
+  };
+  const other: Record<CrmEnquiryColumnId, string | number> = {
+    assignedTo: right.assignedTo?.name ?? "",
+    createdBy: right.createdBy.name,
+    customer: right.customer,
+    dueDate: right.enquiryDate ?? "",
+    enquiryGroup: right.enquiryGroup,
+    id: right.id,
+    mobile: right.mobile,
+    priority: right.priority,
+    status: right.status,
+    title: right.title || right.workspace
+  };
+  const a = values[sort.column];
+  const b = other[sort.column];
+  return typeof a === "number" && typeof b === "number"
+    ? (a - b) * direction
+    : String(a).localeCompare(String(b), undefined, { numeric: true }) * direction;
+}
+
 function statusFilterFromUrl(): CrmEnquiryStatusFilter {
   if (typeof window === "undefined") return "active";
   const value = new URLSearchParams(window.location.search).get("status");
@@ -322,7 +372,13 @@ function statusFilterFromUrl(): CrmEnquiryStatusFilter {
     "follow",
     "escalation",
     "won",
-    "lost"
+    "lost",
+    "new",
+    "hold-for-approval",
+    "hold-for-spares",
+    "hold-for-job-out",
+    "long-hold",
+    "reopen"
   ].includes(value ?? "")
     ? (value as CrmEnquiryStatusFilter)
     : "active";

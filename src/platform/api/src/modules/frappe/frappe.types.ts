@@ -117,6 +117,7 @@ export type FrappeLiveEnquiry = {
   name: string;
   priority: "high" | "low" | "normal" | "urgent";
   status: string;
+  title: string;
   userEmployee: string;
 };
 
@@ -126,14 +127,16 @@ export type FrappeLiveEnquirySavePayload = {
   enquiryDate: string | null;
   enquiryGroup: string;
   enquiryMessage: string;
-  messages: Array<{ comment: string }>;
+  messages: Array<{ comment: string; mode?: "comment" | "reply" }>;
   mobile: string;
   priority: "high" | "low" | "normal" | "urgent";
   status: string;
+  title: string;
 };
 
 export type FrappeLiveEnquiryMessageSavePayload = {
   comment: string;
+  mode?: "comment" | "reply";
   name?: string;
   parentMessage?: string | null;
 };
@@ -150,10 +153,18 @@ export type FrappeLiveEnquiryGateway = {
     input: FrappeLiveJobExecutionSavePayload
   ) => Promise<FrappeLiveJobExecution>;
   list: (input: { employee: string; view: FrappeLiveEnquiryView }) => Promise<FrappeLiveEnquiry[]>;
+  queryReport: (input: {
+    filters: Record<string, string | null>;
+    reportName: "Enquiry List-In wise Status" | "Enquiry Owner wise Status";
+  }) => Promise<{
+    columns: Array<{ fieldname: string; label: string }>;
+    rows: Array<Record<string, number | string | null>>;
+  }>;
   update: (name: string, input: FrappeLiveEnquirySavePayload) => Promise<FrappeLiveEnquiry>;
   updateMessages: (
     name: string,
-    messages: FrappeLiveEnquiryMessageSavePayload[]
+    messages: FrappeLiveEnquiryMessageSavePayload[],
+    status?: string
   ) => Promise<FrappeLiveEnquiry>;
   startJob: (name: string) => Promise<FrappeLiveJobExecution>;
   stopJob: (name: string, jobName: string) => Promise<FrappeLiveJobExecution>;

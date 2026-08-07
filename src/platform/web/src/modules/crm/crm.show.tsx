@@ -536,9 +536,6 @@ function EnquirySummary({ record }: { record: CrmEnquiry }) {
               {enquiryDisplayTitle(record)}
             </h2>
           </div>
-          <p className="mt-1 line-clamp-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-            {plainText(record.workspace) || "No enquiry message has been recorded."}
-          </p>
         </div>
         <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -575,8 +572,8 @@ function CommentsTab({
   onUpdate: (message: CrmEnquiry["messages"][number], comment: string) => Promise<unknown>;
   record: CrmEnquiry;
 }) {
-  const messageType = defaultCommentMessageType();
   const [comment, setComment] = useState("");
+  const messageType = defaultCommentMessageType();
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState("");
   const [suspendingMessage, setSuspendingMessage] = useState<CrmEnquiry["messages"][number] | null>(
@@ -585,6 +582,12 @@ function CommentsTab({
   const commentCount = record.messages.filter(
     (message) => message.messageType === "comment"
   ).length;
+
+  function save(nextMessageType: "comment" | "reply") {
+    return onAdd({ comment: comment.trim(), messageType: nextMessageType })
+      .then(() => setComment(""))
+      .catch(() => undefined);
+  }
 
   return (
     <section className="flex min-h-[calc(100dvh-21rem)] flex-col">
@@ -668,10 +671,12 @@ function CommentsTab({
                             </div>
                           </div>
                         ) : (
-                          <div
-                            className={`prose prose-sm max-w-none rounded-md bg-muted/20 px-3 py-0.5 text-base leading-6 text-foreground [&_p]:my-0 [&_p+p]:mt-2 ${message.isSuspended ? "opacity-60 line-through [&_*]:line-through" : ""}`}
-                            dangerouslySetInnerHTML={{ __html: sanitizeRichText(message.comment) }}
-                          />
+                          <>
+                            <div
+                              className={`prose prose-sm max-w-none rounded-md bg-muted/20 px-3 py-0.5 text-base leading-6 text-foreground [&_p]:my-0 [&_p+p]:mt-2 ${message.isSuspended ? "opacity-60 line-through [&_*]:line-through" : ""}`}
+                              dangerouslySetInnerHTML={{ __html: sanitizeRichText(message.comment) }}
+                            />
+                          </>
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-1 pt-0.5">
@@ -741,21 +746,26 @@ function CommentsTab({
           />
           <div
             aria-label="Comment tools"
-            className="flex items-center justify-end border-t border-border/70 bg-muted/25 px-2 py-1.5"
+            className="flex items-center justify-end gap-2 border-t border-border/70 bg-muted/25 px-2 py-1.5"
             role="toolbar"
           >
             <Button
               disabled={loading || !plainText(comment)}
               size="sm"
               type="button"
-              onClick={() =>
-                void onAdd({ comment: comment.trim(), messageType })
-                  .then(() => setComment(""))
-                  .catch(() => undefined)
-              }
+              onClick={() => void save("comment")}
             >
               <Send className="size-4" />
-              {messageType === "reply" ? "Reply" : "Comment"}
+              Comment
+            </Button>
+            <Button
+              disabled={loading || !plainText(comment) || !latestComment(record)}
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => void save("reply")}
+            >
+              <CornerUpLeft className="size-4" /> Reply
             </Button>
           </div>
         </div>
@@ -791,6 +801,14 @@ function CommentsTab({
       </AlertDialog>
     </section>
   );
+}
+
+function latestComment(record: CrmEnquiry) {
+  return [...record.messages].reverse().find((message) => message.messageType === "comment");
+}
+
+function defaultCommentMessageType(): "comment" | "reply" {
+  return "comment";
 }
 
 function TasksTab({
@@ -1250,10 +1268,6 @@ function TabSurface({ children }: { children: ReactNode }) {
   return <section className="flex min-h-[calc(100dvh-21rem)] flex-col">{children}</section>;
 }
 
-function defaultCommentMessageType(): "comment" | "reply" {
-  return "comment";
-}
-
 function TabRecordCount({ count }: { count: number }) {
   return (
     <div className="border-b border-border/70 px-4 py-2">
@@ -1422,7 +1436,7 @@ function enquiryPayload(
 }
 
 function enquiryDisplayTitle(record: Pick<CrmEnquiry, "title" | "workspace">) {
-  return plainText(record.workspace) || record.title;
+  return record.title || plainText(record.workspace);
 }
 
 function buildWhatsAppTargets(record: Pick<CrmEnquiry, "id" | "mobile" | "title" | "workspace">) {

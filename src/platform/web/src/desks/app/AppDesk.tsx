@@ -46,6 +46,9 @@ const CrmOverview = lazy(() =>
 const CrmWorkspace = lazy(() =>
   import("../../modules/crm").then((module) => ({ default: module.CrmWorkspace }))
 );
+const CrmReports = lazy(() =>
+  import("../../modules/crm").then((module) => ({ default: module.CrmReports }))
+);
 const EstimateWorkspace = lazy(() =>
   import("../../modules/estimate").then((module) => ({ default: module.EstimateWorkspace }))
 );
@@ -69,6 +72,7 @@ type Page =
   | "crm.assigned"
   | "crm.created"
   | "crm.open"
+  | "crm.reports"
   | "estimate.list";
 
 type Claims = {
@@ -223,6 +227,7 @@ function renderPage(
   if (page === "crm.overview") {
     return <CrmOverview />;
   }
+  if (page === "crm.reports") return <CrmReports />;
   if (page === "estimate.list") {
     return (
       <EstimateWorkspace
@@ -287,7 +292,9 @@ function buildMenu(
           { ...item("Overview", "crm.overview"), icon: CircleGaugeIcon },
           item("My Job", "crm.assigned", crmStats?.myEnquiries),
           item("My Calls", "crm.created", crmStats?.createdByMe),
-          ...(administrator ? [item("Open Enquiry", "crm.open")] : [])
+          ...(administrator
+            ? [item("Open Enquiry", "crm.open"), item("Reports", "crm.reports")]
+            : [])
         ],
         title: "CRM"
       }
@@ -332,6 +339,7 @@ function accessiblePage(page: Page, administrator: boolean): Page {
 function isAdministratorPage(page: Page) {
   return (
     page === "crm.open" ||
+    page === "crm.reports" ||
     page.startsWith("settings.") ||
     (page.startsWith("identity.") && page !== "identity.profile")
   );
@@ -352,6 +360,7 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "crm.assigned",
     "crm.created",
     "crm.open",
+    "crm.reports",
     "estimate.list"
   ];
   if (allowed.includes(value as Page)) return value as Page;
@@ -365,6 +374,7 @@ function titleFor(page: Page) {
     "crm.assigned": "My Job",
     "crm.created": "My Calls",
     "crm.open": "Open Enquiry",
+    "crm.reports": "Enquiry reports",
     "estimate.list": "Estimate",
     "settings.frappe.overview": "Frappe connection",
     "settings.frappe.users": "Frappe Users"

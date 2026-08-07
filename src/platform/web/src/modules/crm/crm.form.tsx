@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarPlus, Save, Trash2 } from "lucide-react";
-import { Button } from "@codexsun/ui/components/button";
+import { Save } from "lucide-react";
 import { Input } from "@codexsun/ui/components/input";
 import { WorkspaceDatePicker } from "@codexsun/ui/workspace/date-picker";
 import { WorkspaceLookup } from "@codexsun/ui/workspace/lookup";
@@ -52,7 +51,7 @@ export function CrmForm({
 }) {
   return (
     <WorkspaceUpsertDialog
-      className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden sm:max-w-4xl"
+      className="h-[100dvh] w-full max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-4xl sm:rounded-lg"
       description="Create or update a customer enquiry."
       onClose={onCancel}
       open={open}
@@ -134,23 +133,16 @@ function CrmFormBody({
           setValidationError("Enquiry message is required.");
           return;
         }
-        const parsed = crmEnquirySchema.safeParse({
-          ...value,
-          title: message.slice(0, 220)
-        });
+        const parsed = crmEnquirySchema.safeParse(value);
         if (!parsed.success) {
           setValidationError(parsed.error.issues[0]?.message ?? "Check the enquiry details.");
           return;
         }
-        if (
-          new Set(parsed.data.schedules.map((item) => item.scheduledOn)).size !==
-          parsed.data.schedules.length
-        ) {
-          setValidationError("Schedule dates must be unique.");
-          return;
-        }
         setValidationError("");
-        onSubmit(parsed.data);
+        onSubmit({
+          ...parsed.data,
+          messages: record ? parsed.data.messages : [{ comment: value.workspace.trim() }]
+        });
       }}
       className="flex min-h-0 flex-col overflow-hidden"
     >
@@ -158,9 +150,8 @@ function CrmFormBody({
         {shownError ? (
           <WorkspaceFormBanner title="Unable to save">{shownError}</WorkspaceFormBanner>
         ) : null}
-        <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)]">
           <section className="flex min-w-0 flex-col gap-5 rounded-md border border-border/80 bg-muted/10 p-4">
-            <h3 className="text-sm font-semibold text-foreground">Customer and message</h3>
             <WorkspaceFormGrid>
               <WorkspaceFormField label="Mobile" required>
                 <Input
@@ -196,16 +187,31 @@ function CrmFormBody({
               required
             >
               <WorkspaceMinimalEditor
-                className="flex min-h-[18rem] flex-1 flex-col [&>div:last-child]:min-h-0 [&>div:last-child]:flex-1 [&_.tiptap]:h-full [&_.tiptap]:min-h-full"
+                className="flex min-h-52 flex-1 flex-col sm:min-h-[18rem] [&>div:last-child]:min-h-0 [&>div:last-child]:flex-1 [&_.tiptap]:h-full [&_.tiptap]:min-h-full"
                 content={value.workspace}
                 placeholder="Enter the customer enquiry..."
-                onChange={(workspace) => setValue((current) => ({ ...current, workspace }))}
+                onChange={(workspace) =>
+                  setValue((current) => ({
+                    ...current,
+                    title: shouldUseMessageTitle(current) ? titleFromMessage(workspace) : current.title,
+                    workspace
+                  }))
+                }
+              />
+            </WorkspaceFormField>
+            <WorkspaceFormField label="Title">
+              <Input
+                maxLength={220}
+                placeholder="Auto-filled from the enquiry message"
+                value={value.title}
+                onChange={(event) =>
+                  setValue((current) => ({ ...current, title: event.target.value }))
+                }
               />
             </WorkspaceFormField>
           </section>
 
           <section className="min-w-0 space-y-5 rounded-md border border-border/80 bg-muted/10 p-4">
-            <h3 className="text-sm font-semibold text-foreground">Enquiry details</h3>
             <WorkspaceFormGrid columns={1}>
               <WorkspaceFormField label="List in">
                 <WorkspaceSelect
@@ -220,7 +226,8 @@ function CrmFormBody({
                     "Remote - AnyDesk",
                     "Follow",
                     "Escalation",
-                    "Admin"
+                    "Admin",
+                    "Job Out"
                   ].map((item) => ({ label: item, value: item }))}
                   placeholder="Choose Frappe group"
                   value={value.enquiryGroup}
@@ -269,11 +276,17 @@ function CrmFormBody({
               <WorkspaceFormField label="Status" required>
                 <WorkspaceSelect
                   options={[
+                    { label: "New", value: "new" },
                     { label: "Open", value: "open" },
                     { label: "Follow", value: "follow" },
+                    { label: "Hold for Approval", value: "hold-for-approval" },
+                    { label: "Hold for Spares", value: "hold-for-spares" },
+                    { label: "Hold for Job-Out", value: "hold-for-job-out" },
+                    { label: "Long Hold", value: "long-hold" },
                     { label: "Escalation", value: "escalation" },
                     { label: "Won", value: "won" },
-                    { label: "Lost", value: "lost" }
+                    { label: "Lost", value: "lost" },
+                    { label: "Re-open", value: "reopen" }
                   ]}
                   value={value.status}
                   onValueChange={(status) =>
@@ -284,58 +297,16 @@ function CrmFormBody({
                   }
                 />
               </WorkspaceFormField>
-            </WorkspaceFormGrid>
-            <div className="space-y-3 rounded-md border border-border/70 bg-background/70 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium">Schedules</div>
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    setValue((current) => ({
-                      ...current,
-                      schedules: [...current.schedules, { scheduledOn: "" }]
-                    }))
+              <WorkspaceFormField label="Due date">
+                <WorkspaceDatePicker
+                  ariaLabel="Enquiry due date"
+                  value={value.enquiryDate ?? ""}
+                  onValueChange={(enquiryDate) =>
+                    setValue((current) => ({ ...current, enquiryDate: enquiryDate || null }))
                   }
-                >
-                  <CalendarPlus className="size-4" /> Add date
-                </Button>
-              </div>
-              {value.schedules.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No schedule dates added.</p>
-              ) : null}
-              {value.schedules.map((schedule, index) => (
-                <div className="flex items-center gap-2" key={`${index}:${schedule.scheduledOn}`}>
-                  <WorkspaceDatePicker
-                    ariaLabel={`Schedule date ${index + 1}`}
-                    value={schedule.scheduledOn}
-                    onValueChange={(scheduledOn) =>
-                      setValue((current) => ({
-                        ...current,
-                        schedules: current.schedules.map((item, itemIndex) =>
-                          itemIndex === index ? { scheduledOn } : item
-                        )
-                      }))
-                    }
-                  />
-                  <Button
-                    aria-label={`Remove schedule date ${index + 1}`}
-                    size="icon"
-                    type="button"
-                    variant="ghost"
-                    onClick={() =>
-                      setValue((current) => ({
-                        ...current,
-                        schedules: current.schedules.filter((_, itemIndex) => itemIndex !== index)
-                      }))
-                    }
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+                />
+              </WorkspaceFormField>
+            </WorkspaceFormGrid>
           </section>
         </div>
       </div>
@@ -366,4 +337,12 @@ function getPlainText(value: string) {
     .replace(/&gt;/gu, ">")
     .replace(/\s+/gu, " ")
     .trim();
+}
+
+function titleFromMessage(value: string) {
+  return getPlainText(value).split(/\s+/u).slice(0, 8).join(" ");
+}
+
+function shouldUseMessageTitle(value: CrmEnquirySavePayload) {
+  return !value.title.trim() || value.title === titleFromMessage(value.workspace);
 }

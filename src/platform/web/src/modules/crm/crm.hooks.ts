@@ -10,6 +10,7 @@ import {
   createCrmEnquiry,
   forceDeleteCrmEnquiry,
   getCrmEnquiryOverview,
+  getCrmReport,
   listCrmCustomerReferences,
   listCrmEnquiries,
   listCrmEnquiryReferences,
@@ -24,7 +25,8 @@ import type {
   CrmEnquiry,
   CrmEnquirySavePayload,
   CrmEnquiryStatusFilter,
-  CrmEnquiryView
+  CrmEnquiryView,
+  CrmReportName
 } from "./crm.types";
 
 export const crmEnquiryQueryKey = ["crm", "enquiries"] as const;
@@ -34,6 +36,16 @@ export function useCrmOverviewQuery(enabled = true) {
     enabled,
     queryFn: getCrmEnquiryOverview,
     queryKey: [...crmEnquiryQueryKey, "overview"]
+  });
+}
+
+export function useCrmReportQuery(
+  name: CrmReportName,
+  filters: { assignedToEmployee?: string; fromDate?: string; group?: string; toDate?: string }
+) {
+  return useQuery({
+    queryFn: () => getCrmReport(name, filters),
+    queryKey: [...crmEnquiryQueryKey, "report", name, filters]
   });
 }
 
