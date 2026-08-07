@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUp, RefreshCw } from "lucide-react";
+import { ArrowDown, ArrowUp, RefreshCw, RotateCcw } from "lucide-react";
 import { Button } from "@codexsun/ui/components/button";
 import { Card, CardContent } from "@codexsun/ui/components/card";
 import { WorkspaceDatePicker } from "@codexsun/ui/workspace/date-picker";
@@ -44,6 +44,11 @@ export function CrmReports() {
   const query = useCrmReportQuery(report, filters);
   const users = useCrmUsersQuery();
   const listIn = report === "list-in-status";
+
+  function resetFilters() {
+    setDraft({ ...emptyFilters });
+    setFilters({ ...emptyFilters });
+  }
 
   return (
     <WorkspacePage
@@ -126,6 +131,9 @@ export function CrmReports() {
           <Button className="shrink-0" onClick={() => setFilters(draft)} type="button">
             Apply filters
           </Button>
+          <Button className="shrink-0" onClick={resetFilters} type="button" variant="outline">
+            <RotateCcw className="size-4" /> Reset
+          </Button>
         </CardContent>
       </Card>
       {query.isError ? (
@@ -135,7 +143,7 @@ export function CrmReports() {
           </CardContent>
         </Card>
       ) : null}
-      {query.data ? <ReportTable report={query.data} /> : null}
+      {query.data ? <ReportTable key={`${report}:${JSON.stringify(filters)}`} report={query.data} /> : null}
     </WorkspacePage>
   );
 }

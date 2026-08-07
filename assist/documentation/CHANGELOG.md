@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.22
+Current version: 1.0.23
 
-Release tag: v-1.0.22
+Release tag: v-1.0.23
 
-Changelog label: v 1.0.22
+Changelog label: v 1.0.23
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -35,6 +35,24 @@ New entries must keep database-facing work and application code work separate.
   remain available only in Open Enquiry.
 - Restricted the immutable system-user guard to user ID 1, allowing administrators to edit and
   reassign the role of every other administrator through the Users workspace.
+
+## v-1.0.23
+
+### [v 1.0.23] 2026-08-07 4:39 pm - CRM reports and enquiry workflow refinements
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.23.
+- Added an Administrator-only CRM reports workspace that reads the live Frappe List-In and Owner
+  status reports through the signed-in user's verified Frappe connection.
+- Added report date, employee, and List-In filters with searchable live lookups, sorting, reset,
+  Excel-style borders, totals, serial numbers, and readable zero-value styling.
+- Updated enquiry entry and detail behavior with automatic short titles, responsive mobile layout,
+  current Frappe statuses, compact comments, and a static Reply action for the latest comment.
 
 ## v-1.0.22
 
