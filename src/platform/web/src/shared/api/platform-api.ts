@@ -27,6 +27,14 @@ export function clearToken(): void {
   } catch {}
 }
 
+export function clearBrowserSession(): void {
+  clearToken();
+  try {
+    sessionStorage.clear();
+    localStorage.removeItem(SESSION_EXPIRED_WARNING_KEY);
+  } catch {}
+}
+
 export function tokenIsCurrent(token = getToken()): boolean {
   const expiresAt = tokenExpiresAt(token);
   return expiresAt !== null && expiresAt > Date.now();
@@ -156,4 +164,18 @@ export async function logout(): Promise<void> {
     if (getToken()) await apiPost("/auth/logout");
   } catch {}
   clearToken();
+}
+
+export async function resetBrowserSession(): Promise<void> {
+  try {
+    await logout();
+  } finally {
+    clearBrowserSession();
+    await clearBrowserCache();
+  }
+}
+
+async function clearBrowserCache(): Promise<void> {
+  if (!("caches" in window)) return;
+  await Promise.all((await window.caches.keys()).map((key) => window.caches.delete(key)));
 }

@@ -128,13 +128,7 @@ export class UserService {
   async forceDelete(id: string) {
     await this.context.authorize("identity.user.delete");
     const current = await this.mutable(id);
-    const count = await this.repository.dependentCount(current.id);
-    if (count)
-      throw AppError.conflict(
-        `User cannot be force deleted because ${count} role assignments reference it.`,
-        { count }
-      );
-    const record = await this.delete(current.id);
+    const record = await this.deleteWithRoleAssignments(current.id);
     await this.audit("force-deleted", record);
     return record;
   }
@@ -191,9 +185,9 @@ export class UserService {
       throw error;
     }
   }
-  private async delete(id: number) {
+  private async deleteWithRoleAssignments(id: number) {
     try {
-      return (await this.repository.forceDelete(id))!;
+      return (await this.repository.forceDeleteWithRoleAssignments(id))!;
     } catch (error) {
       if (isReferenced(error)) {
         throw AppError.conflict(

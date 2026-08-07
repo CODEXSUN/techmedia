@@ -59,8 +59,8 @@ export class RolePermissionService {
   private async mutable(id: string): Promise<RolePermission> {
     const r = await this.repository.find(id);
     if (!r) throw AppError.notFound("Role-permission assignment was not found.");
-    if (r.isProtected)
-      throw AppError.forbidden("Protected role-permission assignments cannot be modified.");
+    if (r.roleKey === "super-admin")
+      throw AppError.forbidden("SuperAdmin permissions are fixed and cannot be modified.");
     return r;
   }
   private audit(action: string, r: RolePermission) {

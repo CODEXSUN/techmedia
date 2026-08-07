@@ -1,233 +1,183 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCw } from "lucide-react";
-import { toast } from "@codexsun/ui/components/sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from "@codexsun/ui/components/alert-dialog";
+import { Check, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@codexsun/ui/components/button";
+import { Checkbox } from "@codexsun/ui/components/checkbox";
+import { toast } from "@codexsun/ui/components/sonner";
 import { cn } from "@codexsun/ui/lib/utils";
-import { WorkspaceFilters } from "@codexsun/ui/workspace/filters";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";
-import { WorkspacePagination } from "@codexsun/ui/workspace/pagination";
-import { buildShowingLabel } from "@codexsun/ui/workspace/utils";
-import { RolePermissionForm } from "./role-permission.form";
 import {
   useRolePermissionLookups,
   useRolePermissionMutations,
   useRolePermissionsQuery
 } from "./role-permission.hooks";
-import { RolePermissionList } from "./role-permission.list";
-import type { RolePermission, RolePermissionSavePayload } from "./role-permission.types";
 
-type PendingAction = { record: RolePermission; type: "force-delete" | "restore" | "suspend" };
+const protectedNamespaces = new Set(["identity", "settings"]);
 
 export function RolePermissionWorkspace() {
-  const query = useRolePermissionsQuery();
+  const assignments = useRolePermissionsQuery();
   const lookups = useRolePermissionLookups();
   const mutations = useRolePermissionMutations();
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
-  const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(100);
-  const [editing, setEditing] = useState<RolePermission | null | undefined>(undefined);
-  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return (query.data ?? []).filter(
-      (record) =>
-        (status === "all" || record.status === status) &&
-        (!term ||
-          record.roleLabel.toLowerCase().includes(term) ||
-          record.roleKey.toLowerCase().includes(term) ||
-          record.permissionLabel.toLowerCase().includes(term) ||
-          record.permissionKey.toLowerCase().includes(term))
-    );
-  }, [query.data, search, status]);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
-  const currentPage = Math.min(page, totalPages);
-  const records = filtered.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
-  const saveError = mutations.create.error ?? mutations.update.error;
+  const [roleId, setRoleId] = useState<number>();
+  const roles = lookups.data?.first ?? [];
+  const permissions = lookups.data?.second ?? [];
+  const selectedRole = roles.find((role) => role.id === roleId) ?? roles[0];
 
-  async function save(value: RolePermissionSavePayload) {
+  useEffect(() => {
+    if (!roleId && selectedRole) setRoleId(selectedRole.id);
+  }, [roleId, selectedRole]);
+
+  const assignedByPermission = useMemo(
+    () =>
+      new Map(
+        (assignments.data ?? [])
+          .filter((assignment) => assignment.roleId === selectedRole?.id && assignment.status === "active")
+          .map((assignment) => [assignment.permissionId, assignment])
+      ),
+    [assignments.data, selectedRole?.id]
+  );
+  const groups = useMemo(() => groupPermissions(permissions), [permissions]);
+  const lockedRole = selectedRole?.key === "super-admin";
+
+  async function toggle(permissionId: number, checked: boolean) {
+    if (!selectedRole || lockedRole) return;
+    const permission = permissions.find((item) => item.id === permissionId);
+    if (!permission || isLockedPermission(selectedRole.key, permission.key)) return;
     try {
-      const record = editing
-        ? await mutations.update.mutateAsync({ id: editing.id, payload: value })
-        : await mutations.create.mutateAsync(value);
-      toast.success(`Role permission ${editing ? "updated" : "granted"}`, {
-        description: `${record.roleLabel} · ${record.permissionLabel}`
-      });
-      setEditing(undefined);
-    } catch {}
-  }
-  async function act(action: PendingAction) {
-    try {
-      const record =
-        action.type === "force-delete"
-          ? await mutations.forceDelete.mutateAsync(action.record)
-          : action.type === "restore"
-            ? await mutations.activate.mutateAsync(action.record)
-            : await mutations.deactivate.mutateAsync(action.record);
-      toast.success(
-        action.type === "force-delete"
-          ? "Role permission permanently removed"
-          : action.type === "restore"
-            ? "Role permission restored"
-            : "Role permission suspended",
-        { description: `${record.roleLabel} · ${record.permissionLabel}` }
-      );
-      setPendingAction(null);
+      const current = assignedByPermission.get(permissionId);
+      if (checked && !current) {
+        await mutations.create.mutateAsync({ permissionId, roleId: selectedRole.id, status: "active" });
+      }
+      if (!checked && current) await mutations.forceDelete.mutateAsync(current);
+      toast.success("Access controls saved");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The role-permission action failed.");
+      toast.error(error instanceof Error ? error.message : "The access control could not be saved.");
+    }
+  }
+
+  async function setAll(checked: boolean) {
+    if (!selectedRole || lockedRole) return;
+    const eligible = permissions.filter(
+      (permission) => !isLockedPermission(selectedRole.key, permission.key)
+    );
+    for (const permission of eligible) {
+      if (checked !== assignedByPermission.has(permission.id)) {
+        await toggle(permission.id, checked);
+      }
     }
   }
 
   return (
     <WorkspacePage
       actions={
-        <div className="flex items-center gap-2">
-          <Button
-            className="h-9 rounded-md"
-            disabled={query.isFetching || lookups.isFetching}
-            onClick={() => {
-              void query.refetch();
-              void lookups.refetch();
-            }}
-            type="button"
-            variant="outline"
-          >
-            <RefreshCw
-              className={cn("size-4", (query.isFetching || lookups.isFetching) && "animate-spin")}
-            />
-            Refresh
-          </Button>
-          <Button className="h-9 rounded-md" onClick={() => setEditing(null)} type="button">
-            <Plus className="size-4" />
-            New role permission
-          </Button>
-        </div>
+        <Button
+          disabled={assignments.isFetching || lookups.isFetching}
+          onClick={() => {
+            void assignments.refetch();
+            void lookups.refetch();
+          }}
+          type="button"
+          variant="outline"
+        >
+          <RefreshCw className={cn("size-4", (assignments.isFetching || lookups.isFetching) && "animate-spin")} />
+          Refresh
+        </Button>
       }
-      description="Grant permissions to roles."
-      technicalName="page.application.access.role-permissions"
-      title="Role Permissions"
+      description="Select a role, then enable the features that it can use."
+      technicalName="page.application.access.controls"
+      title="Access controls"
     >
-      <WorkspaceFilters
-        filterOptions={[
-          { id: "all", label: "All role permissions" },
-          { id: "active", label: "Active" },
-          { id: "inactive", label: "Inactive" }
-        ]}
-        filterValue={status}
-        onFilterValueChange={(value) => {
-          setStatus(value);
-          setPage(1);
-        }}
-        onSearchValueChange={(value) => {
-          setSearch(value);
-          setPage(1);
-        }}
-        searchPlaceholder="Search role permissions"
-        searchValue={search}
-      />
-      <RolePermissionList
-        loading={query.isFetching && !query.data}
-        onEdit={setEditing}
-        onForceDelete={(record) => setPendingAction({ record, type: "force-delete" })}
-        onRestore={(record) => setPendingAction({ record, type: "restore" })}
-        onSuspend={(record) => setPendingAction({ record, type: "suspend" })}
-        records={records}
-      />
-      <WorkspacePagination
-        page={currentPage}
-        rowsPerPage={rowsPerPage}
-        showingLabel={buildShowingLabel(currentPage, rowsPerPage, filtered.length)}
-        singularLabel="role permission"
-        totalCount={filtered.length}
-        totalPages={totalPages}
-        onNextPage={() => setPage((value) => Math.min(totalPages, value + 1))}
-        onPageChange={setPage}
-        onPreviousPage={() => setPage((value) => Math.max(1, value - 1))}
-        onRowsPerPageChange={(value) => {
-          setRowsPerPage(value);
-          setPage(1);
-        }}
-      />
-      <RolePermissionForm
-        {...(saveError instanceof Error ? { error: saveError.message } : {})}
-        loading={mutations.create.isPending || mutations.update.isPending}
-        lookupLoading={lookups.isLoading}
-        onCancel={() => setEditing(undefined)}
-        onSubmit={(value) => void save(value)}
-        open={editing !== undefined}
-        permissions={lookups.data?.second ?? []}
-        record={editing ?? null}
-        roles={lookups.data?.first ?? []}
-      />
-      <RolePermissionActionDialog
-        action={pendingAction}
-        loading={
-          mutations.activate.isPending ||
-          mutations.deactivate.isPending ||
-          mutations.forceDelete.isPending
-        }
-        onCancel={() => setPendingAction(null)}
-        onConfirm={() => pendingAction && void act(pendingAction)}
-      />
+      <section className="grid gap-5 xl:grid-cols-[14rem_minmax(0,1fr)]">
+        <aside className="flex flex-col gap-2" aria-label="Roles">
+          {roles.map((role) => {
+            const selected = role.id === selectedRole?.id;
+            return (
+              <button
+                className={cn(
+                  "rounded-md border px-4 py-3 text-left transition-colors",
+                  selected ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted/60"
+                )}
+                key={role.id}
+                onClick={() => setRoleId(role.id)}
+                type="button"
+              >
+                <span className="block text-sm font-semibold">{role.label}</span>
+                <span className={cn("mt-1 block text-xs", selected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                  {role.key === "super-admin" ? "All controls. No CRM desk." : role.key === "admin" ? "Full CRM and account access." : "Choose CRM features."}
+                </span>
+              </button>
+            );
+          })}
+        </aside>
+        <section className="min-w-0 rounded-md border bg-card">
+          <header className="sticky left-0 flex min-w-[44rem] flex-wrap items-center justify-between gap-3 border-b bg-card px-5 py-4">
+            <div>
+              <h2 className="text-base font-semibold">{selectedRole?.label ?? "Role"} permissions</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {lockedRole ? "SuperAdmin has every feature. CRM stays unavailable without an employee code." : "Turn on only the features this role needs."}
+              </p>
+            </div>
+            {lockedRole ? (
+              <span className="inline-flex items-center gap-2 text-sm font-medium text-primary">
+                <ShieldCheck className="size-4" />
+                Full access
+              </span>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button disabled={mutations.create.isPending || mutations.forceDelete.isPending} onClick={() => void setAll(true)} size="sm" type="button" variant="outline">
+                  Select all
+                </Button>
+                <Button disabled={mutations.create.isPending || mutations.forceDelete.isPending} onClick={() => void setAll(false)} size="sm" type="button" variant="outline">
+                  Clear all
+                </Button>
+              </div>
+            )}
+          </header>
+          <div className="overflow-x-auto">
+            <div className="flex min-w-max gap-5 p-5">
+            {groups.map(([namespace, entries]) => (
+              <fieldset className="w-80 shrink-0" key={namespace}>
+                <legend className="mb-2 text-sm font-semibold capitalize">{namespace}</legend>
+                <div className="divide-y rounded-md border">
+                  {entries.map((permission) => {
+                    const disabled = lockedRole || isLockedPermission(selectedRole?.key ?? "", permission.key);
+                    const checked = lockedRole || assignedByPermission.has(permission.id);
+                    return (
+                      <label className={cn("flex items-center gap-3 px-3 py-2.5", disabled && "opacity-65")} key={permission.id}>
+                        <Checkbox
+                          checked={checked}
+                          disabled={disabled || mutations.create.isPending || mutations.forceDelete.isPending}
+                          onCheckedChange={(value) => void toggle(permission.id, value === true)}
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium">{permission.label}</span>
+                          <span className="block truncate font-mono text-xs text-muted-foreground">{permission.key}</span>
+                        </span>
+                        {checked ? <Check className="ml-auto size-4 text-primary" /> : null}
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ))}
+            </div>
+          </div>
+        </section>
+      </section>
     </WorkspacePage>
   );
 }
 
-function RolePermissionActionDialog({
-  action,
-  loading,
-  onCancel,
-  onConfirm
-}: {
-  action: PendingAction | null;
-  loading: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  const destructive = action?.type === "force-delete";
-  const verb = action?.type === "restore" ? "Restore" : destructive ? "Force delete" : "Suspend";
-  const label = action
-    ? `${action.record.roleLabel} · ${action.record.permissionLabel}`
-    : "This role permission";
-  return (
-    <AlertDialog open={action !== null} onOpenChange={(open) => !open && onCancel()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{verb} role permission?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {destructive
-              ? `${label} will be permanently removed.`
-              : `${label} will be marked ${action?.type === "restore" ? "active" : "inactive"}.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            className={
-              destructive
-                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : undefined
-            }
-            disabled={loading}
-            onClick={onConfirm}
-          >
-            {verb}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+function groupPermissions(permissions: { id: number; key: string; label: string }[]) {
+  return Object.entries(
+    permissions.reduce<Record<string, { id: number; key: string; label: string }[]>>((groups, permission) => {
+      const namespace = permission.key.split(".")[0] ?? "other";
+      groups[namespace] ??= [];
+      groups[namespace].push(permission);
+      return groups;
+    }, {})
   );
+}
+
+function isLockedPermission(roleKey: string, permissionKey: string) {
+  return roleKey !== "super-admin" && protectedNamespaces.has(permissionKey.split(".")[0] ?? "");
 }

@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.23
+Current version: 1.0.24
 
-Release tag: v-1.0.23
+Release tag: v-1.0.24
 
-Changelog label: v 1.0.23
+Changelog label: v 1.0.24
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -35,6 +35,31 @@ New entries must keep database-facing work and application code work separate.
   remain available only in Open Enquiry.
 - Restricted the immutable system-user guard to user ID 1, allowing administrators to edit and
   reassign the role of every other administrator through the Users workspace.
+- Made CRM Reports navigation and direct route access depend on `crm.report.view` for the signed-in
+  role, including Admin.
+- Documented that role and access-control changes require a new sign-in before the browser receives
+  its updated permission token.
+
+## v-1.0.24
+
+### [v 1.0.24] 2026-08-07 6:45 pm - Access controls and session recovery
+
+#### Database Changes
+
+- Database update: Yes.
+- Updated repeatable Identity seeds to use only SuperAdmin, Admin, and User.
+- Set `admin@admin.com` as the protected SuperAdmin. The seed reads its password from `.env`.
+- Kept one active role assignment for each user.
+- Made force delete remove a user's role assignments and user record in one transaction.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.24.
+- Added role access controls with CRM report access, Select all, Clear all, and horizontally scrollable permission groups.
+- Restored Roles and Permissions in the Identity menu. User Roles remain part of the User form.
+- Added `/sa/refresh` to clear session storage, query cache, and browser cache before a new login.
+- Removed Add user from the profile menu and routed sign out through the session refresh page.
+- Added pointer cursors for enabled buttons and links.
 
 ## v-1.0.23
 

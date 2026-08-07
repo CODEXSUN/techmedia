@@ -13,12 +13,18 @@ const LoginPage = lazy(() =>
 const LandingLoginPage = lazy(() =>
   import("../public/login/LoginPage").then((module) => ({ default: module.LandingLoginPage }))
 );
+const SessionRefreshPage = lazy(() =>
+  import("../public/session-refresh/SessionRefreshPage").then((module) => ({
+    default: module.SessionRefreshPage
+  }))
+);
 
 const rootRoute = createRootRoute();
 const routeTree = rootRoute.addChildren([
   createRoute({ component: LandingLoginPage, getParentRoute: () => rootRoute, path: "/" }),
   createRoute({ component: HealthPage, getParentRoute: () => rootRoute, path: "/status" }),
   createRoute({ component: LoginPage, getParentRoute: () => rootRoute, path: "/login" }),
+  createRoute({ component: SessionRefreshPage, getParentRoute: () => rootRoute, path: "/sa/refresh" }),
   createRoute({ component: AppDesk, getParentRoute: () => rootRoute, path: "/app/$" })
 ]);
 

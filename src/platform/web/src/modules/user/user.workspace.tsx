@@ -238,7 +238,7 @@ function UserActionDialog({
           <AlertDialogTitle>{verb} user?</AlertDialogTitle>
           <AlertDialogDescription>
             {destructive
-              ? `${action?.record.name ?? "This user"} will be permanently removed. Role assignments may block deletion.`
+              ? `${action?.record.name ?? "This user"} and all role assignments will be permanently removed.`
               : `${action?.record.name ?? "This user"} will be marked ${action?.type === "restore" ? "active" : "inactive"}.`}
           </AlertDialogDescription>
         </AlertDialogHeader>

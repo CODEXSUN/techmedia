@@ -4,8 +4,9 @@ import type { TechMediaDatabase } from "../../database/schema.js";
 
 export async function seedUserRoleModule(database: Kysely<TechMediaDatabase>) {
   await sql`DELETE ur FROM user_roles ur
-    INNER JOIN roles r ON r.id=ur.role_id
-    WHERE r.\`key\` IN ('super-admin','super_admin','superadmin')`.execute(database);
+    INNER JOIN users u ON u.id=ur.user_id
+    INNER JOIN roles selected_role ON selected_role.\`key\`=u.role
+    WHERE ur.role_id<>selected_role.id`.execute(database);
 
   const users = await database
     .selectFrom("users")

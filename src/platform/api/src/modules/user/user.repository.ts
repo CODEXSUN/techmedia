@@ -193,6 +193,15 @@ export class UserRepository {
     await sql`DELETE FROM users WHERE id=${id}`.execute(this.database);
     return record;
   }
+  async forceDeleteWithRoleAssignments(id: number) {
+    const record = await this.find(id);
+    if (!record) return null;
+    await this.database.transaction().execute(async (transaction) => {
+      await sql`DELETE FROM user_roles WHERE user_id=${id}`.execute(transaction);
+      await sql`DELETE FROM users WHERE id=${id}`.execute(transaction);
+    });
+    return record;
+  }
 }
 function mapRow(row: Row): User {
   return {

@@ -37,9 +37,8 @@ export async function migrateUserModule(database: Kysely<TechMediaDatabase>) {
       .raw("ALTER TABLE users ADD COLUMN is_protected BOOLEAN NOT NULL DEFAULT FALSE AFTER status")
       .execute(database);
   }
-  await sql`UPDATE users SET role='admin' WHERE role IN ('super-admin','super_admin','superadmin')`.execute(
-    database
-  );
+  await sql`UPDATE users SET role='super-admin' WHERE id=1`.execute(database);
+  await sql`UPDATE users SET role='user' WHERE id<>1 AND role IN ('super_admin','superadmin','manager','staff','auditor')`.execute(database);
   await sql
     .raw(
       `ALTER TABLE users

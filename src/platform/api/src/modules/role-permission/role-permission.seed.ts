@@ -3,69 +3,36 @@ import { sql, type Kysely } from "kysely";
 import type { TechMediaDatabase } from "../../database/schema.js";
 
 export async function seedRolePermissionModule(database: Kysely<TechMediaDatabase>) {
-  await sql`DELETE rp FROM role_permissions rp
-    INNER JOIN roles r ON r.id=rp.role_id
-    WHERE r.\`key\` IN ('super-admin','super_admin','superadmin')`.execute(database);
-  await sql`DELETE FROM roles
-    WHERE \`key\` IN ('super-admin','super_admin','superadmin')
-      AND NOT EXISTS (SELECT 1 FROM user_roles WHERE role_id=roles.id)
-      AND NOT EXISTS (SELECT 1 FROM role_permissions WHERE role_id=roles.id)`.execute(database);
-
-  const admin = await database
+  const superAdmin = await database
     .selectFrom("roles")
     .select("id")
-    .where("key", "=", "admin")
+    .where("key", "=", "super-admin")
     .where("status", "=", "active")
     .executeTakeFirst();
-  if (!admin) return;
+  if (!superAdmin) return;
   const permissions = await database.selectFrom("permissions").select("id").execute();
   for (const permission of permissions) {
     await sql`INSERT INTO role_permissions (uuid,role_id,permission_id,status,is_protected)
-      VALUES (${stable(`role-permission:${admin.id}:${permission.id}`)},${admin.id},${permission.id},'active',TRUE)
+      VALUES (${stable(`role-permission:${superAdmin.id}:${permission.id}`)},${superAdmin.id},${permission.id},'active',TRUE)
       ON DUPLICATE KEY UPDATE status='active',is_protected=TRUE`.execute(database);
   }
+  await sql`DELETE rp FROM role_permissions rp
+    INNER JOIN roles r ON r.id=rp.role_id
+    INNER JOIN permissions p ON p.id=rp.permission_id
+    WHERE r.\`key\` IN ('admin','user')
+      AND (p.\`key\` LIKE 'identity.%' OR p.\`key\` LIKE 'settings.%')`.execute(database);
 
   const liveFrappeDefaults: Record<string, string[]> = {
-    auditor: [
-      "crm.enquiry.assigned.view",
-      "crm.enquiry.created.view",
-      "crm.enquiry.open.view",
-      "crm.enquiry.create",
-      "estimate.view",
-      "quotation.view"
-    ],
-    manager: [
+    admin: [
       "crm.enquiry.assigned.view",
       "crm.enquiry.created.view",
       "crm.enquiry.open.view",
       "crm.enquiry.create",
       "crm.enquiry.update",
       "crm.enquiry.assign",
+      "crm.enquiry.force-delete",
       "crm.job.manage",
-      "estimate.view",
-      "estimate.create",
-      "estimate.update",
-      "quotation.view",
-      "quotation.create",
-      "quotation.update"
-    ],
-    staff: [
-      "crm.enquiry.assigned.view",
-      "crm.enquiry.created.view",
-      "crm.enquiry.create",
-      "crm.enquiry.update",
-      "estimate.view",
-      "estimate.create",
-      "estimate.update",
-      "quotation.view",
-      "quotation.create",
-      "quotation.update"
-    ],
-    user: [
-      "crm.enquiry.assigned.view",
-      "crm.enquiry.created.view",
-      "crm.enquiry.create",
-      "crm.enquiry.update",
+      "crm.report.view",
       "estimate.view",
       "estimate.create",
       "estimate.update",
@@ -89,8 +56,8 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
       .execute();
     for (const permission of rolePermissions) {
       await sql`INSERT INTO role_permissions (uuid,role_id,permission_id,status,is_protected)
-        VALUES (${stable(`role-permission:${role.id}:${permission.id}`)},${role.id},${permission.id},'active',TRUE)
-        ON DUPLICATE KEY UPDATE status='active',is_protected=TRUE`.execute(database);
+      VALUES (${stable(`role-permission:${role.id}:${permission.id}`)},${role.id},${permission.id},'active',FALSE)
+        ON DUPLICATE KEY UPDATE is_protected=FALSE`.execute(database);
     }
   }
 }
