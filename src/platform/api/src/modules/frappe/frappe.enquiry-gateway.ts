@@ -23,7 +23,8 @@ const enquiryFields = [
   "status",
   "title",
   "creation",
-  "modified"
+  "modified",
+  "modified_by"
 ];
 
 export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory = (context) => {
@@ -406,6 +407,7 @@ function toEnquiry(
     })),
     mobile: document.mobile?.trim() ?? "",
     modifiedAt: timestamp(document.modified ?? document.creation),
+    modifiedBy: document.modified_by?.trim() || null,
     name: document.name,
     priority: fromFrappePriority(document.priority),
     status: document.status?.trim() || "Open",
@@ -563,7 +565,9 @@ function requiredName(value: string) {
 function timestamp(value?: string) {
   if (!value) return new Date(0).toISOString();
   const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const date = new Date(normalized.endsWith("Z") ? normalized : `${normalized}Z`);
+  const date = new Date(
+    /[zZ]$|[+-]\d{2}:\d{2}$/u.test(normalized) ? normalized : `${normalized}+05:30`
+  );
   return Number.isNaN(date.valueOf()) ? new Date(0).toISOString() : date.toISOString();
 }
 

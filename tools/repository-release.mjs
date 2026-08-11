@@ -65,10 +65,10 @@ function showVersion() {
   console.log(`${readJson(join(root, "package.json")).name} ${rootVersion()}`);
 }
 
-function bumpVersion() {
+function bumpVersion(titleOverride) {
   const currentVersion = rootVersion();
   const nextVersion = nextPatch(currentVersion);
-  const title = option("--title") ?? "Version update";
+  const title = titleOverride ?? option("--title") ?? "Version update";
   const databaseUpdate = databaseUpdateMode();
 
   if (args.includes("--dry-run")) {
@@ -130,60 +130,92 @@ function checkVersions() {
 
 async function githubNow() {
   const dryRun = args.includes("--dry-run");
-  const autoApprove = args.includes("--yes");
-  const currentVersion = rootVersion();
-  const nextVersion = nextPatch(currentVersion);
-  let shouldBump = autoApprove && args.includes("--bump");
-  let title = option("--title") ?? "Version update";
+  let currentVersion = rootVersion();
+  let changelogEntry = latestEntry(currentVersion);
+  let defaultMessage = releaseSubject(currentVersion, changelogEntry.title);
   const status = git(["status", "--porcelain"], true);
   const files = status ? status.split(/\r?\n/u).filter(Boolean) : [];
-  console.log(`Repository: ${readJson(join(root, "package.json")).name}`);
-  console.log(`Version:    ${currentVersion}${shouldBump ? ` -> ${nextVersion}` : ""}`);
-  console.log(`Changes:    ${files.length}`);
-  files.forEach((file) => console.log(`  ${file}`));
+  console.log(`\n  Changelog version: ${currentVersion}`);
+  console.log(`  Commit subject:    ${defaultMessage}`);
+  console.log(`  Uncommitted:       ${files.length} files\n`);
+
+  if (files.length > 0) {
+    files.forEach((file) => console.log(`    ${file}`));
+    console.log("");
+  }
 
   if (dryRun) {
-    console.log(`Would offer patch bump: ${currentVersion} -> ${nextVersion}`);
-    console.log(`Default title: ${title}`);
-    console.log("Dry run only. No version bump, pull, add, commit, or push was performed.");
+    console.log(renderReviewBox({ fileCount: files.length, subject: defaultMessage, version: currentVersion }));
+    console.log("  Dry run only. No pull, commit, or push was performed.\n");
     return;
   }
 
-  if (!autoApprove) {
-    await withPrompt(async (ask) => {
-      shouldBump = isYes(
-        await ask(`Bump next version (${currentVersion} -> ${nextVersion})? [y/N]: `)
-      );
-      if (shouldBump) {
-        title = (await ask(`Version title [${title}]: `, title)).trim() || title;
-      }
-      const version = shouldBump ? nextVersion : currentVersion;
-      const subject = releaseSubject(version, shouldBump ? title : latestEntry(version).title);
-      console.log(`Version:    ${version}`);
-      console.log(`Subject:    ${subject}`);
-      if (
-        !isYes(
-          await ask(
-            `Continue with ${shouldBump ? "version bump, pull, commit, and push" : "pull, commit, and push"}? [y/N]: `
-          )
-        )
-      ) {
-        throw new Error("Cancelled.");
-      }
-    });
+  const subject = await withPrompt(async (ask) => {
+    console.log(renderReviewBox({ fileCount: files.length, subject: defaultMessage, version: currentVersion }));
+    const shouldBump = isYes(await ask("  Bump next version before commit? [y/N]: "));
+
+    if (shouldBump) {
+      const titleAnswer = await ask("  Version title [Version update]: ", "Version update");
+      const title = titleAnswer.trim() || "Version update";
+      const previousVersion = currentVersion;
+      bumpVersion(title);
+      currentVersion = rootVersion();
+      changelogEntry = latestEntry(currentVersion);
+      defaultMessage = releaseSubject(currentVersion, changelogEntry.title);
+      console.log(`\n  Bumped ${previousVersion} -> ${currentVersion}`);
+      console.log(`  Commit subject: ${defaultMessage}\n`);
+    }
+
+    const message = await ask(`  Commit message [${defaultMessage}]: `, defaultMessage);
+    if (!isYes(await ask("  Continue with pull, commit, and push? [y/N]: "))) {
+      throw new Error("Cancelled.");
+    }
+    return message.trim() || defaultMessage;
+  });
+
+  checkAndPull();
+
+  console.log("  > git add -A");
+  git(["add", "-A"]);
+  console.log(`  > git commit -m \"${subject}\"`);
+  git(["commit", "-m", subject]);
+  console.log("  > git push");
+  git(["push"]);
+  console.log(`\n  Done - ${subject}\n`);
+}
+
+function checkAndPull() {
+  const upstream = gitQuiet(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]);
+  if (!upstream) {
+    console.log("\n  No upstream branch found. Skipping pull.\n");
+    return;
   }
 
-  if (shouldBump) bumpVersion(title);
-  const version = rootVersion();
-  const subject = releaseSubject(version, shouldBump ? title : latestEntry(version).title);
-  const upstream = gitQuiet(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]);
-  if (upstream) git(["pull", "--rebase", "--autostash"]);
+  console.log("\n  > git fetch");
+  git(["-c", "maintenance.auto=false", "-c", "gc.auto=0", "fetch", "--quiet"]);
+  const behind = Number(gitQuiet(["rev-list", "--count", `HEAD..${upstream}`]) || 0);
+  if (!behind) {
+    console.log("  Already up to date.\n");
+    return;
+  }
 
-  git(["add", "-A"]);
-  const staged = git(["diff", "--cached", "--name-only"], true);
-  if (staged) git(["commit", "-m", subject]);
-  else console.log("No staged changes; skipping commit.");
-  git(["push"]);
+  console.log(`  Branch is behind ${upstream} by ${behind} commit(s).`);
+  console.log("  > git pull --rebase --autostash");
+  git(["-c", "maintenance.auto=false", "-c", "gc.auto=0", "pull", "--rebase", "--autostash"]);
+  console.log("");
+}
+
+function renderReviewBox({ fileCount, subject, version }) {
+  const rows = [
+    "GitHub Commit Review",
+    `Version: ${version}`,
+    `Subject: ${subject}`,
+    `Files: ${fileCount}`
+  ];
+  const width = Math.max(...rows.map((row) => row.length)) + 4;
+  const border = `+${"-".repeat(width)}+`;
+  const lines = rows.map((row) => `| ${row.padEnd(width - 2)} |`);
+  return ["", border, ...lines, border, ""].join("\n");
 }
 
 function releaseSubject(version, title) {
@@ -396,14 +428,14 @@ function askWindowsModal(question, defaultValue = "") {
         "Add-Type -AssemblyName System.Windows.Forms",
         `$result = [System.Windows.Forms.MessageBox]::Show(${quotePowerShellString(
           question.replace(/\s*\[y\/N\]:\s*$/iu, "")
-        )}, 'TechMedia release', 'YesNo', 'Question')`,
+        )}, 'GitHub Commit Review', 'YesNo', 'Question')`,
         "if ($result -eq 'Yes') { 'yes' } else { 'no' }"
       ].join("; ")
     : [
         "Add-Type -AssemblyName Microsoft.VisualBasic",
         `[Microsoft.VisualBasic.Interaction]::InputBox(${quotePowerShellString(
           question
-        )}, 'TechMedia release', ${quotePowerShellString(defaultValue)})`
+        )}, 'GitHub Commit Review', ${quotePowerShellString(defaultValue)})`
       ].join("; ");
   return execFileSync("powershell.exe", ["-NoProfile", "-STA", "-Command", script], {
     encoding: "utf8",

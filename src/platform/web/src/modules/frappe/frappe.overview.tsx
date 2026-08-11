@@ -68,7 +68,12 @@ export function FrappeOverview({ canUpdate }: { canUpdate: boolean }) {
               )}
               {query.data?.lastCheckedAt ? (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Last checked {new Date(query.data.lastCheckedAt).toLocaleString()}
+                  Last checked{" "}
+                  {new Date(query.data.lastCheckedAt).toLocaleString("en-IN", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                    timeZone: "Asia/Kolkata"
+                  })}
                 </p>
               ) : null}
             </div>

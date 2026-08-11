@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { format } from "date-fns";
 import {
   Activity,
   ArrowLeft,
@@ -312,7 +311,7 @@ export function CrmShow({
       }
       className="!w-full !max-w-none px-1 lg:px-2"
       technicalName="page.crm.enquiry.show"
-      title={`#${record.id} · ${record.mobile || "—"} · ${record.customer || enquiryDisplayTitle(record)}`}
+      title={enquiryHeading(record)}
     >
       <EnquirySummary record={record} />
 
@@ -530,12 +529,10 @@ function EnquirySummary({ record }: { record: CrmEnquiry }) {
     <section className="rounded-md border border-border/70 bg-card/95 px-4 py-3 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs text-muted-foreground">#{record.id}</span>
-            <h2 className="truncate text-lg font-semibold text-foreground">
-              {enquiryDisplayTitle(record)}
-            </h2>
-          </div>
+          <span className="font-mono text-xs text-muted-foreground">#{record.id}</span>
+          <h2 className="mt-1 break-words text-lg font-semibold text-foreground">
+            {enquiryDisplayTitle(record)}
+          </h2>
         </div>
         <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -1342,7 +1339,12 @@ function ComposerAction({
 }
 
 function formatDate(value: string) {
-  return format(new Date(`${value}T00:00:00`), "dd MMM yyyy");
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "Asia/Kolkata",
+    year: "numeric"
+  }).format(new Date(`${value}T00:00:00+05:30`));
 }
 
 function TabLabel({ count, icon, label }: { count?: number; icon: ReactNode; label: string }) {
@@ -1374,7 +1376,15 @@ function statusTone(status: CrmEnquiry["status"]): "danger" | "neutral" | "succe
 }
 
 function formatDateTime(value: string) {
-  return format(new Date(value), "dd MMM yyyy, hh:mm a");
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: true,
+    minute: "2-digit",
+    month: "short",
+    timeZone: "Asia/Kolkata",
+    year: "numeric"
+  }).format(new Date(value));
 }
 
 function messageAuthorDetails(record: CrmEnquiry, userId: string | null) {
@@ -1437,6 +1447,17 @@ function enquiryPayload(
 
 function enquiryDisplayTitle(record: Pick<CrmEnquiry, "title" | "workspace">) {
   return record.title || plainText(record.workspace);
+}
+
+function enquiryHeading(record: Pick<CrmEnquiry, "customer" | "id" | "mobile" | "title" | "workspace">) {
+  const title = record.customer || enquiryDisplayTitle(record);
+  return `#${record.id} · ${record.mobile || "—"} · ${truncateHeadingTitle(title)}`;
+}
+
+function truncateHeadingTitle(value: string, maximumLength = 56) {
+  const title = value.trim();
+  if (title.length <= maximumLength) return title;
+  return `${title.slice(0, maximumLength - 3).trimEnd()}...`;
 }
 
 function buildWhatsAppTargets(record: Pick<CrmEnquiry, "id" | "mobile" | "title" | "workspace">) {

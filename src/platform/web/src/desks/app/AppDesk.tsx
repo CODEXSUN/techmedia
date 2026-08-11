@@ -14,8 +14,13 @@ import { ApplicationLayout } from "@codexsun/ui/layouts/application-layout";
 import type { SidemenuItem } from "@codexsun/ui/blocks/menu/sidemenu/sub/sidemenu-section";
 import { AuthGate } from "../../shared/auth/AuthGate";
 import { getToken } from "../../shared/api/platform-api";
-import { useCrmOverviewQuery } from "../../modules/crm";
-import type { CrmEnquiryOverview } from "../../modules/crm";
+import {
+  CrmCallNotificationListener,
+  crmInAppNotificationEvent,
+  useCrmOverviewQuery,
+  type CrmEnquiryOverview,
+  type CrmInAppNotification
+} from "../../modules/crm";
 import { applicationEntryPath, canAccessAdministratorSettings } from "./app-shell-access";
 
 const UserWorkspace = lazy(() =>
@@ -46,6 +51,9 @@ const CrmWorkspace = lazy(() =>
 const CrmReports = lazy(() =>
   import("../../modules/crm").then((module) => ({ default: module.CrmReports }))
 );
+const CrmNotificationSettings = lazy(() =>
+  import("../../modules/crm").then((module) => ({ default: module.CrmNotificationSettings }))
+);
 const EstimateWorkspace = lazy(() =>
   import("../../modules/estimate").then((module) => ({ default: module.EstimateWorkspace }))
 );
@@ -64,6 +72,7 @@ type Page =
   | "identity.profile"
   | "settings.frappe.overview"
   | "settings.frappe.users"
+  | "settings.notifications"
   | "crm.overview"
   | "crm.assigned"
   | "crm.created"
@@ -73,10 +82,13 @@ type Page =
 
 type Claims = {
   email: string;
+  frappeUser?: string;
   name?: string;
   permissions?: string[];
   role?: string;
 };
+
+type AppNotification = CrmInAppNotification;
 
 export function AppDesk() {
   const navigate = useNavigate();
@@ -93,10 +105,12 @@ export function AppDesk() {
         permission.startsWith("quotation.")
     );
   const canViewCrmReports = permissions.includes("crm.report.view");
+  const canViewMyCalls = permissions.includes("crm.enquiry.created.view");
   const canManageCrmListActions = claims.role === "admin";
   const showCrmActivity = claims.role === "admin";
   const showCrmProperties = claims.role !== "manager" && claims.role !== "user";
   const [globalSearch, setGlobalSearch] = useState("");
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [menuNavigationRevision, setMenuNavigationRevision] = useState(0);
   const requestedPage = pageFromPath(pathname, claims.role);
   const page = accessiblePage(requestedPage, superAdmin, canUseCrm, canViewCrmReports);
@@ -122,18 +136,39 @@ export function AppDesk() {
     }
   }, [navigate, page, requestedPage]);
 
+  useEffect(() => {
+    const addNotification = (event: Event) => {
+      const notification = (event as CustomEvent<AppNotification>).detail;
+      if (!notification) return;
+      setNotifications((current) => [
+        notification,
+        ...current.filter((item) => item.id !== notification.id)
+      ].slice(0, 20));
+    };
+    window.addEventListener(crmInAppNotificationEvent, addNotification);
+    return () => window.removeEventListener(crmInAppNotificationEvent, addNotification);
+  }, []);
+
   function handleLogout() {
     window.location.replace("/sa/refresh");
   }
 
   return (
     <AuthGate>
-      <ApplicationLayout
+      <>
+        {canViewMyCalls ? (
+          <CrmCallNotificationListener actorIds={[claims.email, claims.frappeUser ?? ""]} />
+        ) : null}
+        <ApplicationLayout
         brand={{ subtitle: "single-client workspace", title: "TechMedia" }}
         globalSearchPlaceholder="Search CRM enquiries"
         globalSearchValue={globalSearch}
         headerTitle={titleFor(page)}
         menuItems={menuItems}
+        notifications={notifications}
+        onNotificationDismiss={(id) =>
+          setNotifications((current) => current.filter((notification) => notification.id !== id))
+        }
         onLogout={handleLogout}
         onGlobalSearchValueChange={setGlobalSearch}
         profileHref="/app/identity/profile"
@@ -201,7 +236,8 @@ export function AppDesk() {
             </Fragment>
           </Suspense>
         </main>
-      </ApplicationLayout>
+        </ApplicationLayout>
+      </>
     </AuthGate>
   );
 }
@@ -239,6 +275,7 @@ function renderPage(
       />
     );
   }
+  if (page === "settings.notifications") return <CrmNotificationSettings />;
   if (page === "crm.overview") {
     return <CrmOverview />;
   }
@@ -301,6 +338,20 @@ function buildMenu(
     onSelect: () => select(target),
     title
   });
+  const notificationSettings = {
+    icon: Settings2Icon,
+    isActive: page.startsWith("settings."),
+    items: [
+      item("Desktop notifications", "settings.notifications"),
+      ...(superAdmin
+        ? [
+            { ...item("Frappe connection", "settings.frappe.overview"), icon: CircleGaugeIcon },
+            { ...item("Frappe Users", "settings.frappe.users"), icon: UserRoundPlusIcon }
+          ]
+        : [])
+    ],
+    title: "Settings"
+  };
   if (canUseCrm && (!superAdmin || page.startsWith("crm.") || page.startsWith("estimate."))) {
     return [
       {
@@ -314,7 +365,8 @@ function buildMenu(
           ...(canViewCrmReports ? [item("Reports", "crm.reports")] : [])
         ],
         title: "CRM"
-      }
+      },
+      notificationSettings
     ];
   }
   return [
@@ -329,22 +381,7 @@ function buildMenu(
       ],
       title: "Identity"
     },
-    ...(superAdmin
-      ? [
-          {
-            icon: Settings2Icon,
-            isActive: page.startsWith("settings."),
-            items: [
-              {
-                ...item("Frappe connection", "settings.frappe.overview"),
-                icon: CircleGaugeIcon
-              },
-              { ...item("Frappe Users", "settings.frappe.users"), icon: UserRoundPlusIcon }
-            ],
-            title: "Settings"
-          }
-        ]
-      : [])
+    notificationSettings
   ];
 }
 
@@ -354,7 +391,8 @@ function accessiblePage(
   canUseCrm: boolean,
   canViewCrmReports: boolean
 ): Page {
-  if (isAdministratorPage(page) && !superAdmin) return canUseCrm ? "crm.overview" : "identity.profile";
+  if (isAdministratorPage(page) && !superAdmin)
+    return canUseCrm ? "crm.overview" : "identity.profile";
   if (page === "crm.reports" && !canViewCrmReports)
     return canUseCrm ? "crm.overview" : "identity.profile";
   if (!canUseCrm && (page.startsWith("crm.") || page === "estimate.list")) return "identity.profile";
@@ -364,7 +402,7 @@ function accessiblePage(
 function isAdministratorPage(page: Page) {
   return (
     page === "crm.open" ||
-    page.startsWith("settings.") ||
+    (page.startsWith("settings.") && page !== "settings.notifications") ||
     (page.startsWith("identity.") && page !== "identity.profile")
   );
 }
@@ -379,6 +417,7 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "identity.profile",
     "settings.frappe.overview",
     "settings.frappe.users",
+    "settings.notifications",
     "crm.overview",
     "crm.assigned",
     "crm.created",
@@ -400,7 +439,8 @@ function titleFor(page: Page) {
     "crm.reports": "Enquiry reports",
     "estimate.list": "Estimate",
     "settings.frappe.overview": "Frappe connection",
-    "settings.frappe.users": "Frappe Users"
+    "settings.frappe.users": "Frappe Users",
+    "settings.notifications": "Desktop notifications"
   };
   if (labels[page]) return labels[page];
   return page

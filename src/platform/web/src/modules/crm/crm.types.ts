@@ -146,6 +146,7 @@ export type CrmEnquiry = {
   tasks: CrmEnquiryTask[];
   title: string;
   updatedAt: string;
+  updatedByUserId: string | null;
   uuid: string;
   workspace: string;
 };

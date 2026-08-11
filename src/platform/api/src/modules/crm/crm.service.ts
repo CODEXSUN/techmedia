@@ -320,6 +320,7 @@ export class CrmService {
       tasks: [],
       title: record.title || displayTitle(record),
       updatedAt: record.modifiedAt,
+      updatedByUserId: record.modifiedBy,
       uuid: record.name,
       workspace: record.enquiryMessage
     } satisfies CrmEnquiry;

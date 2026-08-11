@@ -17,6 +17,7 @@ services:
     container_name: ${TECHMEDIA_MARIADB_CONTAINER_NAME:-techmedia-mariadb}
     restart: unless-stopped
     environment:
+      TZ: ${TZ:-Asia/Kolkata}
       MARIADB_DATABASE: ${DB_NAME:?DB_NAME is required}
       MARIADB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD is required}
@@ -47,6 +48,7 @@ services:
     environment:
       DEV_AUTO_LOGIN: "0"
       NODE_ENV: production
+      TZ: ${TZ:-Asia/Kolkata}
       PLATFORM_API_PORT: ${TECHMEDIA_API_INTERNAL_PORT:-7050}
       TECHMEDIA_ENV_FILE_PATH: /workspace/techmedia/.env
     depends_on:

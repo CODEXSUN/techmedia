@@ -74,6 +74,7 @@ const record = z.object({
   tasks: z.array(z.unknown()),
   title: z.string(),
   updatedAt: z.iso.datetime(),
+  updatedByUserId: z.string().nullable(),
   uuid: z.string().min(1),
   workspace: z.string()
 });

@@ -11,6 +11,7 @@ import {
 import { AppLayout } from "./app-layout";
 import type { SidebarBrand, SidebarUser } from "../blocks/menu/sidemenu/app-sidebar";
 import type { TopMenuWorkspaceItem } from "../blocks/menu/sidemenu/top-menu";
+import type { TopMenuNotification } from "../blocks/menu/sidemenu/top-menu-notifications";
 import type { SidemenuItem } from "../blocks/menu/sidemenu/sub/sidemenu-section";
 
 type ApplicationLayoutProps = {
@@ -25,6 +26,8 @@ type ApplicationLayoutProps = {
   headerTitle?: ReactNode;
   homeHref?: string;
   onLogout?: () => void | Promise<void>;
+  notifications?: TopMenuNotification[];
+  onNotificationDismiss?: (id: string) => void;
   profileHref?: string;
   showHomeAction?: boolean;
   showPageTitle?: boolean;
@@ -98,6 +101,8 @@ export function ApplicationLayout({
   menuItems = applicationMenuItems,
   onGlobalSearchValueChange,
   onLogout,
+  notifications,
+  onNotificationDismiss,
   profileHref,
   showHomeAction = true,
   showPageTitle = true,
@@ -125,6 +130,8 @@ export function ApplicationLayout({
       menuItems={menuItems}
       {...(onGlobalSearchValueChange ? { onGlobalSearchValueChange } : {})}
       {...(onLogout ? { onLogout } : {})}
+      {...(notifications ? { notifications } : {})}
+      {...(onNotificationDismiss ? { onNotificationDismiss } : {})}
       {...(profileHref ? { profileHref } : {})}
       showHomeAction={showHomeAction}
       showPageTitle={showPageTitle}

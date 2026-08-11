@@ -35,9 +35,10 @@ export function formatMoney(value: number, currency = "INR"): string {
 
 export function formatDate(value: string | Date): string {
   const date = typeof value === "string" ? new Date(value) : value;
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat("en-IN", {
     day: "2-digit",
     month: "short",
+    timeZone: "Asia/Kolkata",
     year: "numeric"
   }).format(date);
 }

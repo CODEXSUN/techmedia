@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import {
-  BellIcon,
   BriefcaseBusinessIcon,
   CheckIcon,
   GripIcon,
@@ -11,7 +9,6 @@ import {
   MailIcon,
   SearchIcon,
   SparklesIcon,
-  XIcon,
   WrenchIcon
 } from "lucide-react";
 
@@ -28,6 +25,7 @@ import {
 import { Separator } from "../../../components/separator";
 import { SidebarTrigger } from "../../../components/sidebar";
 import { TopUserMenu, type TopUserMenuUser } from "./top-user-menu";
+import { TopMenuNotifications, type TopMenuNotification } from "./top-menu-notifications";
 
 export type TopMenuWorkspaceItem = {
   active?: boolean;
@@ -47,6 +45,8 @@ export type TopMenuProps = {
   logoutHref?: string;
   onGlobalSearchValueChange?: (value: string) => void;
   onLogout?: () => void | Promise<void>;
+  notifications?: TopMenuNotification[];
+  onNotificationDismiss?: (id: string) => void;
   pageTitle?: string;
   profileHref?: string;
   showHomeAction?: boolean;
@@ -92,6 +92,8 @@ export function TopMenu({
   logoutHref = "/login",
   onGlobalSearchValueChange,
   onLogout,
+  notifications = [],
+  onNotificationDismiss,
   pageTitle = "Workspace",
   profileHref,
   showHomeAction = true,
@@ -135,7 +137,12 @@ export function TopMenu({
         </div>
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1 px-3">
-        <NotificationMenu user={user} workspaceTitle={activeWorkspace?.title ?? "workspace"} />
+        <TopMenuNotifications
+          notifications={notifications}
+          {...(onNotificationDismiss ? { onDismiss: onNotificationDismiss } : {})}
+          user={user}
+          workspaceTitle={activeWorkspace?.title ?? "workspace"}
+        />
         {showHomeAction ? (
           <Button asChild className="hidden h-8 px-3 sm:inline-flex" size="sm" variant="outline">
             <a href={homeHref}>
@@ -156,71 +163,6 @@ export function TopMenu({
         </div>
       </div>
     </header>
-  );
-}
-
-function NotificationMenu({
-  user,
-  workspaceTitle
-}: {
-  user: TopUserMenuUser;
-  workspaceTitle: string;
-}) {
-  const [showWelcome, setShowWelcome] = useState(true);
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label={showWelcome ? "Notifications, 1 unread" : "Notifications"}
-          className="relative size-9 rounded-full"
-          size="icon"
-          variant="ghost"
-        >
-          <BellIcon />
-          {showWelcome ? (
-            <span className="absolute right-1.5 top-1.5 flex size-2.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-destructive/70" />
-              <span className="relative inline-flex size-2.5 rounded-full border-2 border-background bg-destructive" />
-            </span>
-          ) : null}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-80 rounded-2xl border bg-popover p-2 text-popover-foreground shadow-xl"
-        sideOffset={10}
-      >
-        <DropdownMenuLabel className="px-3 py-2 text-sm font-semibold">
-          Notifications
-        </DropdownMenuLabel>
-        {showWelcome ? (
-          <div className="relative rounded-xl border bg-background px-3 py-3 pr-10 shadow-sm">
-            <p className="text-sm font-semibold">Welcome to {workspaceTitle}</p>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Hi {user.name}, your workspace is ready. You can start managing your enquiries.
-            </p>
-            <Button
-              aria-label="Dismiss welcome notification"
-              className="absolute right-2 top-2 size-7 rounded-full"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setShowWelcome(false);
-              }}
-              size="icon"
-              variant="ghost"
-            >
-              <XIcon className="size-4" />
-            </Button>
-          </div>
-        ) : (
-          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-            You have no new notifications.
-          </p>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }
 

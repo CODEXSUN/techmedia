@@ -219,8 +219,15 @@ function TemporaryPasswordDialog({
 
 function formatFrappeDate(value: string | null) {
   if (!value) return "Never";
-  const parsed = new Date(value.replace(" ", "T"));
+  const normalized = value.replace(" ", "T");
+  const parsed = new Date(
+    /[zZ]$|[+-]\d{2}:\d{2}$/u.test(normalized) ? normalized : `${normalized}+05:30`
+  );
   return Number.isNaN(parsed.getTime())
     ? value
-    : parsed.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+    : parsed.toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Asia/Kolkata"
+      });
 }

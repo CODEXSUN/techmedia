@@ -54,8 +54,11 @@ export function useCrmEnquiriesQuery(input: {
   search?: string;
   status?: CrmEnquiryStatusFilter;
   view: CrmEnquiryView;
-}) {
+}, options: { enabled?: boolean; poll?: boolean } = {}) {
   return useQuery({
+    enabled: options.enabled ?? true,
+    refetchInterval: options.poll ? 60_000 : false,
+    refetchIntervalInBackground: options.poll ?? false,
     queryFn: () => listCrmEnquiries(input),
     queryKey: [
       ...crmEnquiryQueryKey,

@@ -114,6 +114,7 @@ export type FrappeLiveEnquiry = {
   messages: FrappeLiveEnquiryMessage[];
   mobile: string;
   modifiedAt: string;
+  modifiedBy: string | null;
   name: string;
   priority: "high" | "low" | "normal" | "urgent";
   status: string;

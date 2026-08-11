@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import {
   ArrowDown,
   ArrowUp,
@@ -204,9 +203,13 @@ export function CrmList({
                   {visibleColumns.dueDate ? (
                     <td className="truncate whitespace-nowrap px-4 py-2.5">
                       {record.schedules[0]?.scheduledOn
-                        ? format(
-                            new Date(`${record.schedules[0].scheduledOn}T00:00:00`),
-                            "dd MMM yyyy"
+                        ? new Intl.DateTimeFormat("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            timeZone: "Asia/Kolkata",
+                            year: "numeric"
+                          }).format(
+                            new Date(`${record.schedules[0].scheduledOn}T00:00:00+05:30`)
                           )
                         : "—"}
                     </td>

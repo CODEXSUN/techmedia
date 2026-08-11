@@ -21,7 +21,11 @@ import {
   type SidebarUser,
   type SidebarUserMenuItem
 } from "../blocks/menu/sidemenu/app-sidebar";
-import { TopMenu, type TopMenuWorkspaceItem } from "../blocks/menu/sidemenu/top-menu";
+import {
+  TopMenu,
+  type TopMenuWorkspaceItem
+} from "../blocks/menu/sidemenu/top-menu";
+import type { TopMenuNotification } from "../blocks/menu/sidemenu/top-menu-notifications";
 import type { SidemenuItem } from "../blocks/menu/sidemenu/sub/sidemenu-section";
 import { SidebarInset, SidebarProvider } from "../components/sidebar";
 
@@ -37,6 +41,8 @@ type AppLayoutProps = {
   menuItems?: SidemenuItem[];
   onGlobalSearchValueChange?: (value: string) => void;
   onLogout?: () => void | Promise<void>;
+  notifications?: TopMenuNotification[];
+  onNotificationDismiss?: (id: string) => void;
   profileHref?: string;
   showHomeAction?: boolean;
   subtitle?: ReactNode;
@@ -184,6 +190,8 @@ export function AppLayout({
   menuItems = defaultAppMenuItems,
   onGlobalSearchValueChange,
   onLogout,
+  notifications,
+  onNotificationDismiss,
   profileHref,
   showHomeAction = true,
   showSidebarUser = true,
@@ -212,6 +220,8 @@ export function AppLayout({
         logoutHref={logoutHref}
         {...(onGlobalSearchValueChange ? { onGlobalSearchValueChange } : {})}
         {...(onLogout ? { onLogout } : {})}
+        {...(notifications ? { notifications } : {})}
+        {...(onNotificationDismiss ? { onNotificationDismiss } : {})}
         pageTitle={String(headerTitle)}
         {...(profileHref ? { profileHref } : {})}
         showHomeAction={showHomeAction}

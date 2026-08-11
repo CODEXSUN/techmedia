@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.24
+Current version: 1.0.26
 
-Release tag: v-1.0.24
+Release tag: v-1.0.26
 
-Changelog label: v 1.0.24
+Changelog label: v 1.0.26
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -39,6 +39,40 @@ New entries must keep database-facing work and application code work separate.
   role, including Admin.
 - Documented that role and access-control changes require a new sign-in before the browser receives
   its updated permission token.
+
+## v-1.0.26
+
+### [v 1.0.26] 2026-08-11 10:44 am - CRM notifications and India time
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.26.
+- Aligned `github:now` with the CXApp release flow. It now shows a release review, offers a patch
+  bump before the title prompt, lets users review the commit message, and fetches before pulling.
+
+## v-1.0.25
+
+### [v 1.0.25] 2026-08-11 12:39 am - Version update
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.25.
+- Set the container runtime and CRM date displays to Asia/Kolkata. Frappe timestamps without an
+  offset now read as India Standard Time.
+- Truncated long enquiry titles in the page heading and kept the full title in the enquiry summary
+  card.
+- Added browser notification settings with enable, disable, reset, refresh, and test controls.
+- Synced browser permission changes to the My Calls listener without requiring a second click.
+- Added My Calls assignment, status, reply, and test alerts to the in-app notification tray.
+- Gave each Windows alert a unique browser tag so repeated alerts do not replace an earlier alert.
 
 ## v-1.0.24
 
