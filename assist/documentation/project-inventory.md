@@ -13,6 +13,7 @@
 - `user-role`
 - `role-permission`
 - `frappe`
+- `notification`
 - `crm`
 - `estimate`
 - `quotation`

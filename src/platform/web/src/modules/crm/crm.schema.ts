@@ -13,7 +13,7 @@ export const crmEnquirySchema = z.object({
       })
     )
     .max(100),
-  mobile: z.string().trim().min(5, "Mobile is required.").max(40),
+  mobile: z.string().regex(/^\d{10}$/u, "Enter exactly 10 numeric digits."),
   priority: z.enum(["low", "normal", "high", "urgent"]),
   schedules: z
     .array(z.object({ scheduledOn: z.iso.date("Choose a valid schedule date.") }))

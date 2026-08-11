@@ -1,8 +1,10 @@
 export { CrmOverview } from "./crm.overview";
 export { CrmReports } from "./crm.reports";
 export {
-  CrmCallNotificationListener,
   crmInAppNotificationEvent,
+  showCrmDesktopNotification,
+  useBrowserNotificationPermission,
+  useCrmCallNotificationPreference,
   type CrmInAppNotification
 } from "./crm.call-notifications";
 export { CrmNotificationSettings } from "./crm.notification-settings";

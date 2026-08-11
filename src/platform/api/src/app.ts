@@ -4,13 +4,15 @@ import { registerModules } from "@codexsun/framework/modules";
 import { registerAuthRoutes } from "./auth/auth.routes.js";
 import {
   bootstrapTechMediaDatabase,
-  closeTechMediaDatabase
+  closeTechMediaDatabase,
+  getTechMediaDatabase
 } from "./database/techmedia-database.js";
 import { env } from "./env.js";
 import { crmModule } from "./modules/crm/index.js";
 import { estimateModule } from "./modules/estimate/index.js";
 import { frappeLiveEnquiryGatewayContract, frappeModule } from "./modules/frappe/index.js";
 import { permissionModule } from "./modules/permission/index.js";
+import { createNotificationPublisher, notificationModule } from "./modules/notification/index.js";
 import { quotationModule } from "./modules/quotation/index.js";
 import { rolePermissionModule } from "./modules/role-permission/index.js";
 import { roleModule } from "./modules/role/index.js";
@@ -24,6 +26,7 @@ const modules = [
   userRoleModule,
   rolePermissionModule,
   frappeModule,
+  notificationModule,
   crmModule,
   estimateModule,
   quotationModule
@@ -60,7 +63,11 @@ export async function createApp() {
   await registerAuthRoutes(app);
   await registerModules(
     modules,
-    { app, frappeLiveEnquiryGateway: frappeLiveEnquiryGatewayContract },
+    {
+      app,
+      frappeLiveEnquiryGateway: frappeLiveEnquiryGatewayContract,
+      notificationPublisher: createNotificationPublisher(getTechMediaDatabase())
+    },
     {
       onRegister: (module) => console.info(`[module.register] ${module.key}`),
       onReady: (module) => console.info(`[module.ready] ${module.key}`)

@@ -8,6 +8,7 @@ const allowed = new Set([
   "crm",
   "estimate",
   "frappe",
+  "notification",
   "permission",
   "quotation",
   "role",
@@ -53,7 +54,7 @@ if (failures.length) {
   process.exit(1);
 }
 console.info(
-  "Module boundary check passed: Identity, Settings, and live-Frappe CRM/Estimate/Quotation only."
+  "Module boundary check passed: Identity, internal notifications, and live-Frappe CRM/Estimate/Quotation only."
 );
 
 function sourceFiles(directory) {

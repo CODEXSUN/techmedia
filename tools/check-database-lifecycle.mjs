@@ -12,7 +12,8 @@ assertOrdered(databaseFile, database, [
   "migratePermissionModule(db)",
   "migrateUserModule(db)",
   "migrateUserRoleModule(db)",
-  "migrateRolePermissionModule(db)"
+  "migrateRolePermissionModule(db)",
+  "migrateNotificationModule(db)"
 ]);
 assertOrdered(databaseFile, database, [
   "seedRoleModule(db)",
@@ -23,6 +24,8 @@ assertOrdered(databaseFile, database, [
 ]);
 
 const expectedTables = [
+  "notification_outbox",
+  "notifications",
   "permissions",
   "role_permissions",
   "roles",
@@ -41,7 +44,7 @@ if (!database.includes("techMediaDatabaseName()")) {
   throw new Error(`${databaseFile}: single database selection is missing`);
 }
 
-console.info("Database lifecycle verified: one database with Identity-owned tables only.");
+console.info("Database lifecycle verified: one database with Identity and notification tables only.");
 
 function assertOrdered(file, source, tokens) {
   let previous = -1;

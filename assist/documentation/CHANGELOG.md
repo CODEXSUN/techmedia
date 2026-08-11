@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.26
+Current version: 1.0.27
 
-Release tag: v-1.0.26
+Release tag: v-1.0.27
 
-Changelog label: v 1.0.26
+Changelog label: v 1.0.27
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -39,6 +39,18 @@ New entries must keep database-facing work and application code work separate.
   role, including Admin.
 - Documented that role and access-control changes require a new sign-in before the browser receives
   its updated permission token.
+
+## v-1.0.27
+
+### [v 1.0.27] 2026-08-11 4:56 pm - Internal notifications and mobile validation
+
+#### Database Changes
+
+- Database update: Yes.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.27.
 
 ## v-1.0.26
 

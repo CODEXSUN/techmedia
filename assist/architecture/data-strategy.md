@@ -11,10 +11,16 @@ Local tables are limited to:
 - `permissions`
 - `user_roles`
 - `role_permissions`
+- `notifications`
+- `notification_outbox`
 - `schema_migrations`
 
 Per-user Frappe credentials and verification metadata are columns on `users`. Application-level
 Frappe connection values come only from `.env`; Settings owns no tables.
+
+Notifications persist internal recipient inbox and outbox events only. They retain the Frappe
+enquiry identifier, title, and message, but never duplicate enquiry data or become a CRM source
+of truth.
 
 ## CRM
 

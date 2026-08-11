@@ -91,7 +91,7 @@ const payload = z.object({
       })
     )
     .max(100),
-  mobile: z.string().trim().min(5).max(40),
+  mobile: z.string().regex(/^\d{10}$/u, "Mobile must contain exactly 10 numeric digits."),
   priority,
   schedules: z.array(z.object({ scheduledOn: z.iso.date() })).max(20),
   status,
@@ -162,7 +162,8 @@ const report = z.object({
 
 export async function registerCrmRoutes(
   app: FastifyInstance,
-  frappeLiveEnquiryGateway: PlatformModuleDependencies["frappeLiveEnquiryGateway"]
+  frappeLiveEnquiryGateway: PlatformModuleDependencies["frappeLiveEnquiryGateway"],
+  notificationPublisher: PlatformModuleDependencies["notificationPublisher"]
 ) {
   registerContractRoute(app, {
     method: "GET",
@@ -294,6 +295,7 @@ export async function registerCrmRoutes(
     if (!actor) throw new Error("Active user is required.");
     const crmContext = {
       ...context,
+      actorUserId: actor.id,
       frappeEmployeeCode: actor.frappeEmployeeCode
     };
     return new CrmService(
@@ -302,7 +304,8 @@ export async function registerCrmRoutes(
         database: context.database,
         employee: actor.frappeEmployeeCode,
         userId: actor.id
-      })
+      }),
+      notificationPublisher
     );
   }
 }

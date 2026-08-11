@@ -24,6 +24,8 @@ export type DefaultedStringColumn<Value extends string> = ColumnType<
   Value | undefined
 >;
 
+export type DefaultedNumberColumn = ColumnType<number, number | undefined, number | undefined>;
+
 export type UsersTable = {
   created_at: TimestampColumn;
   email: string;
@@ -96,7 +98,33 @@ export type SchemaMigrationsTable = {
   name: string;
 };
 
+export type NotificationsTable = {
+  actor_user_id: number | null;
+  body: string;
+  created_at: TimestampColumn;
+  event_type: "assignment" | "comment" | "reply" | "status";
+  id: Generated<number>;
+  read_at: NullableTimestampColumn;
+  recipient_user_id: number;
+  resource_id: string;
+  status: DefaultedStringColumn<"read" | "unread">;
+  title: string;
+  uuid: string;
+};
+
+export type NotificationOutboxTable = {
+  attempts: DefaultedNumberColumn;
+  created_at: TimestampColumn;
+  delivered_at: NullableTimestampColumn;
+  id: Generated<number>;
+  notification_id: number;
+  status: DefaultedStringColumn<"delivered" | "pending">;
+  uuid: string;
+};
+
 export type TechMediaDatabase = {
+  notification_outbox: NotificationOutboxTable;
+  notifications: NotificationsTable;
   permissions: PermissionsTable;
   role_permissions: RolePermissionsTable;
   roles: RolesTable;

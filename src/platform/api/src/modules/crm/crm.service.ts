@@ -16,6 +16,7 @@ import type {
   CrmJobSavePayload,
   CrmUserReference
 } from "./crm.types.js";
+import type { NotificationPublisher } from "../notification/notification.types.js";
 
 type LiveGateway = ReturnType<PlatformModuleDependencies["frappeLiveEnquiryGateway"]>;
 type LiveRecord = Awaited<ReturnType<LiveGateway["get"]>>;
@@ -43,7 +44,8 @@ function suspendMessage(comment: string) {
 export class CrmService {
   constructor(
     private readonly context: CrmContext,
-    private readonly gateway: LiveGateway
+    private readonly gateway: LiveGateway,
+    private readonly notifications: NotificationPublisher
   ) {}
 
   async list(filters: CrmEnquiryListFilters) {
@@ -103,7 +105,9 @@ export class CrmService {
     await this.validateCustomer(input.customer);
     const record = await this.gateway.create(toLivePayload(input));
     await this.audit("created", record);
-    return this.map(record);
+    const mapped = await this.map(record);
+    await this.notify(mapped, "assignment", "New call assigned");
+    return mapped;
   }
 
   async update(name: string, input: CrmEnquirySavePayload) {
@@ -117,7 +121,13 @@ export class CrmService {
     await this.validateCustomer(input.customer, current.customer);
     const record = await this.gateway.update(name, toLivePayload(input));
     await this.audit("updated", record);
-    return { ...(await this.map(record)), jobs: await this.gateway.jobs(name) };
+    const mapped = await this.map(record);
+    if (input.assignedToUserId !== current.assignedToEmployee) {
+      await this.notify(mapped, "assignment", "Call assigned");
+    } else if (input.status !== fromFrappeStatus(current.status)) {
+      await this.notify(mapped, "status", `Status: ${statusLabel(mapped.status)}`);
+    }
+    return { ...mapped, jobs: await this.gateway.jobs(name) };
   }
 
   async forceDelete(name: string) {
@@ -156,7 +166,13 @@ export class CrmService {
       throw AppError.validation("Add a comment before adding a reply.");
     }
     messages.push({ comment, mode: input.messageType, parentMessage });
-    return this.map(await this.gateway.updateMessages(name, messages, current.status));
+    const mapped = await this.map(await this.gateway.updateMessages(name, messages, current.status));
+    await this.notify(
+      mapped,
+      input.messageType,
+      input.messageType === "reply" ? "New reply" : "New comment"
+    );
+    return mapped;
   }
 
   async suspendMessage(name: string, messageId: string) {
@@ -396,6 +412,25 @@ export class CrmService {
       recordUuid: record.name
     });
   }
+
+  private async notify(
+    record: CrmEnquiry,
+    type: "assignment" | "comment" | "reply" | "status",
+    title: string
+  ) {
+    try {
+      await this.notifications.enqueue({
+        actorUserId: this.context.actorUserId,
+        body: notificationSummary(record),
+        recipientEmployeeCode: record.assignedToUserId,
+        resourceId: record.frappeName,
+        title,
+        type
+      });
+    } catch (error) {
+      console.error("[notification.enqueue]", error);
+    }
+  }
 }
 
 function toLivePayload(input: CrmEnquirySavePayload) {
@@ -497,6 +532,19 @@ function fromFrappeStatus(value: string): CrmEnquiry["status"] {
   if (normalized === "long hold") return "long-hold";
   if (normalized === "escalation") return "escalation";
   return "open";
+}
+
+function statusLabel(value: CrmEnquiry["status"]) {
+  return value.replace(/-/gu, " ").replace(/\b\w/gu, (letter) => letter.toUpperCase());
+}
+
+function notificationSummary(record: CrmEnquiry) {
+  return `#${record.id} · ${shortText(record.title || record.workspace || "Call", 90)}`;
+}
+
+function shortText(value: string, limit: number) {
+  const plain = plainText(value);
+  return plain.length > limit ? `${plain.slice(0, limit - 3).trimEnd()}...` : plain;
 }
 
 function isClosed(status: string) {

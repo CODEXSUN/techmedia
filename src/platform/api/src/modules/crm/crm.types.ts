@@ -239,6 +239,7 @@ export type CrmReport = {
 
 export type CrmContext = {
   actorEmail: string;
+  actorUserId: number;
   authorize: (permission: string) => Promise<void>;
   can: (permission: string) => Promise<boolean>;
   database: Kysely<TechMediaDatabase>;

@@ -13,6 +13,7 @@ import { migrateUserRoleModule } from "../modules/user-role/user-role.migration.
 import { seedUserRoleModule } from "../modules/user-role/user-role.seed.js";
 import { migrateRolePermissionModule } from "../modules/role-permission/role-permission.migration.js";
 import { seedRolePermissionModule } from "../modules/role-permission/role-permission.seed.js";
+import { migrateNotificationModule } from "../modules/notification/notification.migration.js";
 import { assertDatabaseName, quoteIdentifier } from "./database-utils.js";
 import type { TechMediaDatabase } from "./schema.js";
 
@@ -24,7 +25,8 @@ export const techMediaMigrationOrder = Object.freeze([
   "identity.permission",
   "identity.user",
   "identity.user-role",
-  "identity.role-permission"
+  "identity.role-permission",
+  "notification.inbox"
 ]);
 
 export const techMediaSeedOrder = Object.freeze([
@@ -114,6 +116,7 @@ export async function migrateTechMediaDatabase() {
   await migrateUserModule(db);
   await migrateUserRoleModule(db);
   await migrateRolePermissionModule(db);
+  await migrateNotificationModule(db);
 }
 
 export async function seedTechMediaDatabase() {

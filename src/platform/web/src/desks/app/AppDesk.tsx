@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useEffect, useState } from "react";
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CircleGaugeIcon,
@@ -15,12 +15,15 @@ import type { SidemenuItem } from "@codexsun/ui/blocks/menu/sidemenu/sub/sidemen
 import { AuthGate } from "../../shared/auth/AuthGate";
 import { getToken } from "../../shared/api/platform-api";
 import {
-  CrmCallNotificationListener,
   crmInAppNotificationEvent,
+  showCrmDesktopNotification,
+  useBrowserNotificationPermission,
+  useCrmCallNotificationPreference,
   useCrmOverviewQuery,
   type CrmEnquiryOverview,
   type CrmInAppNotification
 } from "../../modules/crm";
+import { markNotificationRead, useNotificationInboxQuery } from "../../modules/notification";
 import { applicationEntryPath, canAccessAdministratorSettings } from "./app-shell-access";
 
 const UserWorkspace = lazy(() =>
@@ -105,12 +108,16 @@ export function AppDesk() {
         permission.startsWith("quotation.")
     );
   const canViewCrmReports = permissions.includes("crm.report.view");
-  const canViewMyCalls = permissions.includes("crm.enquiry.created.view");
   const canManageCrmListActions = claims.role === "admin";
   const showCrmActivity = claims.role === "admin";
   const showCrmProperties = claims.role !== "manager" && claims.role !== "user";
   const [globalSearch, setGlobalSearch] = useState("");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const notificationInbox = useNotificationInboxQuery(Boolean(getToken()));
+  const browserNotifications = useBrowserNotificationPermission();
+  const notificationPreference = useCrmCallNotificationPreference();
+  const inboxNotificationIds = useRef(new Set<number>());
+  const notificationInboxInitialized = useRef(false);
   const [menuNavigationRevision, setMenuNavigationRevision] = useState(0);
   const requestedPage = pageFromPath(pathname, claims.role);
   const page = accessiblePage(requestedPage, superAdmin, canUseCrm, canViewCrmReports);
@@ -149,6 +156,35 @@ export function AppDesk() {
     return () => window.removeEventListener(crmInAppNotificationEvent, addNotification);
   }, []);
 
+  useEffect(() => {
+    if (!notificationInbox.data) return;
+    const newItems = notificationInbox.data.filter((notification) => {
+      if (inboxNotificationIds.current.has(notification.id)) return false;
+      inboxNotificationIds.current.add(notification.id);
+      return true;
+    });
+    setNotifications((current) =>
+      [...notificationInbox.data, ...current]
+        .reduce<AppNotification[]>((items, notification) => {
+          if (!items.some((item) => item.id === String(notification.id))) {
+            items.push({ ...notification, id: String(notification.id) });
+          }
+          return items;
+        }, [])
+        .slice(0, 20)
+    );
+    if (
+      notificationInboxInitialized.current &&
+      notificationPreference.enabled &&
+      browserNotifications.permission === "granted"
+    ) {
+      newItems.forEach((notification) =>
+        showCrmDesktopNotification({ ...notification, id: String(notification.id) })
+      );
+    }
+    notificationInboxInitialized.current = true;
+  }, [browserNotifications.permission, notificationInbox.data, notificationPreference.enabled]);
+
   function handleLogout() {
     window.location.replace("/sa/refresh");
   }
@@ -156,9 +192,6 @@ export function AppDesk() {
   return (
     <AuthGate>
       <>
-        {canViewMyCalls ? (
-          <CrmCallNotificationListener actorIds={[claims.email, claims.frappeUser ?? ""]} />
-        ) : null}
         <ApplicationLayout
         brand={{ subtitle: "single-client workspace", title: "TechMedia" }}
         globalSearchPlaceholder="Search CRM enquiries"
@@ -166,9 +199,11 @@ export function AppDesk() {
         headerTitle={titleFor(page)}
         menuItems={menuItems}
         notifications={notifications}
-        onNotificationDismiss={(id) =>
-          setNotifications((current) => current.filter((notification) => notification.id !== id))
-        }
+        onNotificationDismiss={(id) => {
+          const notificationId = Number(id);
+          if (Number.isInteger(notificationId)) void markNotificationRead(notificationId);
+          setNotifications((current) => current.filter((notification) => notification.id !== id));
+        }}
         onLogout={handleLogout}
         onGlobalSearchValueChange={setGlobalSearch}
         profileHref="/app/identity/profile"

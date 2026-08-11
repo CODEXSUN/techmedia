@@ -114,9 +114,11 @@ function CrmFormBody({
   const [customerSearch, setCustomerSearch] = useState(initialValue.customer);
   const [settledCustomerSearch, setSettledCustomerSearch] = useState(initialValue.customer);
   const [validationError, setValidationError] = useState("");
+  const [mobileBlurred, setMobileBlurred] = useState(false);
   const customers = useCrmCustomerReferencesQuery(settledCustomerSearch, open);
   const customerError = customers.error instanceof Error ? customers.error.message : "";
   const shownError = validationError || error || customerError;
+  const mobileHint = mobileDigitHint(value.mobile);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSettledCustomerSearch(customerSearch), 250);
@@ -154,16 +156,39 @@ function CrmFormBody({
           <section className="flex min-w-0 flex-col gap-5 rounded-md border border-border/80 bg-muted/10 p-4">
             <WorkspaceFormGrid>
               <WorkspaceFormField label="Mobile" required>
-                <Input
-                  autoFocus
-                  inputMode="tel"
-                  maxLength={40}
-                  required
-                  value={value.mobile}
-                  onChange={(event) =>
-                    setValue((current) => ({ ...current, mobile: event.target.value }))
-                  }
-                />
+                <div className="grid gap-1.5">
+                  <Input
+                    {...(mobileHint ? { "aria-describedby": "enquiry-mobile-hint" } : {})}
+                    aria-invalid={value.mobile.length > 0 && value.mobile.length !== 10}
+                    autoFocus
+                    className={
+                      mobileBlurred && value.mobile.length === 10
+                        ? "border-emerald-500 focus-visible:ring-emerald-500"
+                        : undefined
+                    }
+                    inputMode="tel"
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    required
+                    value={value.mobile}
+                    onBlur={() => setMobileBlurred(true)}
+                    onChange={(event) =>
+                      {
+                        setMobileBlurred(false);
+                        setValue((current) => ({
+                          ...current,
+                          mobile: normalizeMobile(event.target.value)
+                        }));
+                      }
+                    }
+                    onFocus={() => setMobileBlurred(false)}
+                  />
+                  {mobileHint ? (
+                    <p className="text-xs text-muted-foreground" id="enquiry-mobile-hint">
+                      {mobileHint}
+                    </p>
+                  ) : null}
+                </div>
               </WorkspaceFormField>
               <WorkspaceFormField label="Customer">
                 <WorkspaceLookup
@@ -345,4 +370,13 @@ function titleFromMessage(value: string) {
 
 function shouldUseMessageTitle(value: CrmEnquirySavePayload) {
   return !value.title.trim() || value.title === titleFromMessage(value.workspace);
+}
+
+function normalizeMobile(value: string) {
+  return value.replace(/\D/gu, "").slice(0, 10);
+}
+
+function mobileDigitHint(value: string) {
+  if (!value.length || value.length === 10) return "";
+  return `${10 - value.length} digit${value.length === 9 ? "" : "s"} remaining`;
 }
