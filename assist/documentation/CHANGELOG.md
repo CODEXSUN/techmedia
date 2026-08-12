@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.27
+Current version: 1.0.28
 
-Release tag: v-1.0.27
+Release tag: v-1.0.28
 
-Changelog label: v 1.0.27
+Changelog label: v 1.0.28
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -39,6 +39,24 @@ New entries must keep database-facing work and application code work separate.
   role, including Admin.
 - Documented that role and access-control changes require a new sign-in before the browser receives
   its updated permission token.
+- Aligned CRM Status and List in as independent fields with the live Frappe Enquiry form. Status
+  now exposes every live status value, while List in separately exposes Follow and LogicX without
+  cross-field conversion.
+
+## v-1.0.28
+
+### [v 1.0.28] 2026-08-12 12:26 pm - Preserve enquiry ownership on edit
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.28.
+- Preserved the original Frappe `user_employee` when a staff member edits an enquiry. New
+  enquiries still set the creator as the owner, while later edits no longer add the enquiry to the
+  editor's My Calls list.
 
 ## v-1.0.27
 

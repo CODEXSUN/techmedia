@@ -21,7 +21,6 @@ export const crmEnquirySchema = z.object({
   status: z.enum([
     "new",
     "open",
-    "follow",
     "hold-for-approval",
     "hold-for-spares",
     "hold-for-job-out",

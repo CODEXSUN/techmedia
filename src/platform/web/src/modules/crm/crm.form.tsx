@@ -13,6 +13,7 @@ import {
   WorkspaceUpsertDialog
 } from "@codexsun/ui/workspace/upsert";
 import { useCrmCustomerReferencesQuery } from "./crm.hooks";
+import { crmEnquiryListInOptions, crmEnquiryStatusOptions } from "./crm.options";
 import { crmEnquirySchema } from "./crm.schema";
 import type { CrmEnquiry, CrmEnquirySavePayload, CrmUserReference } from "./crm.types";
 
@@ -172,15 +173,13 @@ function CrmFormBody({
                     required
                     value={value.mobile}
                     onBlur={() => setMobileBlurred(true)}
-                    onChange={(event) =>
-                      {
-                        setMobileBlurred(false);
-                        setValue((current) => ({
-                          ...current,
-                          mobile: normalizeMobile(event.target.value)
-                        }));
-                      }
-                    }
+                    onChange={(event) => {
+                      setMobileBlurred(false);
+                      setValue((current) => ({
+                        ...current,
+                        mobile: normalizeMobile(event.target.value)
+                      }));
+                    }}
                     onFocus={() => setMobileBlurred(false)}
                   />
                   {mobileHint ? (
@@ -218,7 +217,9 @@ function CrmFormBody({
                 onChange={(workspace) =>
                   setValue((current) => ({
                     ...current,
-                    title: shouldUseMessageTitle(current) ? titleFromMessage(workspace) : current.title,
+                    title: shouldUseMessageTitle(current)
+                      ? titleFromMessage(workspace)
+                      : current.title,
                     workspace
                   }))
                 }
@@ -240,20 +241,7 @@ function CrmFormBody({
             <WorkspaceFormGrid columns={1}>
               <WorkspaceFormField label="List in">
                 <WorkspaceSelect
-                  options={[
-                    "Stores",
-                    "DELL",
-                    "ASUS",
-                    "Spares",
-                    "MBO",
-                    "Service",
-                    "On-site",
-                    "Remote - AnyDesk",
-                    "Follow",
-                    "Escalation",
-                    "Admin",
-                    "Job Out"
-                  ].map((item) => ({ label: item, value: item }))}
+                  options={crmEnquiryListInOptions}
                   placeholder="Choose Frappe group"
                   value={value.enquiryGroup}
                   onValueChange={(enquiryGroup) =>
@@ -300,19 +288,7 @@ function CrmFormBody({
               </WorkspaceFormField>
               <WorkspaceFormField label="Status" required>
                 <WorkspaceSelect
-                  options={[
-                    { label: "New", value: "new" },
-                    { label: "Open", value: "open" },
-                    { label: "Follow", value: "follow" },
-                    { label: "Hold for Approval", value: "hold-for-approval" },
-                    { label: "Hold for Spares", value: "hold-for-spares" },
-                    { label: "Hold for Job-Out", value: "hold-for-job-out" },
-                    { label: "Long Hold", value: "long-hold" },
-                    { label: "Escalation", value: "escalation" },
-                    { label: "Won", value: "won" },
-                    { label: "Lost", value: "lost" },
-                    { label: "Re-open", value: "reopen" }
-                  ]}
+                  options={crmEnquiryStatusOptions}
                   value={value.status}
                   onValueChange={(status) =>
                     setValue((current) => ({

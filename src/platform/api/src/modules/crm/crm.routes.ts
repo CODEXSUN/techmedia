@@ -10,7 +10,6 @@ const priority = z.enum(["low", "normal", "high", "urgent"]);
 const status = z.enum([
   "new",
   "open",
-  "follow",
   "hold-for-approval",
   "hold-for-spares",
   "hold-for-job-out",
@@ -129,9 +128,7 @@ const jobPayload = z
 const query = z.object({
   enquiryId: z.string().trim().min(1).max(140).optional(),
   search: z.string().trim().max(220).optional(),
-  status: z
-    .enum(["active", "in-progress", "closed", "open", "follow", "escalation", "won", "lost"])
-    .optional(),
+  status: z.union([status, z.enum(["active", "in-progress", "closed"])]).optional(),
   view: z.enum(["assigned", "created", "open"])
 });
 const customerReferenceQuery = z.object({

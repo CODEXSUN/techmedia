@@ -177,7 +177,7 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
         target,
         "/api/resource/Enquiry",
-        { body: JSON.stringify(toPayload(input, employee(), true)), method: "POST" }
+        { body: JSON.stringify(toPayload(input, employee(), true, true)), method: "POST" }
       );
       if (!response.data?.name) throw AppError.conflict("Frappe did not return the new enquiry.");
       return hydrate(target, response.data.name, response.data);
@@ -189,7 +189,7 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
         target,
         `/api/resource/Enquiry/${encodeURIComponent(enquiryName)}`,
-        { body: JSON.stringify(toPayload(input, employee(), false)), method: "PUT" }
+        { body: JSON.stringify(toPayload(input, employee(), false, false)), method: "PUT" }
       );
       return hydrate(target, enquiryName, response.data);
     },
@@ -362,7 +362,8 @@ async function hydrate(
 function toPayload(
   input: FrappeLiveEnquirySavePayload,
   userEmployee: string,
-  includeMessages: boolean
+  includeMessages: boolean,
+  includeOwner: boolean
 ) {
   return {
     assigned_to_employee: input.assignedToEmployee || null,
@@ -382,7 +383,7 @@ function toPayload(
     priority: toFrappePriority(input.priority),
     status: toFrappeStatus(input.status),
     title: input.title,
-    user_employee: userEmployee
+    ...(includeOwner ? { user_employee: userEmployee } : {})
   };
 }
 
@@ -577,7 +578,6 @@ function toFrappeStatus(value: string) {
   if (normalized === "won") return "Won";
   if (normalized === "lost") return "Lost";
   if (normalized === "reopen") return "Re-open";
-  if (normalized === "follow") return "Open";
   if (normalized === "hold-for-approval") return "Hold for Approval";
   if (normalized === "hold-for-spares") return "Hold for Spares";
   if (normalized === "hold-for-job-out") return "Hold for Job-Out";

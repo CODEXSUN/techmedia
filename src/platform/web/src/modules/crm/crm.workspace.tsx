@@ -24,6 +24,7 @@ import {
 } from "./crm.call-notifications";
 import { useCrmEnquiriesQuery, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
 import { CrmList } from "./crm.list";
+import { crmEnquiryStatusOptions } from "./crm.options";
 import { CrmShow } from "./crm.show";
 import { getCrmEnquiry } from "./crm.services";
 import type {
@@ -229,7 +230,8 @@ export function CrmWorkspace({
                 title={
                   browserNotifications.permission === "denied"
                     ? "Allow notifications in the browser settings to enable desktop alerts."
-                    : notificationPreference.enabled && browserNotifications.permission === "granted"
+                    : notificationPreference.enabled &&
+                        browserNotifications.permission === "granted"
                       ? "Disable desktop notifications for My Calls."
                       : "Enable desktop notifications for My Calls."
                 }
@@ -285,14 +287,10 @@ export function CrmWorkspace({
               setVisibleColumns((current) => ({ ...current, [column.id]: checked }))
           }))}
         filterOptions={[
-          { id: "active", label: "Active (open, follow, escalation)" },
-          { id: "in-progress", label: "In progress (follow, escalation)" },
+          { id: "active", label: "Active (except won and lost)" },
+          { id: "in-progress", label: "In progress (holds and escalation)" },
           { id: "closed", label: "Closed (won, lost)" },
-          { id: "open", label: "Open" },
-          { id: "follow", label: "Follow" },
-          { id: "escalation", label: "Escalation" },
-          { id: "won", label: "Won" },
-          { id: "lost", label: "Lost" }
+          ...crmEnquiryStatusOptions.map(({ label, value }) => ({ id: value, label }))
         ]}
         filterValue={statusFilter}
         onFilterValueChange={(value) => {
@@ -410,7 +408,6 @@ function statusFilterFromUrl(): CrmEnquiryStatusFilter {
     "in-progress",
     "closed",
     "open",
-    "follow",
     "escalation",
     "won",
     "lost",

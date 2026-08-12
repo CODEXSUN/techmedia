@@ -4,7 +4,6 @@ import type { TechMediaDatabase } from "../../database/schema.js";
 export type CrmEnquiryPriority = "low" | "normal" | "high" | "urgent";
 export type CrmEnquiryStatus =
   | "escalation"
-  | "follow"
   | "hold-for-approval"
   | "hold-for-job-out"
   | "hold-for-spares"

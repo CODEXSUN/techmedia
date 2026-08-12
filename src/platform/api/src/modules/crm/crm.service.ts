@@ -93,9 +93,7 @@ export class CrmService {
     return this.gateway.queryReport({
       filters,
       reportName:
-        name === "list-in-status"
-          ? "Enquiry List-In wise Status"
-          : "Enquiry Owner wise Status"
+        name === "list-in-status" ? "Enquiry List-In wise Status" : "Enquiry Owner wise Status"
     });
   }
 
@@ -119,12 +117,13 @@ export class CrmService {
     }
     await this.validateAssignment(input.assignedToUserId);
     await this.validateCustomer(input.customer, current.customer);
+    const currentStatus = fromFrappeStatus(current.status);
     const record = await this.gateway.update(name, toLivePayload(input));
     await this.audit("updated", record);
     const mapped = await this.map(record);
     if (input.assignedToUserId !== current.assignedToEmployee) {
       await this.notify(mapped, "assignment", "Call assigned");
-    } else if (input.status !== fromFrappeStatus(current.status)) {
+    } else if (input.status !== currentStatus) {
       await this.notify(mapped, "status", `Status: ${statusLabel(mapped.status)}`);
     }
     return { ...mapped, jobs: await this.gateway.jobs(name) };
@@ -147,13 +146,12 @@ export class CrmService {
       mode?: "comment" | "reply";
       name?: string;
       parentMessage?: string | null;
-    }> =
-      current.messages.map(({ comment, name: childName, parentMessage }) => ({
-        comment,
-        ...(parentMessage ? { mode: "reply" as const } : { mode: "comment" as const }),
-        name: childName,
-        parentMessage
-      }));
+    }> = current.messages.map(({ comment, name: childName, parentMessage }) => ({
+      comment,
+      ...(parentMessage ? { mode: "reply" as const } : { mode: "comment" as const }),
+      name: childName,
+      parentMessage
+    }));
     const comment = input.comment.trim();
     if (!plainText(comment)) throw AppError.validation("Comment cannot be empty.");
     const parentMessage =
@@ -166,7 +164,9 @@ export class CrmService {
       throw AppError.validation("Add a comment before adding a reply.");
     }
     messages.push({ comment, mode: input.messageType, parentMessage });
-    const mapped = await this.map(await this.gateway.updateMessages(name, messages, current.status));
+    const mapped = await this.map(
+      await this.gateway.updateMessages(name, messages, current.status)
+    );
     await this.notify(
       mapped,
       input.messageType,
@@ -525,7 +525,6 @@ function fromFrappeStatus(value: string): CrmEnquiry["status"] {
   if (normalized === "won") return "won";
   if (normalized === "lost") return "lost";
   if (normalized === "re-open" || normalized === "reopen") return "reopen";
-  if (normalized === "follow") return "follow";
   if (normalized === "hold for approval") return "hold-for-approval";
   if (normalized === "hold for spares") return "hold-for-spares";
   if (normalized === "hold for job-out") return "hold-for-job-out";
@@ -553,7 +552,6 @@ function isClosed(status: string) {
 
 function isInProgress(status: string) {
   return [
-    "follow",
     "hold for approval",
     "hold for spares",
     "hold for job-out",
@@ -566,7 +564,7 @@ function matchesStatus(status: string, filter?: CrmEnquiryStatusFilter) {
   if (!filter || filter === "active") return !isClosed(status);
   if (filter === "closed") return isClosed(status);
   if (filter === "in-progress") return isInProgress(status);
-  return status.trim().toLowerCase() === filter;
+  return fromFrappeStatus(status) === filter;
 }
 
 function uniqueByName(records: LiveRecord[]) {

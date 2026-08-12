@@ -53,6 +53,7 @@ import { EstimateEnquiryTab } from "../estimate";
 import { QuotationEnquiryTab } from "../quotation";
 import { useCrmEnquiryChildMutations, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
 import { CrmJobForm } from "./crm.job-form";
+import { crmEnquiryListInOptions, crmEnquiryStatusOptions } from "./crm.options";
 import type {
   CrmEnquiry,
   CrmEnquirySavePayload,
@@ -671,7 +672,9 @@ function CommentsTab({
                           <>
                             <div
                               className={`prose prose-sm max-w-none rounded-md bg-muted/20 px-3 py-0.5 text-base leading-6 text-foreground [&_p]:my-0 [&_p+p]:mt-2 ${message.isSuspended ? "opacity-60 line-through [&_*]:line-through" : ""}`}
-                              dangerouslySetInnerHTML={{ __html: sanitizeRichText(message.comment) }}
+                              dangerouslySetInnerHTML={{
+                                __html: sanitizeRichText(message.comment)
+                              }}
                             />
                           </>
                         )}
@@ -1029,20 +1032,7 @@ function EnquiryProperties({
   }, [record]);
 
   const groupOptions = Array.from(
-    new Set([
-      record.enquiryGroup,
-      "Stores",
-      "DELL",
-      "ASUS",
-      "Spares",
-      "MBO",
-      "Service",
-      "On-site",
-      "Remote - AnyDesk",
-      "Follow",
-      "Escalation",
-      "Admin"
-    ])
+    new Set([record.enquiryGroup, ...crmEnquiryListInOptions.map(({ value }) => value)])
   )
     .filter(Boolean)
     .map((value) => ({ label: value, value }));
@@ -1154,13 +1144,7 @@ function EnquiryProperties({
           onSave={saveEdit}
         >
           <WorkspaceSelect
-            options={[
-              { label: "Open", value: "open" },
-              { label: "Follow", value: "follow" },
-              { label: "Escalation", value: "escalation" },
-              { label: "Won", value: "won" },
-              { label: "Lost", value: "lost" }
-            ]}
+            options={crmEnquiryStatusOptions}
             value={status}
             onValueChange={(value) => setStatus(value as CrmEnquirySavePayload["status"])}
           />
@@ -1372,7 +1356,7 @@ function statusTone(status: CrmEnquiry["status"]): "danger" | "neutral" | "succe
   if (status === "won") return "success";
   if (status === "lost") return "neutral";
   if (status === "escalation") return "danger";
-  return status === "follow" ? "warning" : "success";
+  return status.startsWith("hold-") || status === "long-hold" ? "warning" : "success";
 }
 
 function formatDateTime(value: string) {
@@ -1449,7 +1433,9 @@ function enquiryDisplayTitle(record: Pick<CrmEnquiry, "title" | "workspace">) {
   return record.title || plainText(record.workspace);
 }
 
-function enquiryHeading(record: Pick<CrmEnquiry, "customer" | "id" | "mobile" | "title" | "workspace">) {
+function enquiryHeading(
+  record: Pick<CrmEnquiry, "customer" | "id" | "mobile" | "title" | "workspace">
+) {
   const title = record.customer || enquiryDisplayTitle(record);
   return `#${record.id} · ${record.mobile || "—"} · ${truncateHeadingTitle(title)}`;
 }

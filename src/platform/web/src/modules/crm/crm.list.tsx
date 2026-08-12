@@ -5,7 +5,6 @@ import {
   CircleCheck,
   CircleDot,
   CircleX,
-  RefreshCw,
   Trash2,
   TriangleAlert
 } from "lucide-react";
@@ -66,19 +65,34 @@ export function CrmList({
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.mobile ? (
-                  <WorkspaceTableHeaderCell><SortHeader column="mobile" label="Mobile" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell>
+                    <SortHeader column="mobile" label="Mobile" onSort={onSort} sort={sort} />
+                  </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.customer ? (
-                  <WorkspaceTableHeaderCell><SortHeader column="customer" label="Customer" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell>
+                    <SortHeader column="customer" label="Customer" onSort={onSort} sort={sort} />
+                  </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.title ? (
-                  <WorkspaceTableHeaderCell><SortHeader column="title" label="Enquiry details" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell>
+                    <SortHeader
+                      column="title"
+                      label="Enquiry details"
+                      onSort={onSort}
+                      sort={sort}
+                    />
+                  </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.enquiryGroup ? (
-                  <WorkspaceTableHeaderCell><SortHeader column="enquiryGroup" label="List in" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell>
+                    <SortHeader column="enquiryGroup" label="List in" onSort={onSort} sort={sort} />
+                  </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.dueDate ? (
-                  <WorkspaceTableHeaderCell><SortHeader column="dueDate" label="Due date" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell>
+                    <SortHeader column="dueDate" label="Due date" onSort={onSort} sort={sort} />
+                  </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.priority ? (
                   <WorkspaceTableHeaderCell
@@ -89,10 +103,19 @@ export function CrmList({
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.createdBy ? (
-                  <WorkspaceTableHeaderCell><SortHeader column="createdBy" label="User" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell>
+                    <SortHeader column="createdBy" label="User" onSort={onSort} sort={sort} />
+                  </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.assignedTo ? (
-                  <WorkspaceTableHeaderCell><SortHeader column="assignedTo" label="Assigned to" onSort={onSort} sort={sort} /></WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell>
+                    <SortHeader
+                      column="assignedTo"
+                      label="Assigned to"
+                      onSort={onSort}
+                      sort={sort}
+                    />
+                  </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.status ? (
                   <WorkspaceTableHeaderCell className="w-24 min-w-24 max-w-24">
@@ -208,9 +231,7 @@ export function CrmList({
                             month: "short",
                             timeZone: "Asia/Kolkata",
                             year: "numeric"
-                          }).format(
-                            new Date(`${record.schedules[0].scheduledOn}T00:00:00+05:30`)
-                          )
+                          }).format(new Date(`${record.schedules[0].scheduledOn}T00:00:00+05:30`))
                         : "—"}
                     </td>
                   ) : null}
@@ -346,12 +367,6 @@ function statusTone(status: CrmEnquiry["status"]): "danger" | "info" | "success"
   return status === "open" ? "info" : "danger";
 }
 
-function statusClassName(status: CrmEnquiry["status"]) {
-  return status === "follow"
-    ? "rounded-full border-pink-200 bg-pink-50 pl-6 text-pink-700"
-    : "rounded-full pl-6";
-}
-
 function EnquiryStatusBadge({ record }: { record: CrmEnquiry }) {
   const suspended = record.lifecycleStatus === "suspended";
   return (
@@ -362,7 +377,7 @@ function EnquiryStatusBadge({ record }: { record: CrmEnquiry }) {
         {suspended ? <Ban className="size-3" /> : statusIcon(record.status)}
       </span>
       <WorkspaceStatusBadge
-        className={suspended ? "rounded-full pl-6" : statusClassName(record.status)}
+        className="rounded-full pl-6"
         label={suspended ? "Suspended" : statusLabel(record.status)}
         showIcon={false}
         tone={suspended ? "danger" : statusTone(record.status)}
@@ -372,7 +387,6 @@ function EnquiryStatusBadge({ record }: { record: CrmEnquiry }) {
 }
 
 function statusIcon(status: CrmEnquiry["status"]) {
-  if (status === "follow") return <RefreshCw className="size-3" />;
   if (status === "escalation") return <TriangleAlert className="size-3" />;
   if (status === "won") return <CircleCheck className="size-3" />;
   if (status === "lost") return <CircleX className="size-3" />;
@@ -381,7 +395,6 @@ function statusIcon(status: CrmEnquiry["status"]) {
 
 function statusIconClassName(status: CrmEnquiry["status"], suspended: boolean) {
   if (suspended || status === "lost") return "text-red-700";
-  if (status === "follow") return "text-pink-700";
   if (status === "escalation") return "text-amber-700";
   if (status === "won") return "text-emerald-700";
   return "text-blue-700";

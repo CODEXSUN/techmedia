@@ -6,6 +6,7 @@ import { WorkspaceDatePicker } from "@codexsun/ui/workspace/date-picker";
 import { WorkspaceLookup } from "@codexsun/ui/workspace/lookup";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";
 import { useCrmReportQuery, useCrmUsersQuery } from "./crm.hooks";
+import { crmEnquiryListInOptions } from "./crm.options";
 import type { CrmReport, CrmReportName } from "./crm.types";
 
 type Filters = {
@@ -21,21 +22,6 @@ const emptyFilters: Filters = {
   group: "",
   toDate: ""
 };
-
-const listInOptions = [
-  "Admin",
-  "ASUS",
-  "DELL",
-  "Escalation",
-  "Follow",
-  "Job Out",
-  "MBO",
-  "On-site",
-  "Remote - AnyDesk",
-  "Service",
-  "Spares",
-  "Stores"
-].map((value) => ({ label: value, value }));
 
 export function CrmReports() {
   const [report, setReport] = useState<CrmReportName>("list-in-status");
@@ -122,7 +108,7 @@ export function CrmReports() {
               allowTextValue={false}
               className="min-w-64 flex-1"
               onValueChange={(group) => setDraft((value) => ({ ...value, group }))}
-              options={listInOptions}
+              options={crmEnquiryListInOptions}
               placeholder="List in"
               showAllOptionsOnFocus
               value={draft.group}
@@ -139,11 +125,15 @@ export function CrmReports() {
       {query.isError ? (
         <Card className="border-destructive/40 bg-destructive/5">
           <CardContent className="p-4 text-sm text-destructive">
-            {query.error instanceof Error ? query.error.message : "The Frappe report could not be loaded."}
+            {query.error instanceof Error
+              ? query.error.message
+              : "The Frappe report could not be loaded."}
           </CardContent>
         </Card>
       ) : null}
-      {query.data ? <ReportTable key={`${report}:${JSON.stringify(filters)}`} report={query.data} /> : null}
+      {query.data ? (
+        <ReportTable key={`${report}:${JSON.stringify(filters)}`} report={query.data} />
+      ) : null}
     </WorkspacePage>
   );
 }
@@ -151,14 +141,18 @@ export function CrmReports() {
 function ReportTable({ report }: { report: CrmReport }) {
   const [sort, setSort] = useState<{ direction: "asc" | "desc"; fieldname: string } | null>(null);
   const totalRows = report.rows.filter(isTotalRow);
-  const rows = report.rows.filter((row) => !isTotalRow(row)).sort((left, right) => compareReportRows(left, right, sort));
+  const rows = report.rows
+    .filter((row) => !isTotalRow(row))
+    .sort((left, right) => compareReportRows(left, right, sort));
   return (
     <Card className="overflow-hidden shadow-sm">
       <CardContent className="overflow-x-auto p-3">
         <table className="w-full min-w-max border-collapse border border-border text-sm">
           <thead className="bg-muted/70 text-center text-muted-foreground">
             <tr>
-              <th className="w-10 min-w-10 max-w-10 border border-border px-1 py-3 font-medium">#</th>
+              <th className="w-10 min-w-10 max-w-10 border border-border px-1 py-3 font-medium">
+                #
+              </th>
               {report.columns.map((column) => (
                 <th
                   className={`border border-border px-4 py-3 font-medium ${
@@ -181,7 +175,11 @@ function ReportTable({ report }: { report: CrmReport }) {
                   >
                     {column.label}
                     {sort?.fieldname === column.fieldname ? (
-                      sort.direction === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />
+                      sort.direction === "asc" ? (
+                        <ArrowUp className="size-3" />
+                      ) : (
+                        <ArrowDown className="size-3" />
+                      )
                     ) : null}
                   </button>
                 </th>
