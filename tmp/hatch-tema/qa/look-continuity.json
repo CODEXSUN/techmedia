@@ -1,0 +1,170 @@
+{
+  "ok": true,
+  "reviewRequired": true,
+  "medianDiffPixels": 1609.5,
+  "warnings": [
+    "022.5 has transparent interior hole rows (y=162)",
+    "157.5->180 diff is a local outlier (3286 pixels vs neighbor average 1444)",
+    "337.5->000 diff is a local outlier (3994 pixels vs neighbor average 1858)",
+    "337.5->000 center shift is high (9.5px)",
+    "337.5->000 sprite area ratio is high (1.27)"
+  ],
+  "alphaHoles": [
+    {
+      "direction": "022.5",
+      "holes": [
+        {
+          "row": 162,
+          "transparentPixels": 33,
+          "spanPixels": 69
+        }
+      ]
+    }
+  ],
+  "pairs": [
+    {
+      "from": "000",
+      "to": "022.5",
+      "firstPixels": 10646,
+      "secondPixels": 10234,
+      "diffPixels": 1775,
+      "centerDelta": 1.5811388300841898,
+      "areaRatio": 1.0402579636505764
+    },
+    {
+      "from": "022.5",
+      "to": "045",
+      "firstPixels": 10234,
+      "secondPixels": 9790,
+      "diffPixels": 2102,
+      "centerDelta": 2.5,
+      "areaRatio": 1.0453524004085801
+    },
+    {
+      "from": "045",
+      "to": "067.5",
+      "firstPixels": 9790,
+      "secondPixels": 9546,
+      "diffPixels": 1458,
+      "centerDelta": 0.7071067811865476,
+      "areaRatio": 1.0255604441650954
+    },
+    {
+      "from": "067.5",
+      "to": "090",
+      "firstPixels": 9546,
+      "secondPixels": 9322,
+      "diffPixels": 1391,
+      "centerDelta": 0.5,
+      "areaRatio": 1.024029178287921
+    },
+    {
+      "from": "090",
+      "to": "112.5",
+      "firstPixels": 9322,
+      "secondPixels": 9043,
+      "diffPixels": 1917,
+      "centerDelta": 1.4142135623730951,
+      "areaRatio": 1.0308525931659847
+    },
+    {
+      "from": "112.5",
+      "to": "135",
+      "firstPixels": 9043,
+      "secondPixels": 8772,
+      "diffPixels": 1602,
+      "centerDelta": 4.6097722286464435,
+      "areaRatio": 1.0308937528499773
+    },
+    {
+      "from": "135",
+      "to": "157.5",
+      "firstPixels": 8772,
+      "secondPixels": 8723,
+      "diffPixels": 1372,
+      "centerDelta": 3.605551275463989,
+      "areaRatio": 1.005617333486186
+    },
+    {
+      "from": "157.5",
+      "to": "180",
+      "firstPixels": 8723,
+      "secondPixels": 8681,
+      "diffPixels": 3286,
+      "centerDelta": 6.103277807866851,
+      "areaRatio": 1.004838152286603
+    },
+    {
+      "from": "180",
+      "to": "202.5",
+      "firstPixels": 8681,
+      "secondPixels": 8494,
+      "diffPixels": 1515,
+      "centerDelta": 4.5,
+      "areaRatio": 1.0220155403814457
+    },
+    {
+      "from": "202.5",
+      "to": "225",
+      "firstPixels": 8494,
+      "secondPixels": 7988,
+      "diffPixels": 1638,
+      "centerDelta": 1.5811388300841898,
+      "areaRatio": 1.0633450175262895
+    },
+    {
+      "from": "225",
+      "to": "247.5",
+      "firstPixels": 7988,
+      "secondPixels": 7932,
+      "diffPixels": 855,
+      "centerDelta": 0.5,
+      "areaRatio": 1.0070600100857288
+    },
+    {
+      "from": "247.5",
+      "to": "270",
+      "firstPixels": 7932,
+      "secondPixels": 8020,
+      "diffPixels": 1214,
+      "centerDelta": 0.5,
+      "areaRatio": 1.011094301563288
+    },
+    {
+      "from": "270",
+      "to": "292.5",
+      "firstPixels": 8020,
+      "secondPixels": 8036,
+      "diffPixels": 1617,
+      "centerDelta": 2.5,
+      "areaRatio": 1.001995012468828
+    },
+    {
+      "from": "292.5",
+      "to": "315",
+      "firstPixels": 8036,
+      "secondPixels": 8239,
+      "diffPixels": 1284,
+      "centerDelta": 0.5,
+      "areaRatio": 1.0252613240418118
+    },
+    {
+      "from": "315",
+      "to": "337.5",
+      "firstPixels": 8239,
+      "secondPixels": 8403,
+      "diffPixels": 1941,
+      "centerDelta": 1.8027756377319946,
+      "areaRatio": 1.0199053283165433
+    },
+    {
+      "from": "337.5",
+      "to": "000",
+      "firstPixels": 8403,
+      "secondPixels": 10646,
+      "diffPixels": 3994,
+      "centerDelta": 9.486832980505138,
+      "areaRatio": 1.2669284779245507
+    }
+  ]
+}

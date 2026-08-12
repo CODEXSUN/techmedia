@@ -17,6 +17,8 @@
 - `crm`
 - `estimate`
 - `quotation`
+- `ishop`
+- `honey`
 
 ## Shared Dependencies
 

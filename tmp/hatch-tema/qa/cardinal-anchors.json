@@ -1,0 +1,61 @@
+{
+  "ok": true,
+  "strip": "E:\\Workspace\\codexsun\\techmedia\\tmp\\hatch-tema\\decoded\\look-cardinals.png",
+  "directions": [
+    "000",
+    "090",
+    "180",
+    "270"
+  ],
+  "errors": [],
+  "anchors": [
+    {
+      "direction": "000",
+      "source_box": [
+        0,
+        0,
+        542,
+        725
+      ],
+      "used_pixels": 54092,
+      "edge_pixels": 0,
+      "output": "E:\\Workspace\\codexsun\\techmedia\\tmp\\hatch-tema\\decoded\\look-anchors\\000.png"
+    },
+    {
+      "direction": "090",
+      "source_box": [
+        542,
+        0,
+        1084,
+        725
+      ],
+      "used_pixels": 50795,
+      "edge_pixels": 0,
+      "output": "E:\\Workspace\\codexsun\\techmedia\\tmp\\hatch-tema\\decoded\\look-anchors\\090.png"
+    },
+    {
+      "direction": "180",
+      "source_box": [
+        1084,
+        0,
+        1626,
+        725
+      ],
+      "used_pixels": 56385,
+      "edge_pixels": 0,
+      "output": "E:\\Workspace\\codexsun\\techmedia\\tmp\\hatch-tema\\decoded\\look-anchors\\180.png"
+    },
+    {
+      "direction": "270",
+      "source_box": [
+        1626,
+        0,
+        2168,
+        725
+      ],
+      "used_pixels": 51476,
+      "edge_pixels": 0,
+      "output": "E:\\Workspace\\codexsun\\techmedia\\tmp\\hatch-tema\\decoded\\look-anchors\\270.png"
+    }
+  ]
+}

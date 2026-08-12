@@ -14,6 +14,8 @@
 - `crm.enquiry`
 - `estimate`
 - `quotation`
+- `ishop`
+- `ai.honey`
 
 The composition root orders modules and injects the public live-Frappe enquiry gateway. It must not
 contain entity SQL or business workflows.
@@ -27,9 +29,18 @@ repository, migration, seed, or table because its application connection comes f
 Notifications own recipient-scoped inbox and outbox records. They store delivery metadata and a
 live Frappe enquiry identifier, never a local CRM record.
 
+Honey owns actor-scoped AI conversations and messages. Its provider-neutral gateway uses only
+OpenAI-compatible environment configuration. Content writing uses bounded strategist, writer, and
+editor workers and performs no external side effects.
+Agent Connector and skill administration require the protected `super-admin` role in API routes
+and desk navigation. Business agent chat may use enabled skills without exposing their editor.
+
 CRM owns routes, validation, UI contracts, and enquiry workflow behavior. All CRM records are read
 or written through the Frappe gateway; adding a CRM repository, migration, seed, cache table, or
 local source of truth is prohibited.
+
+iShop owns its TechMedia routes and UI contracts. LogicX iShop and ERPNext catalog records remain
+on the connected Frappe site. iShop must not add local commerce tables or caches.
 
 ## Frontend Leaves
 

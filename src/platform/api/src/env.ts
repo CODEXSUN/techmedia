@@ -34,7 +34,12 @@ const envSchema = z.object({
   FRAPPE_LAST_VERIFIED_AT: z.string().default(""),
   FRAPPE_UPDATED_AT: z.string().default(""),
   FRAPPE_VERIFICATION_STATUS: z.enum(["live", "offline", "unverified"]).default("unverified"),
-  JWT_SECRET: z.string().min(1, "JWT_SECRET is required")
+  JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
+  AI_PROVIDER: z.enum(["openai", "openrouter", "opencode", "compatible"]).default("openai"),
+  AI_API_KEY: z.string().default(""),
+  AI_BASE_URL: z.string().url().default("https://api.openai.com/v1"),
+  AI_MODEL: z.string().default("gpt-5.6-terra"),
+  AI_TIMEOUT_MS: z.coerce.number().int().positive().default(120000)
 });
 
 export const env = loadEnv(envSchema);

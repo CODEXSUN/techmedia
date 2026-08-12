@@ -370,11 +370,17 @@ function stopChild(childProcess, signal) {
 
   if (process.platform === "win32") {
     try {
-      execFileSync("taskkill", ["/PID", String(childProcess.pid), "/T", "/F"], {
+      execFileSync("taskkill", ["/PID", String(childProcess.pid), "/T"], {
         stdio: ["ignore", "pipe", "pipe"]
       });
     } catch {
-      childProcess.kill(signal);
+      try {
+        childProcess.kill(signal);
+      } catch {
+        execFileSync("taskkill", ["/PID", String(childProcess.pid), "/T", "/F"], {
+          stdio: ["ignore", "pipe", "pipe"]
+        });
+      }
     }
     return;
   }

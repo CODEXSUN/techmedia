@@ -13,7 +13,8 @@ assertOrdered(databaseFile, database, [
   "migrateUserModule(db)",
   "migrateUserRoleModule(db)",
   "migrateRolePermissionModule(db)",
-  "migrateNotificationModule(db)"
+  "migrateNotificationModule(db)",
+  "migrateHoneyModule(db)"
 ]);
 assertOrdered(databaseFile, database, [
   "seedRoleModule(db)",
@@ -24,6 +25,9 @@ assertOrdered(databaseFile, database, [
 ]);
 
 const expectedTables = [
+  "ai_honey_messages",
+  "ai_honey_skills",
+  "ai_honey_threads",
   "notification_outbox",
   "notifications",
   "permissions",
@@ -44,7 +48,9 @@ if (!database.includes("techMediaDatabaseName()")) {
   throw new Error(`${databaseFile}: single database selection is missing`);
 }
 
-console.info("Database lifecycle verified: one database with Identity and notification tables only.");
+console.info(
+  "Database lifecycle verified: one database with Identity, notifications, and actor-owned Honey tables."
+);
 
 function assertOrdered(file, source, tokens) {
   let previous = -1;

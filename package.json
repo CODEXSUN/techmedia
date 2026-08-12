@@ -1,6 +1,6 @@
 {
   "name": "techmedia",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "private": true,
   "packageManager": "npm@12.0.1",
   "description": "techmedia orchestrator",
@@ -17,6 +17,7 @@
     "dev": "node tools/dev-stack.mjs",
     "dev:api": "node tools/preflight.mjs platform-api",
     "dev:web": "node tools/preflight.mjs platform-web",
+    "dev:restartable": "node tools/dev-stack.mjs",
     "clean": "node tools/clean-root-dist.mjs && node tools/clean-workspace-artifacts.mjs",
     "build": "npm run clean && node tools/stack-command.mjs build",
     "typecheck": "node tools/stack-command.mjs typecheck",

@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.28
+Current version: 1.0.29
 
-Release tag: v-1.0.28
+Release tag: v-1.0.29
 
-Changelog label: v 1.0.28
+Changelog label: v 1.0.29
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -42,6 +42,21 @@ New entries must keep database-facing work and application code work separate.
 - Aligned CRM Status and List in as independent fields with the live Frappe Enquiry form. Status
   now exposes every live status value, while List in separately exposes Follow and LogicX without
   cross-field conversion.
+
+## v-1.0.29
+
+### [v 1.0.29] 2026-08-13 2:01 am - TEMA chat archive and activity summary
+
+#### Database Changes
+
+- Database update: Yes.
+- Added an archive timestamp to persisted TEMA conversation records.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.29.
+- Kept TEMA chat history scoped to the signed-in user and added conversation, prompt, and reply counts.
+- Added a hover Archive action to each side-panel chat history item.
 
 ## v-1.0.28
 

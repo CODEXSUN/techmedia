@@ -18,6 +18,8 @@ import { rolePermissionModule } from "./modules/role-permission/index.js";
 import { roleModule } from "./modules/role/index.js";
 import { userRoleModule } from "./modules/user-role/index.js";
 import { userModule } from "./modules/user/index.js";
+import { honeyModule } from "./modules/honey/index.js";
+import { ishopModule } from "./modules/ishop/index.js";
 
 const modules = [
   userModule,
@@ -29,7 +31,9 @@ const modules = [
   notificationModule,
   crmModule,
   estimateModule,
-  quotationModule
+  quotationModule,
+  ishopModule,
+  honeyModule
 ];
 
 export async function createApp() {

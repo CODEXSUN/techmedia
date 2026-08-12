@@ -2,8 +2,10 @@ import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CircleGaugeIcon,
+  BotIcon,
   MessagesSquareIcon,
   PlugZapIcon,
+  ShoppingBagIcon,
   Settings2Icon,
   ShieldCheckIcon,
   UserRoundIcon,
@@ -25,6 +27,7 @@ import {
 } from "../../modules/crm";
 import { markNotificationRead, useNotificationInboxQuery } from "../../modules/notification";
 import { applicationEntryPath, canAccessAdministratorSettings } from "./app-shell-access";
+import { TemaMascot } from "../../modules/honey";
 
 const UserWorkspace = lazy(() =>
   import("../../modules/user").then((module) => ({ default: module.UserWorkspace }))
@@ -66,6 +69,18 @@ const FrappeOverview = lazy(() =>
 const FrappeUserSyncWorkspace = lazy(() =>
   import("../../modules/frappe").then((module) => ({ default: module.FrappeUserSyncWorkspace }))
 );
+const HoneyWorkspace = lazy(() =>
+  import("../../modules/honey").then((module) => ({ default: module.HoneyWorkspace }))
+);
+const AgentConnectorWorkspace = lazy(() =>
+  import("../../modules/honey").then((module) => ({ default: module.AgentConnectorWorkspace }))
+);
+const SkillLibraryWorkspace = lazy(() =>
+  import("../../modules/honey").then((module) => ({ default: module.SkillLibraryWorkspace }))
+);
+const IshopWorkspace = lazy(() =>
+  import("../../modules/ishop").then((module) => ({ default: module.IshopWorkspace }))
+);
 
 type Page =
   | "identity.users"
@@ -81,7 +96,17 @@ type Page =
   | "crm.created"
   | "crm.open"
   | "crm.reports"
-  | "estimate.list";
+  | "estimate.list"
+  | "ai.honey"
+  | "ai.connector"
+  | "ai.skills"
+  | "ishop.catalogs"
+  | "ishop.categories"
+  | "ishop.brands"
+  | "ishop.products"
+  | "ishop.items"
+  | "ishop.variants"
+  | "ishop.images";
 
 type Claims = {
   email: string;
@@ -108,6 +133,7 @@ export function AppDesk() {
         permission.startsWith("quotation.")
     );
   const canViewCrmReports = permissions.includes("crm.report.view");
+  const canUseIshop = permissions.some((permission) => permission.startsWith("ishop."));
   const canManageCrmListActions = claims.role === "admin";
   const showCrmActivity = claims.role === "admin";
   const showCrmProperties = claims.role !== "manager" && claims.role !== "user";
@@ -120,7 +146,7 @@ export function AppDesk() {
   const notificationInboxInitialized = useRef(false);
   const [menuNavigationRevision, setMenuNavigationRevision] = useState(0);
   const requestedPage = pageFromPath(pathname, claims.role);
-  const page = accessiblePage(requestedPage, superAdmin, canUseCrm, canViewCrmReports);
+  const page = accessiblePage(requestedPage, superAdmin, canUseCrm, canViewCrmReports, canUseIshop);
   const crmOverviewQuery = useCrmOverviewQuery(
     page.startsWith("crm.") || page.startsWith("estimate.")
   );
@@ -134,6 +160,7 @@ export function AppDesk() {
     superAdmin,
     canUseCrm,
     canViewCrmReports,
+    canUseIshop,
     crmOverviewQuery.data?.stats
   );
 
@@ -147,10 +174,9 @@ export function AppDesk() {
     const addNotification = (event: Event) => {
       const notification = (event as CustomEvent<AppNotification>).detail;
       if (!notification) return;
-      setNotifications((current) => [
-        notification,
-        ...current.filter((item) => item.id !== notification.id)
-      ].slice(0, 20));
+      setNotifications((current) =>
+        [notification, ...current.filter((item) => item.id !== notification.id)].slice(0, 20)
+      );
     };
     window.addEventListener(crmInAppNotificationEvent, addNotification);
     return () => window.removeEventListener(crmInAppNotificationEvent, addNotification);
@@ -193,85 +219,104 @@ export function AppDesk() {
     <AuthGate>
       <>
         <ApplicationLayout
-        brand={{ subtitle: "single-client workspace", title: "TechMedia" }}
-        globalSearchPlaceholder="Search CRM enquiries"
-        globalSearchValue={globalSearch}
-        headerTitle={titleFor(page)}
-        menuItems={menuItems}
-        notifications={notifications}
-        onNotificationDismiss={(id) => {
-          const notificationId = Number(id);
-          if (Number.isInteger(notificationId)) void markNotificationRead(notificationId);
-          setNotifications((current) => current.filter((notification) => notification.id !== id));
-        }}
-        onLogout={handleLogout}
-        onGlobalSearchValueChange={setGlobalSearch}
-        profileHref="/app/identity/profile"
-        showHomeAction={false}
-        showPageTitle={false}
-        showSidebarUser={false}
-        subtitle={null}
-        title={null}
-        user={{
-          email: claims.email,
-          fallback: initials(claims.name ?? claims.email),
-          name: claims.name ?? claims.email
-        }}
-        versionLabel={`v ${__APP_VERSION__}`}
-        workspaceItems={[
-          {
-            active: page === "identity.profile",
-            avatar: true,
-            description: "Your TechMedia profile and Frappe credentials.",
-            icon: UserRoundIcon,
-            title: "Account",
-            url: "/app/identity/profile"
-          },
-          ...(canUseCrm
-            ? [
-                {
-                  active: page.startsWith("crm.") || page.startsWith("estimate."),
-                  description: "Live Frappe enquiry and estimate workflows.",
-                  icon: MessagesSquareIcon,
-                  title: "CRM",
-                  url: "/app/crm/overview"
-                }
-              ]
-            : []),
-          ...(superAdmin
-            ? [
-                {
-                  active:
-                    (page.startsWith("identity.") && page !== "identity.profile") ||
-                    page.startsWith("settings."),
-                  description: "Identity, Frappe connection, and user credentials.",
-                  icon: PlugZapIcon,
-                  title: "Admin",
-                  url: "/app/settings/frappe/overview"
-                }
-              ]
-            : [])
-        ]}
-      >
-        <main className="w-full space-y-4 px-2 py-2 lg:px-3 lg:py-3">
-          <Suspense fallback={<GlobalLoader />}>
-            <Fragment key={`${page}-${menuNavigationRevision}`}>
-              {renderPage(
-                page,
-                claims,
-                permissions,
-                superAdmin,
-                canUseCrm,
-                canManageCrmListActions,
-                showCrmActivity,
-                showCrmProperties,
-                globalSearch,
-                setGlobalSearch
-              )}
-            </Fragment>
-          </Suspense>
-        </main>
+          brand={{ subtitle: "Trusted Since 2002", title: "TechMedia" }}
+          globalSearchPlaceholder="Search CRM enquiries"
+          globalSearchValue={globalSearch}
+          headerTitle={titleFor(page)}
+          menuItems={menuItems}
+          notifications={notifications}
+          onNotificationDismiss={(id) => {
+            const notificationId = Number(id);
+            if (Number.isInteger(notificationId)) void markNotificationRead(notificationId);
+            setNotifications((current) => current.filter((notification) => notification.id !== id));
+          }}
+          onLogout={handleLogout}
+          onGlobalSearchValueChange={setGlobalSearch}
+          profileHref="/app/identity/profile"
+          showHomeAction={false}
+          showPageTitle={false}
+          showSidebarUser={false}
+          subtitle={null}
+          title={null}
+          user={{
+            email: claims.email,
+            fallback: initials(claims.name ?? claims.email),
+            name: claims.name ?? claims.email
+          }}
+          versionLabel={`v ${__APP_VERSION__}`}
+          workspaceItems={[
+            {
+              active: page === "identity.profile",
+              avatar: true,
+              description: "Your TechMedia profile and Frappe credentials.",
+              icon: UserRoundIcon,
+              title: "Account",
+              url: "/app/identity/profile"
+            },
+            ...(canUseCrm
+              ? [
+                  {
+                    active: page.startsWith("crm.") || page.startsWith("estimate."),
+                    description: "Live Frappe enquiry and estimate workflows.",
+                    icon: MessagesSquareIcon,
+                    title: "CRM",
+                    url: "/app/crm/overview"
+                  }
+                ]
+              : []),
+            ...(canUseIshop
+              ? [
+                  {
+                    active: page.startsWith("ishop."),
+                    description: "Manage LogicX iShop records on Frappe.",
+                    icon: ShoppingBagIcon,
+                    title: "iShop",
+                    url: "/app/ishop/catalogs"
+                  }
+                ]
+              : []),
+            {
+              active: page === "ai.honey",
+              description: "AI chat, content writer, and sub-agent workers.",
+              icon: BotIcon,
+              title: "TEMA",
+              url: "/app/ai/honey"
+            },
+            ...(superAdmin
+              ? [
+                  {
+                    active:
+                      (page.startsWith("identity.") && page !== "identity.profile") ||
+                      page.startsWith("settings."),
+                    description: "Identity, Frappe connection, and user credentials.",
+                    icon: PlugZapIcon,
+                    title: "Admin",
+                    url: "/app/settings/frappe/overview"
+                  }
+                ]
+              : [])
+          ]}
+        >
+          <main className="w-full space-y-4 px-2 py-2 lg:px-3 lg:py-3">
+            <Suspense fallback={<GlobalLoader />}>
+              <Fragment key={`${page}-${menuNavigationRevision}`}>
+                {renderPage(
+                  page,
+                  claims,
+                  permissions,
+                  superAdmin,
+                  canUseCrm,
+                  canManageCrmListActions,
+                  showCrmActivity,
+                  showCrmProperties,
+                  globalSearch,
+                  setGlobalSearch
+                )}
+              </Fragment>
+            </Suspense>
+          </main>
         </ApplicationLayout>
+        {page !== "ai.honey" ? <TemaMascot onOpen={() => select("ai.honey")} /> : null}
       </>
     </AuthGate>
   );
@@ -289,6 +334,11 @@ function renderPage(
   globalSearch: string,
   onGlobalSearchValueChange: (value: string) => void
 ) {
+  if (page === "ai.connector")
+    return superAdmin ? <AgentConnectorWorkspace /> : <UserProfileWorkspace />;
+  if (page === "ai.skills")
+    return superAdmin ? <SkillLibraryWorkspace /> : <UserProfileWorkspace />;
+  if (page === "ai.honey") return <HoneyWorkspace />;
   if (isAdministratorPage(page) && !superAdmin) {
     return canUseCrm ? <CrmOverview /> : <UserProfileWorkspace />;
   }
@@ -323,6 +373,15 @@ function renderPage(
         }
         canUpdate={
           permissions.includes("estimate.update") || permissions.includes("crm.enquiry.update")
+        }
+      />
+    );
+  }
+  if (page.startsWith("ishop.")) {
+    return (
+      <IshopWorkspace
+        page={
+          page.slice("ishop.".length) as import("../../modules/ishop/ishop.workspace").IshopPage
         }
       />
     );
@@ -365,6 +424,7 @@ function buildMenu(
   superAdmin: boolean,
   canUseCrm: boolean,
   canViewCrmReports: boolean,
+  canUseIshop: boolean,
   crmStats?: CrmEnquiryOverview["stats"]
 ): SidemenuItem[] {
   const item = (title: string, target: Page, badge?: number) => ({
@@ -387,6 +447,25 @@ function buildMenu(
     ],
     title: "Settings"
   };
+  if (canUseIshop && page.startsWith("ishop.")) {
+    return [
+      {
+        icon: ShoppingBagIcon,
+        isActive: true,
+        items: [
+          item("Catalogs", "ishop.catalogs"),
+          item("Categories", "ishop.categories"),
+          item("Brands", "ishop.brands"),
+          item("Products", "ishop.products"),
+          item("Product Details", "ishop.items"),
+          item("Product Variants", "ishop.variants"),
+          item("Product Images", "ishop.images")
+        ],
+        title: "LogicX iShop"
+      },
+      notificationSettings
+    ];
+  }
   if (canUseCrm && (!superAdmin || page.startsWith("crm.") || page.startsWith("estimate."))) {
     return [
       {
@@ -401,10 +480,32 @@ function buildMenu(
         ],
         title: "CRM"
       },
-      notificationSettings
+      notificationSettings,
+      {
+        icon: BotIcon,
+        isActive: page === "ai.honey",
+        items: [
+          item("Business agent chat", "ai.honey"),
+          ...(superAdmin
+            ? [item("Agent Connector", "ai.connector"), item("Skills", "ai.skills")]
+            : [])
+        ],
+        title: "TEMA AI"
+      }
     ];
   }
   return [
+    {
+      icon: BotIcon,
+      isActive: page === "ai.honey",
+      items: [
+        item("Business agent chat", "ai.honey"),
+        ...(superAdmin
+          ? [item("Agent Connector", "ai.connector"), item("Skills", "ai.skills")]
+          : [])
+      ],
+      title: "TEMA AI"
+    },
     {
       icon: ShieldCheckIcon,
       isActive: page.startsWith("identity."),
@@ -424,19 +525,25 @@ function accessiblePage(
   page: Page,
   superAdmin: boolean,
   canUseCrm: boolean,
-  canViewCrmReports: boolean
+  canViewCrmReports: boolean,
+  canUseIshop: boolean
 ): Page {
   if (isAdministratorPage(page) && !superAdmin)
     return canUseCrm ? "crm.overview" : "identity.profile";
   if (page === "crm.reports" && !canViewCrmReports)
     return canUseCrm ? "crm.overview" : "identity.profile";
-  if (!canUseCrm && (page.startsWith("crm.") || page === "estimate.list")) return "identity.profile";
+  if (!canUseCrm && (page.startsWith("crm.") || page === "estimate.list"))
+    return "identity.profile";
+  if (!canUseIshop && page.startsWith("ishop."))
+    return canUseCrm ? "crm.overview" : "identity.profile";
   return page;
 }
 
 function isAdministratorPage(page: Page) {
   return (
     page === "crm.open" ||
+    page === "ai.connector" ||
+    page === "ai.skills" ||
     (page.startsWith("settings.") && page !== "settings.notifications") ||
     (page.startsWith("identity.") && page !== "identity.profile")
   );
@@ -458,7 +565,17 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "crm.created",
     "crm.open",
     "crm.reports",
-    "estimate.list"
+    "estimate.list",
+    "ai.honey",
+    "ai.connector",
+    "ai.skills",
+    "ishop.catalogs",
+    "ishop.categories",
+    "ishop.brands",
+    "ishop.products",
+    "ishop.items",
+    "ishop.variants",
+    "ishop.images"
   ];
   if (allowed.includes(value as Page)) return value as Page;
   return applicationEntryPath(role)
@@ -475,7 +592,17 @@ function titleFor(page: Page) {
     "estimate.list": "Estimate",
     "settings.frappe.overview": "Frappe connection",
     "settings.frappe.users": "Frappe Users",
-    "settings.notifications": "Desktop notifications"
+    "settings.notifications": "Desktop notifications",
+    "ai.honey": "TEMA AI",
+    "ai.connector": "Agent Connector",
+    "ai.skills": "TEMA Skills",
+    "ishop.catalogs": "Catalogs",
+    "ishop.categories": "Categories",
+    "ishop.brands": "Brands",
+    "ishop.products": "Products",
+    "ishop.items": "Product Details",
+    "ishop.variants": "Product Variants",
+    "ishop.images": "Product Images"
   };
   if (labels[page]) return labels[page];
   return page

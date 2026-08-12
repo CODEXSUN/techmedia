@@ -13,10 +13,16 @@ Local tables are limited to:
 - `role_permissions`
 - `notifications`
 - `notification_outbox`
+- `ai_honey_threads`
+- `ai_honey_messages`
+- `ai_honey_skills`
 - `schema_migrations`
 
 Per-user Frappe credentials and verification metadata are columns on `users`. Application-level
 Frappe connection values come only from `.env`; Settings owns no tables.
+
+Honey persists actor-owned conversation history and worker audit metadata. Provider keys and model
+connection settings remain environment-only and are never stored in conversation records.
 
 Notifications persist internal recipient inbox and outbox events only. They retain the Frappe
 enquiry identifier, title, and message, but never duplicate enquiry data or become a CRM source
@@ -40,6 +46,11 @@ Frappe is the source of truth for Quotation records. Each TechMedia quotation is
 source Enquiry by the Frappe `Quotation.custom_enquiry` Link field. Enquiry and authenticated user
 identity are derived server-side; list, reference, create, read, and update requests use the
 signed-in user's verified Frappe identity.
+
+## iShop
+
+Frappe is the source of truth for LogicX iShop Catalog and iShop Item records, plus ERPNext Item,
+Item Group, Brand, variant, and image references. TechMedia does not mirror or cache iShop data.
 
 ## Safety
 

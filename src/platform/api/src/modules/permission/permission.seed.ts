@@ -42,7 +42,9 @@ const permissionKeys = [
   "estimate.update",
   "quotation.view",
   "quotation.create",
-  "quotation.update"
+  "quotation.update",
+  "ishop.view",
+  "ishop.manage"
 ] as const;
 
 export async function seedPermissionModule(database: Kysely<TechMediaDatabase>) {

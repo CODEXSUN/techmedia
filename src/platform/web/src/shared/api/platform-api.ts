@@ -1,4 +1,5 @@
 import { requiredClientEnv } from "../env/client-env";
+import { beginTemaJob, finishTemaJob } from "../tema-activity";
 
 const apiBaseUrl = requiredClientEnv("VITE_PLATFORM_API_URL");
 const TOKEN_KEY = "techmedia_session";
@@ -77,32 +78,40 @@ export function clearSessionExpiredWarning(): void {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const tracksJob = options.method !== undefined && options.method !== "GET" && !isCredentialRequest(path);
+  if (tracksJob) beginTemaJob();
   const token = getToken();
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...options,
-    headers: {
-      ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers
+  try {
+    const response = await fetch(`${apiBaseUrl}${path}`, {
+      ...options,
+      headers: {
+        ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers
+      }
+    });
+    const responseText = await response.text();
+    let envelope: ApiEnvelope<T> | null = null;
+    if (responseText) {
+      try {
+        envelope = JSON.parse(responseText) as ApiEnvelope<T>;
+      } catch {
+        throw new Error(`TechMedia API returned an invalid response (${response.status}).`);
+      }
     }
-  });
-  const responseText = await response.text();
-  let envelope: ApiEnvelope<T> | null = null;
-  if (responseText) {
-    try {
-      envelope = JSON.parse(responseText) as ApiEnvelope<T>;
-    } catch {
-      throw new Error(`TechMedia API returned an invalid response (${response.status}).`);
+    if (!envelope) throw new Error("TechMedia API returned an empty response.");
+    if (!response.ok || !envelope.success) {
+      if (response.status === 401 && token && !isCredentialRequest(path)) {
+        redirectToLoginForExpiredSession();
+      }
+      throw new Error(envelope.success ? "Request failed" : envelope.error.message);
     }
+    if (tracksJob) finishTemaJob(true);
+    return envelope.data;
+  } catch (error) {
+    if (tracksJob) finishTemaJob(false);
+    throw error;
   }
-  if (!envelope) throw new Error("TechMedia API returned an empty response.");
-  if (!response.ok || !envelope.success) {
-    if (response.status === 401 && token && !isCredentialRequest(path)) {
-      redirectToLoginForExpiredSession();
-    }
-    throw new Error(envelope.success ? "Request failed" : envelope.error.message);
-  }
-  return envelope.data;
 }
 
 function isCredentialRequest(path: string) {

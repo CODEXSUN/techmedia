@@ -8,6 +8,8 @@ const allowed = new Set([
   "crm",
   "estimate",
   "frappe",
+  "honey",
+  "ishop",
   "notification",
   "permission",
   "quotation",
@@ -40,7 +42,7 @@ for (const file of sourceFiles(resolve(root, "src/platform"))) {
   }
 }
 
-for (const moduleName of ["crm", "estimate", "quotation"]) {
+for (const moduleName of ["crm", "estimate", "quotation", "ishop"]) {
   for (const suffix of ["migration.ts", "repository.ts", "seed.ts"]) {
     const forbidden = `${moduleName}.${suffix}`;
     if (existsSync(join(apiModules, moduleName, forbidden))) {
@@ -54,7 +56,7 @@ if (failures.length) {
   process.exit(1);
 }
 console.info(
-  "Module boundary check passed: Identity, internal notifications, and live-Frappe CRM/Estimate/Quotation only."
+  "Module boundary check passed: Identity, Honey AI, internal notifications, and live-Frappe CRM/Estimate/Quotation only."
 );
 
 function sourceFiles(directory) {

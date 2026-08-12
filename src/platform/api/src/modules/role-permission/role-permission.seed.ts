@@ -38,7 +38,9 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
       "estimate.update",
       "quotation.view",
       "quotation.create",
-      "quotation.update"
+      "quotation.update",
+      "ishop.view",
+      "ishop.manage"
     ]
   };
   for (const [roleKey, permissionKeys] of Object.entries(liveFrappeDefaults)) {

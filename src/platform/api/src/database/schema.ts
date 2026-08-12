@@ -122,7 +122,40 @@ export type NotificationOutboxTable = {
   uuid: string;
 };
 
+export type AiHoneyThreadsTable = {
+  actor_user_id: number;
+  archived_at: NullableTimestampColumn;
+  created_at: TimestampColumn;
+  id: Generated<number>;
+  title: string;
+  updated_at: TimestampColumn;
+  uuid: string;
+};
+
+export type AiHoneyMessagesTable = {
+  actor_user_id: number;
+  body: string;
+  created_at: TimestampColumn;
+  id: Generated<number>;
+  metadata_json: string;
+  role: "assistant" | "user";
+  thread_uuid: string;
+  uuid: string;
+};
+export type AiHoneySkillsTable = {
+  created_at: TimestampColumn;
+  description: string;
+  enabled: boolean | number;
+  id: Generated<number>;
+  instructions: string;
+  name: string;
+  updated_at: TimestampColumn;
+};
+
 export type TechMediaDatabase = {
+  ai_honey_messages: AiHoneyMessagesTable;
+  ai_honey_skills: AiHoneySkillsTable;
+  ai_honey_threads: AiHoneyThreadsTable;
   notification_outbox: NotificationOutboxTable;
   notifications: NotificationsTable;
   permissions: PermissionsTable;

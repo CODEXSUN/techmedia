@@ -1,0 +1,1 @@
+{"decision":"accept","severity":"minor","failed_checks":["247.5 vertical axis ambiguous","292.5 vertical axis ambiguous"],"evidence":"Both intermediate directions pass their horizontal axes, labeled normal-size review preserves the intended quadrant, adjacent poses continue the clockwise loop, and all cardinal hard gates pass.","reviewed_by":"parent"}

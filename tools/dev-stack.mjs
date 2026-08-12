@@ -1,15 +1,28 @@
 ﻿#!/usr/bin/env node
 
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
+const env = { ...loadDotEnv(), ...process.env };
 const services = {
-  "platform-api": { color: "\x1b[36m", label: "api", preflight: "platform-api" },
-  "platform-web": { color: "\x1b[32m", label: "web", preflight: "platform-web" }
+  "platform-api": {
+    color: "\x1b[36m",
+    healthUrl: `${env.PLATFORM_API_URL ?? "http://127.0.0.1:7050"}/health`,
+    label: "api",
+    preflight: "platform-api"
+  },
+  "platform-web": {
+    color: "\x1b[32m",
+    healthUrl: `http://127.0.0.1:${env.PLATFORM_WEB_PORT ?? "7060"}/`,
+    label: "web",
+    preflight: "platform-web"
+  }
 };
 const reset = "\x1b[0m";
 const children = new Set();
+const restartTimers = new Set();
 let stopping = false;
 
 console.log("\nTECHMEDIA Platform runtime");
@@ -39,8 +52,12 @@ function startService(serviceName) {
 
     const exitCode = code ?? 1;
     console.error(`${service.color}[${service.label}]${reset} exited with code ${exitCode}`);
-    stopChildren(child);
-    process.exit(exitCode || 1);
+    console.log(`${service.color}[${service.label}]${reset} restarting in 1 second`);
+    const timer = setTimeout(() => {
+      restartTimers.delete(timer);
+      if (!stopping) startService(serviceName);
+    }, 1_000);
+    restartTimers.add(timer);
   });
 
   return child;
@@ -49,11 +66,11 @@ function startService(serviceName) {
 async function startStack() {
   console.log(`  - ${services["platform-api"].label}`);
   startService("platform-api");
-  await waitForHealthyUrl("http://127.0.0.1:7050/health", "Platform API", 90_000);
+  await waitForHealthyUrl(services["platform-api"].healthUrl, "Platform API", 90_000);
 
   console.log(`  - ${services["platform-web"].label}`);
   startService("platform-web");
-  await waitForHealthyUrl("http://127.0.0.1:7060/", "Platform Web", 30_000);
+  await waitForHealthyUrl(services["platform-web"].healthUrl, "Platform Web", 30_000);
   console.log("  ok Platform API and Web are ready\n");
   monitorStackHealth();
 }
@@ -80,10 +97,7 @@ async function waitForHealthyUrl(url, label, timeoutMs) {
 }
 
 function monitorStackHealth() {
-  const targets = [
-    { failures: 0, label: "Platform API", url: "http://127.0.0.1:7050/health" },
-    { failures: 0, label: "Platform Web", url: "http://127.0.0.1:7060/" }
-  ];
+  const targets = Object.values(services).map((service) => ({ failures: 0, label: service.label, unavailable: false, url: service.healthUrl }));
   let checking = false;
 
   setInterval(async () => {
@@ -99,10 +113,13 @@ function monitorStackHealth() {
           target.failures += 1;
         }
 
-        if (target.failures >= 3) {
-          console.error(`  x ${target.label} became unavailable; stopping Platform runtime`);
-          stopChildren();
-          process.exit(1);
+        if (target.failures >= 3 && !target.unavailable) {
+          target.unavailable = true;
+          console.log(`  - ${target.label} is restarting; the other service remains available`);
+        }
+        if (target.failures === 0 && target.unavailable) {
+          target.unavailable = false;
+          console.log(`  ok ${target.label} is ready again`);
         }
       }
     } finally {
@@ -120,6 +137,8 @@ function writeServiceLines(service, chunk) {
 
 function stopChildren(skipChild) {
   stopping = true;
+  for (const timer of restartTimers) clearTimeout(timer);
+  restartTimers.clear();
   for (const child of children) {
     if (child === skipChild || child.killed || !child.pid) continue;
     if (process.platform === "win32") {
@@ -128,4 +147,20 @@ function stopChildren(skipChild) {
       child.kill("SIGTERM");
     }
   }
+}
+
+function loadDotEnv() {
+  const path = resolve(root, ".env");
+  if (!existsSync(path)) return {};
+
+  const entries = readFileSync(path, "utf8")
+    .split(/\r?\n/u)
+    .map((line) => line.match(/^\s*([^#=]+?)\s*=\s*(.*?)\s*$/u))
+    .filter(Boolean)
+    .map((match) => [
+      match[1].trim(),
+      match[2].replace(/^(["'])(.*)\1$/u, "$2")
+    ]);
+
+  return Object.fromEntries(entries);
 }
