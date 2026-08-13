@@ -58,6 +58,7 @@ services:
       - "${TECHMEDIA_BIND_ADDRESS:-127.0.0.1}:${TECHMEDIA_API_HOST_PORT:-7050}:${TECHMEDIA_API_INTERNAL_PORT:-7050}"
     volumes:
       - ${TECHMEDIA_RUNTIME_ENV_FILE:-../.env}:/workspace/techmedia/.env:rw
+      - codex-data:/home/node/.codex
     networks: [techmedia]
     healthcheck:
       test:
@@ -101,6 +102,8 @@ services:
       retries: 12
 
 volumes:
+  codex-data:
+    name: ${TECHMEDIA_CODEX_DATA_VOLUME:-techmedia-codex-data}
   mariadb-data:
     name: ${TECHMEDIA_MARIADB_DATA_VOLUME:-techmedia-mariadb-data}
 

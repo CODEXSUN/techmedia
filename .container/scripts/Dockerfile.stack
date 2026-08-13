@@ -22,9 +22,10 @@ RUN npm install --global npm@${NPM_RUNTIME_VERSION} && \
   apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
   rm -rf /var/lib/apt/lists/*
 COPY --chown=node:node --from=build /workspace/techmedia /workspace/techmedia
+RUN install -d -o node -g node -m 700 /home/node/.codex
 USER node
 EXPOSE 7050
-CMD ["node", "dist/platform/api/server.js"]
+CMD ["sh", "-c", "umask 077 && exec node dist/platform/api/server.js"]
 
 FROM nginx:1.28-alpine AS web-runtime
 COPY .container/scripts/nginx-spa.conf /etc/nginx/templates/default.conf.template

@@ -91,16 +91,17 @@ export class HoneyService {
     threadId?: string | null | undefined;
   }) {
     const actor = await this.actor();
-    const threadId = input.threadId ?? (await this.createThread(actor.id, input.message));
-    await this.requireThread(threadId, actor.id);
-    await this.addMessage(threadId, actor.id, "user", input.message, { mode: input.mode });
-    const history = await this.context.database
-      .selectFrom("ai_honey_messages")
-      .select(["role", "body"])
-      .where("thread_uuid", "=", threadId)
-      .orderBy("created_at", "desc")
-      .limit(12)
-      .execute();
+    if (input.threadId) await this.requireThread(input.threadId, actor.id);
+    const history = input.threadId
+      ? await this.context.database
+          .selectFrom("ai_honey_messages")
+          .select(["role", "body"])
+          .where("thread_uuid", "=", input.threadId)
+          .where("actor_user_id", "=", actor.id)
+          .orderBy("created_at", "desc")
+          .limit(11)
+          .execute()
+      : [];
     const result =
       input.mode === "content-writer"
         ? await this.runContentWorkers(input.message)
@@ -109,14 +110,12 @@ export class HoneyService {
               { role: "system", content: await this.systemPrompt() },
               ...history
                 .reverse()
-                .map((row) => ({ role: row.role as "assistant" | "user", content: row.body }))
+                .map((row) => ({ role: row.role as "assistant" | "user", content: row.body })),
+              { role: "user", content: input.message }
             ]),
             workers: []
           };
-    await this.addMessage(threadId, actor.id, "assistant", result.body, {
-      mode: input.mode,
-      workers: result.workers
-    });
+    const threadId = await this.persistExchange(input, actor.id, result);
     return this.conversation(threadId);
   }
 
@@ -169,14 +168,6 @@ export class HoneyService {
     if (!actor) throw AppError.unauthorized("An active user is required.");
     return actor;
   }
-  private async createThread(actorId: number, title: string) {
-    const uuid = randomUUID();
-    await this.context.database
-      .insertInto("ai_honey_threads")
-      .values({ actor_user_id: actorId, title: title.slice(0, 240), uuid })
-      .execute();
-    return uuid;
-  }
   private async requireThread(uuid: string, actorId: number) {
     const thread = await this.context.database
       .selectFrom("ai_honey_threads")
@@ -187,24 +178,52 @@ export class HoneyService {
       .executeTakeFirst();
     if (!thread) throw AppError.notFound("TEMA conversation was not found.");
   }
-  private async addMessage(
-    threadUuid: string,
+  private async persistExchange(
+    input: {
+      message: string;
+      mode: "assistant" | "content-writer";
+      threadId?: string | null | undefined;
+    },
     actorId: number,
-    role: "assistant" | "user",
-    body: string,
-    metadata: unknown
+    result: { body: string; workers: Array<{ name: string; output: string }> }
   ) {
-    await this.context.database
-      .insertInto("ai_honey_messages")
-      .values({
-        actor_user_id: actorId,
-        body,
-        metadata_json: JSON.stringify(metadata),
-        role,
-        thread_uuid: threadUuid,
-        uuid: randomUUID()
-      })
-      .execute();
+    const threadId = input.threadId ?? randomUUID();
+    await this.context.database.transaction().execute(async (transaction) => {
+      if (!input.threadId) {
+        await transaction
+          .insertInto("ai_honey_threads")
+          .values({ actor_user_id: actorId, title: input.message.slice(0, 240), uuid: threadId })
+          .execute();
+      }
+      await transaction
+        .insertInto("ai_honey_messages")
+        .values([
+          {
+            actor_user_id: actorId,
+            body: input.message,
+            metadata_json: JSON.stringify({ mode: input.mode }),
+            role: "user",
+            thread_uuid: threadId,
+            uuid: randomUUID()
+          },
+          {
+            actor_user_id: actorId,
+            body: result.body,
+            metadata_json: JSON.stringify({ mode: input.mode, workers: result.workers }),
+            role: "assistant",
+            thread_uuid: threadId,
+            uuid: randomUUID()
+          }
+        ])
+        .execute();
+      await transaction
+        .updateTable("ai_honey_threads")
+        .set({ updated_at: new Date() })
+        .where("uuid", "=", threadId)
+        .where("actor_user_id", "=", actorId)
+        .execute();
+    });
+    return threadId;
   }
 }
 

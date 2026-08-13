@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { createRequire } from "node:module";
+import { secureCodexCredentials } from "./codex-credentials.js";
 
 type Pending = { reject: (error: Error) => void; resolve: (value: unknown) => void };
 
@@ -52,6 +53,7 @@ class CodexConnectorService {
   }
 
   private async request(method: string, params: unknown) {
+    await secureCodexCredentials();
     await this.start();
     const id = this.id++;
     const result = new Promise<unknown>((resolve, reject) => {
@@ -61,7 +63,7 @@ class CodexConnectorService {
       }, 20_000).unref();
     });
     this.process!.stdin.write(`${JSON.stringify({ id, method, params })}\n`);
-    return result;
+    return result.finally(secureCodexCredentials);
   }
 
   private async start() {

@@ -5,6 +5,7 @@ import { AppError } from "@codexsun/framework/errors";
 import { z } from "zod";
 import { identityContext } from "../../auth/identity-context.js";
 import { HoneyService } from "./honey.service.js";
+import { HoneyModelGateway } from "./honey.gateway.js";
 import { codexConnector } from "./codex-connector.service.js";
 
 const message = z.object({
@@ -109,7 +110,11 @@ export function registerHoneyRoutes(app: FastifyInstance) {
       }),
       response: conversation
     },
-    handler: ({ body, request }) => new HoneyService(identityContext(request)).chat(body)
+    handler: ({ body, request }) =>
+      new HoneyService(
+        identityContext(request),
+        new HoneyModelGateway({ logger: request.log, requestId: request.id })
+      ).chat(body)
   });
 }
 
