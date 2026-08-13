@@ -26,6 +26,7 @@ assertOrdered(databaseFile, database, [
 
 const expectedTables = [
   "ai_honey_messages",
+  "ai_honey_settings",
   "ai_honey_skills",
   "ai_honey_threads",
   "notification_outbox",

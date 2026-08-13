@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "../../shared/api/platform-api";
+import { apiGet, apiPost, apiPut } from "../../shared/api/platform-api";
 export type HoneyMessage = {
   body: string;
   createdAt: string;
@@ -12,6 +12,10 @@ export type HoneyOverview = {
   promptCount: number;
   responseCount: number;
 };
+export type HoneyAvailability = { enabled: boolean };
+export const getHoneyAvailability = () => apiGet<HoneyAvailability>("/ai/honey/settings");
+export const updateHoneyAvailability = (enabled: boolean) =>
+  apiPut<HoneyAvailability>("/ai/honey/settings", { enabled });
 export const getHoneyOverview = () => apiGet<HoneyOverview>("/ai/honey/overview");
 export const listHoneyConversations = () =>
   apiGet<Array<{ id: string; title: string; updatedAt: string }>>("/ai/honey/conversations");

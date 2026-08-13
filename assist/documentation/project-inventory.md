@@ -20,6 +20,9 @@
 - `ishop`
 - `honey`
 
+Honey includes the system-administrator global availability control for TEMA chat and mascot
+surfaces.
+
 ## Shared Dependencies
 
 - `packages/framework`: repository-owned backend infrastructure and public module contracts.

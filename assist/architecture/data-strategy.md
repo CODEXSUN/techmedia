@@ -16,12 +16,13 @@ Local tables are limited to:
 - `ai_honey_threads`
 - `ai_honey_messages`
 - `ai_honey_skills`
+- `ai_honey_settings`
 - `schema_migrations`
 
 Per-user Frappe credentials and verification metadata are columns on `users`. Application-level
 Frappe connection values come only from `.env`; Settings owns no tables.
 
-Honey persists actor-owned conversation history and worker audit metadata. Provider keys and model
+Honey persists actor-owned conversation history, global availability, and worker audit metadata. Provider keys and model
 connection settings remain environment-only and are never stored in conversation records.
 
 Notifications persist internal recipient inbox and outbox events only. They retain the Frappe

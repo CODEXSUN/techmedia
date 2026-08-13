@@ -3,7 +3,8 @@ import type { TechMediaDatabase } from "../../database/schema.js";
 
 export const honeyMigrations = [
   { key: "ai.honey.content-v1" },
-  { key: "ai.honey.archive-v1" }
+  { key: "ai.honey.archive-v1" },
+  { key: "ai.honey.global-availability-v1" }
 ] as const;
 
 export async function migrateHoneyModule(database: Kysely<TechMediaDatabase>) {
@@ -54,6 +55,20 @@ export async function migrateHoneyModule(database: Kysely<TechMediaDatabase>) {
           "Check clarity, scope, assumptions, exclusions, and calls to action without inventing prices or terms."
       }
     ])
+    .execute();
+  await sql
+    .raw(
+      `CREATE TABLE IF NOT EXISTS ai_honey_settings (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY, setting_key VARCHAR(80) NOT NULL UNIQUE,
+    enabled TINYINT(1) NOT NULL DEFAULT 1,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    )
+    .execute(database);
+  await database
+    .insertInto("ai_honey_settings")
+    .ignore()
+    .values({ enabled: true, setting_key: "global-availability" })
     .execute();
   await sql
     .raw(

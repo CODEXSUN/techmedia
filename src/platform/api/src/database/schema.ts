@@ -151,9 +151,16 @@ export type AiHoneySkillsTable = {
   name: string;
   updated_at: TimestampColumn;
 };
+export type AiHoneySettingsTable = {
+  enabled: boolean | number;
+  id: Generated<number>;
+  setting_key: string;
+  updated_at: TimestampColumn;
+};
 
 export type TechMediaDatabase = {
   ai_honey_messages: AiHoneyMessagesTable;
+  ai_honey_settings: AiHoneySettingsTable;
   ai_honey_skills: AiHoneySkillsTable;
   ai_honey_threads: AiHoneyThreadsTable;
   notification_outbox: NotificationOutboxTable;

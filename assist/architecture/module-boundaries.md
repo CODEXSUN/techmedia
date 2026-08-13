@@ -32,6 +32,8 @@ live Frappe enquiry identifier, never a local CRM record.
 Honey owns actor-scoped AI conversations and messages. Its provider-neutral gateway uses only
 OpenAI-compatible environment configuration. Content writing uses bounded strategist, writer, and
 editor workers and performs no external side effects.
+Honey also owns the persisted global availability setting. Only a system administrator can change
+it. Disabled TEMA routes reject new chat work, and the desk hides chat and mascot surfaces.
 Agent Connector and skill administration require the protected `super-admin` role in API routes
 and desk navigation. Business agent chat may use enabled skills without exposing their editor.
 

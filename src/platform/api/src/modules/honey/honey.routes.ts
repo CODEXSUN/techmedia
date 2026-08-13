@@ -6,6 +6,7 @@ import { z } from "zod";
 import { identityContext } from "../../auth/identity-context.js";
 import { HoneyService } from "./honey.service.js";
 import { HoneyModelGateway } from "./honey.gateway.js";
+import { HoneySettingsService } from "./honey-settings.service.js";
 import { codexConnector } from "./codex-connector.service.js";
 
 const message = z.object({
@@ -22,8 +23,21 @@ const overview = z.object({
   promptCount: z.number().int().nonnegative(),
   responseCount: z.number().int().nonnegative()
 });
+const availability = z.object({ enabled: z.boolean() });
 
 export function registerHoneyRoutes(app: FastifyInstance) {
+  registerContractRoute(app, {
+    method: "GET",
+    url: "/ai/honey/settings",
+    schemas: { response: availability },
+    handler: ({ request }) => honeySettings(request).availability()
+  });
+  registerContractRoute(app, {
+    method: "PUT",
+    url: "/ai/honey/settings",
+    schemas: { body: availability, response: availability },
+    handler: ({ body, request }) => honeySettings(request).updateAvailability(body.enabled)
+  });
   app.get("/ai/connector/status", async (request) => {
     await requireSystemAdmin(request);
     return ok(await codexConnector.status(), { requestId: request.id });
@@ -76,7 +90,10 @@ export function registerHoneyRoutes(app: FastifyInstance) {
     method: "GET",
     url: "/ai/honey/overview",
     schemas: { response: overview },
-    handler: ({ request }) => new HoneyService(identityContext(request)).overview()
+    handler: async ({ request }) => {
+      await honeySettings(request).requireEnabled();
+      return new HoneyService(identityContext(request)).overview();
+    }
   });
   registerContractRoute(app, {
     method: "GET",
@@ -84,20 +101,28 @@ export function registerHoneyRoutes(app: FastifyInstance) {
     schemas: {
       response: z.array(z.object({ id: z.uuid(), title: z.string(), updatedAt: z.coerce.date() }))
     },
-    handler: ({ request }) => new HoneyService(identityContext(request)).list()
+    handler: async ({ request }) => {
+      await honeySettings(request).requireEnabled();
+      return new HoneyService(identityContext(request)).list();
+    }
   });
   registerContractRoute(app, {
     method: "POST",
     url: "/ai/honey/conversations/:id/archive",
     schemas: { params, response: z.object({ archived: z.literal(true) }) },
-    handler: ({ params: value, request }) => new HoneyService(identityContext(request)).archive(value.id)
+    handler: async ({ params: value, request }) => {
+      await honeySettings(request).requireEnabled();
+      return new HoneyService(identityContext(request)).archive(value.id);
+    }
   });
   registerContractRoute(app, {
     method: "GET",
     url: "/ai/honey/conversations/:id",
     schemas: { params, response: conversation },
-    handler: ({ params: value, request }) =>
-      new HoneyService(identityContext(request)).conversation(value.id)
+    handler: async ({ params: value, request }) => {
+      await honeySettings(request).requireEnabled();
+      return new HoneyService(identityContext(request)).conversation(value.id);
+    }
   });
   registerContractRoute(app, {
     method: "POST",
@@ -110,12 +135,18 @@ export function registerHoneyRoutes(app: FastifyInstance) {
       }),
       response: conversation
     },
-    handler: ({ body, request }) =>
-      new HoneyService(
+    handler: async ({ body, request }) => {
+      await honeySettings(request).requireEnabled();
+      return new HoneyService(
         identityContext(request),
         new HoneyModelGateway({ logger: request.log, requestId: request.id })
-      ).chat(body)
+      ).chat(body);
+    }
   });
+}
+
+function honeySettings(request: Parameters<typeof identityContext>[0]) {
+  return new HoneySettingsService(identityContext(request));
 }
 
 async function requireSystemAdmin(request: Parameters<typeof identityContext>[0]) {

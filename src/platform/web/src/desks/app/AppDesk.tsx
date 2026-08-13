@@ -1,5 +1,6 @@
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   CircleGaugeIcon,
   BotIcon,
@@ -27,7 +28,7 @@ import {
 } from "../../modules/crm";
 import { markNotificationRead, useNotificationInboxQuery } from "../../modules/notification";
 import { applicationEntryPath, canAccessAdministratorSettings } from "./app-shell-access";
-import { TemaMascot } from "../../modules/honey";
+import { getHoneyAvailability, TemaMascot } from "../../modules/honey";
 
 const UserWorkspace = lazy(() =>
   import("../../modules/user").then((module) => ({ default: module.UserWorkspace }))
@@ -140,13 +141,26 @@ export function AppDesk() {
   const [globalSearch, setGlobalSearch] = useState("");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const notificationInbox = useNotificationInboxQuery(Boolean(getToken()));
+  const temaAvailability = useQuery({
+    enabled: Boolean(getToken()),
+    queryFn: getHoneyAvailability,
+    queryKey: ["honey", "availability"]
+  });
+  const temaEnabled = temaAvailability.data?.enabled !== false;
   const browserNotifications = useBrowserNotificationPermission();
   const notificationPreference = useCrmCallNotificationPreference();
   const inboxNotificationIds = useRef(new Set<number>());
   const notificationInboxInitialized = useRef(false);
   const [menuNavigationRevision, setMenuNavigationRevision] = useState(0);
   const requestedPage = pageFromPath(pathname, claims.role);
-  const page = accessiblePage(requestedPage, superAdmin, canUseCrm, canViewCrmReports, canUseIshop);
+  const page = accessiblePage(
+    requestedPage,
+    superAdmin,
+    canUseCrm,
+    canViewCrmReports,
+    canUseIshop,
+    temaEnabled
+  );
   const crmOverviewQuery = useCrmOverviewQuery(
     page.startsWith("crm.") || page.startsWith("estimate.")
   );
@@ -161,6 +175,7 @@ export function AppDesk() {
     canUseCrm,
     canViewCrmReports,
     canUseIshop,
+    temaEnabled,
     crmOverviewQuery.data?.stats
   );
 
@@ -275,13 +290,17 @@ export function AppDesk() {
                   }
                 ]
               : []),
-            {
-              active: page === "ai.honey",
-              description: "AI chat, content writer, and sub-agent workers.",
-              icon: BotIcon,
-              title: "TEMA",
-              url: "/app/ai/honey"
-            },
+            ...(temaEnabled
+              ? [
+                  {
+                    active: page === "ai.honey",
+                    description: "AI chat, content writer, and sub-agent workers.",
+                    icon: BotIcon,
+                    title: "TEMA",
+                    url: "/app/ai/honey"
+                  }
+                ]
+              : []),
             ...(superAdmin
               ? [
                   {
@@ -316,7 +335,9 @@ export function AppDesk() {
             </Suspense>
           </main>
         </ApplicationLayout>
-        {page !== "ai.honey" ? <TemaMascot onOpen={() => select("ai.honey")} /> : null}
+        {temaEnabled && page !== "ai.honey" ? (
+          <TemaMascot onOpen={() => select("ai.honey")} />
+        ) : null}
       </>
     </AuthGate>
   );
@@ -426,6 +447,7 @@ function buildMenu(
   canUseCrm: boolean,
   canViewCrmReports: boolean,
   canUseIshop: boolean,
+  temaEnabled: boolean,
   crmStats?: CrmEnquiryOverview["stats"]
 ): SidemenuItem[] {
   const item = (title: string, target: Page, badge?: number) => ({
@@ -482,31 +504,13 @@ function buildMenu(
         title: "CRM"
       },
       notificationSettings,
-      {
-        icon: BotIcon,
-        isActive: page === "ai.honey",
-        items: [
-          item("Business agent chat", "ai.honey"),
-          ...(superAdmin
-            ? [item("Agent Connector", "ai.connector"), item("Skills", "ai.skills")]
-            : [])
-        ],
-        title: "TEMA AI"
-      }
+      ...(temaEnabled || superAdmin
+        ? [temaMenu(page, item, superAdmin, temaEnabled)]
+        : [])
     ];
   }
   return [
-    {
-      icon: BotIcon,
-      isActive: page === "ai.honey",
-      items: [
-        item("Business agent chat", "ai.honey"),
-        ...(superAdmin
-          ? [item("Agent Connector", "ai.connector"), item("Skills", "ai.skills")]
-          : [])
-      ],
-      title: "TEMA AI"
-    },
+    ...(temaEnabled || superAdmin ? [temaMenu(page, item, superAdmin, temaEnabled)] : []),
     {
       icon: ShieldCheckIcon,
       isActive: page.startsWith("identity."),
@@ -527,8 +531,11 @@ function accessiblePage(
   superAdmin: boolean,
   canUseCrm: boolean,
   canViewCrmReports: boolean,
-  canUseIshop: boolean
+  canUseIshop: boolean,
+  temaEnabled: boolean
 ): Page {
+  if (page === "ai.honey" && !temaEnabled)
+    return superAdmin ? "ai.skills" : canUseCrm ? "crm.overview" : "identity.profile";
   if (isAdministratorPage(page) && !superAdmin)
     return canUseCrm ? "crm.overview" : "identity.profile";
   if (page === "crm.reports" && !canViewCrmReports)
@@ -538,6 +545,30 @@ function accessiblePage(
   if (!canUseIshop && page.startsWith("ishop."))
     return canUseCrm ? "crm.overview" : "identity.profile";
   return page;
+}
+
+function temaMenu(
+  page: Page,
+  item: (title: string, target: Page, badge?: number) => {
+    badge?: number;
+    isActive: boolean;
+    onSelect: () => void;
+    title: string;
+  },
+  superAdmin: boolean,
+  temaEnabled: boolean
+): SidemenuItem {
+  return {
+    icon: BotIcon,
+    isActive: page === "ai.honey" || page === "ai.connector" || page === "ai.skills",
+    items: [
+      ...(temaEnabled ? [item("Business agent chat", "ai.honey")] : []),
+      ...(superAdmin
+        ? [item("Agent Connector", "ai.connector"), item("Skills & availability", "ai.skills")]
+        : [])
+    ],
+    title: "TEMA AI"
+  };
 }
 
 function isAdministratorPage(page: Page) {
