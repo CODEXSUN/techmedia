@@ -31,6 +31,7 @@ const permissionKeys = [
   "crm.enquiry.assigned.view",
   "crm.enquiry.created.view",
   "crm.enquiry.open.view",
+  "crm.enquiry.mobile.lookup",
   "crm.report.view",
   "crm.enquiry.create",
   "crm.enquiry.update",

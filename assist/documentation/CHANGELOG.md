@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.29
+Current version: 1.0.31
 
-Release tag: v-1.0.29
+Release tag: v-1.0.31
 
-Changelog label: v 1.0.29
+Changelog label: v 1.0.31
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -42,6 +42,38 @@ New entries must keep database-facing work and application code work separate.
 - Aligned CRM Status and List in as independent fields with the live Frappe Enquiry form. Status
   now exposes every live status value, while List in separately exposes Follow and LogicX without
   cross-field conversion.
+
+## v-1.0.31
+
+### [v 1.0.31] 2026-08-14 5:15 am - Improve live enquiry follow-up context
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.31.
+- Added live Frappe mobile history to the New Enquiry form, with newest-first matching enquiries,
+  a dedicated scrollable drawer, and direct opening of an existing conversation.
+- Added creator and relative-age context below enquiry summary badges.
+- Resolved live Frappe Customer names in My Job and My Calls while preserving Customer IDs for
+  enquiry updates.
+
+## v-1.0.30
+
+### [v 1.0.30] 2026-08-14 4:19 am - Preserve complete Frappe API responses
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.30.
+- Made the shared Frappe transport parse complete API responses. This keeps large live lists from
+  becoming empty after a 64 KB JSON truncation.
+- Added Frappe request handling documentation with transport and empty-list troubleshooting rules.
 
 ## v-1.0.29
 

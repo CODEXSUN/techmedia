@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Save } from "lucide-react";
+import { History, MessageSquareText, Save, UserRound } from "lucide-react";
+import { Button } from "@codexsun/ui/components/button";
 import { Input } from "@codexsun/ui/components/input";
 import { WorkspaceDatePicker } from "@codexsun/ui/workspace/date-picker";
 import { WorkspaceLookup } from "@codexsun/ui/workspace/lookup";
@@ -12,10 +13,16 @@ import {
   WorkspaceFormGrid,
   WorkspaceUpsertDialog
 } from "@codexsun/ui/workspace/upsert";
-import { useCrmCustomerReferencesQuery } from "./crm.hooks";
+import { cn } from "@codexsun/ui/lib/utils";
+import { useCrmCustomerReferencesQuery, useCrmEnquiryMobileMatchesQuery } from "./crm.hooks";
 import { crmEnquiryListInOptions, crmEnquiryStatusOptions } from "./crm.options";
 import { crmEnquirySchema } from "./crm.schema";
-import type { CrmEnquiry, CrmEnquirySavePayload, CrmUserReference } from "./crm.types";
+import type {
+  CrmEnquiry,
+  CrmEnquiryMobileMatch,
+  CrmEnquirySavePayload,
+  CrmUserReference
+} from "./crm.types";
 
 const emptyEnquiry: CrmEnquirySavePayload = {
   assignedToUserId: null,
@@ -33,18 +40,22 @@ const emptyEnquiry: CrmEnquirySavePayload = {
 
 export function CrmForm({
   canAssign,
+  canMobileLookup,
   error,
   loading,
   onCancel,
+  onOpenExisting,
   onSubmit,
   open,
   record,
   users
 }: {
   canAssign: boolean;
+  canMobileLookup: boolean;
   error?: string;
   loading: boolean;
   onCancel: () => void;
+  onOpenExisting: (match: CrmEnquiryMobileMatch) => void;
   onSubmit: (value: CrmEnquirySavePayload) => void;
   open: boolean;
   record: CrmEnquiry | null;
@@ -52,7 +63,10 @@ export function CrmForm({
 }) {
   return (
     <WorkspaceUpsertDialog
-      className="h-[100dvh] w-full max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-4xl sm:rounded-lg"
+      className={cn(
+        "h-[100dvh] w-full max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:rounded-lg",
+        record ? "sm:max-w-6xl" : "sm:max-w-7xl"
+      )}
       description="Create or update a customer enquiry."
       onClose={onCancel}
       open={open}
@@ -80,10 +94,12 @@ export function CrmForm({
         }
         loading={loading}
         onCancel={onCancel}
+        onOpenExisting={onOpenExisting}
         onSubmit={onSubmit}
         open={open}
         record={record}
         canAssign={canAssign}
+        canMobileLookup={canMobileLookup}
         users={users}
       />
     </WorkspaceUpsertDialog>
@@ -93,19 +109,23 @@ export function CrmForm({
 function CrmFormBody({
   error,
   canAssign,
+  canMobileLookup,
   initialValue,
   loading,
   onCancel,
+  onOpenExisting,
   onSubmit,
   open,
   record,
   users
 }: {
   canAssign: boolean;
+  canMobileLookup: boolean;
   error?: string;
   initialValue: CrmEnquirySavePayload;
   loading: boolean;
   onCancel: () => void;
+  onOpenExisting: (match: CrmEnquiryMobileMatch) => void;
   onSubmit: (value: CrmEnquirySavePayload) => void;
   open: boolean;
   record: CrmEnquiry | null;
@@ -116,7 +136,12 @@ function CrmFormBody({
   const [settledCustomerSearch, setSettledCustomerSearch] = useState(initialValue.customer);
   const [validationError, setValidationError] = useState("");
   const [mobileBlurred, setMobileBlurred] = useState(false);
+  const [settledMobile, setSettledMobile] = useState(initialValue.mobile);
   const customers = useCrmCustomerReferencesQuery(settledCustomerSearch, open);
+  const mobileMatches = useCrmEnquiryMobileMatchesQuery(
+    settledMobile,
+    canMobileLookup && open && !record && settledMobile === value.mobile
+  );
   const customerError = customers.error instanceof Error ? customers.error.message : "";
   const shownError = validationError || error || customerError;
   const mobileHint = mobileDigitHint(value.mobile);
@@ -125,6 +150,11 @@ function CrmFormBody({
     const timer = window.setTimeout(() => setSettledCustomerSearch(customerSearch), 250);
     return () => window.clearTimeout(timer);
   }, [customerSearch]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettledMobile(value.mobile), 300);
+    return () => window.clearTimeout(timer);
+  }, [value.mobile]);
 
   return (
     <form
@@ -153,7 +183,24 @@ function CrmFormBody({
         {shownError ? (
           <WorkspaceFormBanner title="Unable to save">{shownError}</WorkspaceFormBanner>
         ) : null}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)]">
+        <div
+          className={cn(
+            "grid gap-4",
+            record
+              ? "lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)]"
+              : "lg:grid-cols-[14rem_minmax(0,1fr)_18rem]"
+          )}
+        >
+          {!record ? (
+            <MobileHistoryDrawer
+              canMobileLookup={canMobileLookup}
+              loading={mobileMatches.isFetching}
+              matches={settledMobile === value.mobile ? (mobileMatches.data ?? []) : []}
+              mobile={value.mobile}
+              onOpen={onOpenExisting}
+              {...(mobileMatches.error instanceof Error ? { error: mobileMatches.error.message } : {})}
+            />
+          ) : null}
           <section className="flex min-w-0 flex-col gap-5 rounded-md border border-border/80 bg-muted/10 p-4">
             <WorkspaceFormGrid>
               <WorkspaceFormField label="Mobile" required>
@@ -312,7 +359,10 @@ function CrmFormBody({
         </div>
       </div>
       <WorkspaceFormFooter
-        className="mt-4 shrink-0 border-t pt-4"
+        className={cn(
+          "mt-4 shrink-0 border-t pt-4",
+          !record && "lg:ml-[calc(14rem+1rem)]"
+        )}
         onCancel={onCancel}
         primaryLabel={record ? "Update enquiry" : "Save enquiry"}
         primaryLoading={loading}
@@ -355,4 +405,80 @@ function normalizeMobile(value: string) {
 function mobileDigitHint(value: string) {
   if (!value.length || value.length === 10) return "";
   return `${10 - value.length} digit${value.length === 9 ? "" : "s"} remaining`;
+}
+
+function MobileHistoryDrawer({
+  canMobileLookup,
+  error,
+  loading,
+  matches,
+  mobile,
+  onOpen
+}: {
+  canMobileLookup: boolean;
+  error?: string;
+  loading: boolean;
+  matches: CrmEnquiryMobileMatch[];
+  mobile: string;
+  onOpen: (match: CrmEnquiryMobileMatch) => void;
+}) {
+  const ready = mobile.length === 10;
+  return (
+    <aside
+      className="order-first min-h-48 overflow-y-scroll rounded-md border border-border/80 bg-muted/20 [scrollbar-color:hsl(var(--muted-foreground)/0.42)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/40 [&::-webkit-scrollbar-track]:bg-transparent lg:min-h-0"
+      dir="rtl"
+    >
+      <div className="flex min-h-full flex-col p-3" dir="ltr">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <History className="size-4 text-primary" /> Previous enquiries
+        </div>
+        {!ready ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {!canMobileLookup
+              ? "Mobile history is not enabled for this role."
+              : "Enter a 10-digit mobile number to check earlier enquiries."}
+          </p>
+        ) : null}
+        <div className="mt-3 space-y-2">
+        {!canMobileLookup ? (
+          <p className="text-sm text-muted-foreground">
+            Ask an administrator to enable Mobile enquiry lookup for your role.
+          </p>
+        ) : !ready ? null : loading ? (
+          <p className="text-sm text-muted-foreground">Checking live enquiries...</p>
+        ) : error ? (
+          <p className="text-sm text-destructive">{error}</p>
+        ) : matches.length ? (
+          matches.map((match) => (
+            <Button
+              className="h-auto w-full items-start justify-start whitespace-normal rounded-md border bg-background px-3 py-2 text-left hover:bg-accent"
+              key={match.frappeName}
+              type="button"
+              variant="ghost"
+              onClick={() => onOpen(match)}
+            >
+              <span className="grid min-w-0 gap-1">
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <MessageSquareText className="size-3.5" /> #{match.id} · {statusLabel(match.status)}
+                </span>
+                <span className="line-clamp-2 text-sm font-medium">{match.title}</span>
+                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <UserRound className="size-3.5" /> {match.assignedTo?.name ?? "Unassigned"}
+                </span>
+              </span>
+            </Button>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No previous enquiries match this number. Create a new enquiry.
+          </p>
+        )}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function statusLabel(value: CrmEnquiryMobileMatch["status"]) {
+  return value.replace(/-/gu, " ").replace(/\b\w/gu, (letter) => letter.toUpperCase());
 }

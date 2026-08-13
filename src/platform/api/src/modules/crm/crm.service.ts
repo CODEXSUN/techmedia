@@ -6,6 +6,7 @@ import type {
   CrmCustomerReference,
   CrmEnquiry,
   CrmEnquiryListFilters,
+  CrmEnquiryMobileMatch,
   CrmEnquiryMessageCreatePayload,
   CrmEnquiryOverview,
   CrmReport,
@@ -66,6 +67,16 @@ export class CrmService {
     const record = await this.gateway.get(name);
     await this.authorizeRecord(record);
     return { ...(await this.map(record)), jobs: await this.gateway.jobs(name) };
+  }
+
+  async mobileMatches(mobile: string): Promise<CrmEnquiryMobileMatch[]> {
+    if (!(await this.canUseMobileHistory())) {
+      throw AppError.forbidden("You do not have access to mobile enquiry history.");
+    }
+    const records = await this.gateway.listByMobile(mobile);
+    const employees = await this.gateway.employees();
+    const byName = new Map(employees.map((employee) => [employee.name, employee]));
+    return records.map((record) => mobileMatch(record, byName));
   }
 
   async overview(): Promise<CrmEnquiryOverview> {
@@ -267,16 +278,25 @@ export class CrmService {
   }
 
   private async mapMany(records: LiveRecord[]) {
-    const employees = await this.gateway.employees();
-    return Promise.all(records.map((record) => this.map(record, employees)));
+    const [employees, customers] = await Promise.all([
+      this.gateway.employees(),
+      this.gateway.customersByIds(records.map((record) => record.customer))
+    ]);
+    const customerNames = new Map(customers.map((customer) => [customer.id, customer.name]));
+    return Promise.all(records.map((record) => this.map(record, employees, customerNames)));
   }
 
   private async map(
     record: LiveRecord,
-    knownEmployees?: Awaited<ReturnType<LiveGateway["employees"]>>
+    knownEmployees?: Awaited<ReturnType<LiveGateway["employees"]>>,
+    knownCustomerNames?: ReadonlyMap<string, string>
   ) {
-    const employees = knownEmployees ?? (await this.gateway.employees());
+    const [employees, customers] = await Promise.all([
+      knownEmployees ?? this.gateway.employees(),
+      knownCustomerNames ? Promise.resolve([]) : this.gateway.customersByIds([record.customer])
+    ]);
     const byName = new Map(employees.map((employee) => [employee.name, employee]));
+    const customerName = knownCustomerNames?.get(record.customer) ?? customers[0]?.name ?? "";
     const assigned = record.assignedToEmployee
       ? (byName.get(record.assignedToEmployee) ?? {
           email: "",
@@ -306,6 +326,7 @@ export class CrmService {
       createdBy: employeeReference(created),
       createdByUserId: created.name,
       customer: record.customer,
+      customerName,
       enquiryDate: record.enquiryDate,
       enquiryGroup: record.enquiryGroup,
       emails: [],
@@ -351,7 +372,15 @@ export class CrmService {
       (!record.assignedToEmployee &&
         !isClosed(record.status) &&
         (await this.context.can(viewPermissions.open)));
-    if (!allowed) throw AppError.forbidden("You do not have access to this enquiry.");
+    if (allowed || (await this.canUseMobileHistory())) return;
+    throw AppError.forbidden("You do not have access to this enquiry.");
+  }
+
+  private async canUseMobileHistory() {
+    return (
+      (await this.context.can("crm.enquiry.mobile.lookup")) ||
+      (await this.context.can("crm.enquiry.create"))
+    );
   }
 
   private async validateAssignment(value: string | null) {
@@ -460,6 +489,21 @@ function employeeReference(employee: {
     id: employee.name,
     name: employee.title,
     uuid: employee.name
+  };
+}
+
+function mobileMatch(
+  record: LiveRecord,
+  byName: Map<string, Awaited<ReturnType<LiveGateway["employees"]>>[number]>
+): CrmEnquiryMobileMatch {
+  const assigned = record.assignedToEmployee ? byName.get(record.assignedToEmployee) : undefined;
+  return {
+    assignedTo: assigned ? employeeReference(assigned) : null,
+    createdAt: record.createdAt,
+    frappeName: record.name,
+    id: numericId(record.name),
+    status: fromFrappeStatus(record.status),
+    title: record.title || displayTitle(record)
   };
 }
 

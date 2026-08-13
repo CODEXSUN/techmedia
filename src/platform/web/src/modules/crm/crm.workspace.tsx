@@ -31,6 +31,7 @@ import type {
   CrmEnquiry,
   CrmEnquiryColumnId,
   CrmEnquiryColumnVisibility,
+  CrmEnquiryMobileMatch,
   CrmEnquirySavePayload,
   CrmEnquiryStatusFilter,
   CrmEnquiryView
@@ -88,6 +89,7 @@ export function CrmWorkspace({
   canCreateQuotation,
   canForceDelete,
   canManageJobs,
+  canMobileLookup,
   canRefresh,
   canUpdateEstimate,
   canUpdateQuotation,
@@ -104,6 +106,7 @@ export function CrmWorkspace({
   canCreateQuotation: boolean;
   canForceDelete: boolean;
   canManageJobs: boolean;
+  canMobileLookup: boolean;
   canRefresh: boolean;
   canSuspend: boolean;
   canUpdate: boolean;
@@ -153,6 +156,17 @@ export function CrmWorkspace({
       const live = await getCrmEnquiry(record.frappeName);
       if (target === "edit") setEditing(live);
       else setViewing(live);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "The live Frappe enquiry could not be loaded."
+      );
+    }
+  }
+
+  async function openMobileMatch(match: CrmEnquiryMobileMatch) {
+    try {
+      setViewing(await getCrmEnquiry(match.frappeName));
+      setEditing(undefined);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "The live Frappe enquiry could not be loaded."
@@ -347,11 +361,13 @@ export function CrmWorkspace({
       ) : null}
       <CrmForm
         canAssign={canAssign}
+        canMobileLookup={canMobileLookup}
         {...((mutations.create.error ?? mutations.update.error) instanceof Error
           ? { error: (mutations.create.error ?? (mutations.update.error as Error)).message }
           : {})}
         loading={mutations.create.isPending || mutations.update.isPending}
         onCancel={() => setEditing(undefined)}
+        onOpenExisting={(match) => void openMobileMatch(match)}
         onSubmit={(value) => void save(value)}
         open={editing !== undefined}
         record={editing ?? null}

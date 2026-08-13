@@ -560,7 +560,7 @@ export async function frappeRequest<T = unknown>(
 }
 
 async function readFrappeResponseBody(response: Response): Promise<unknown> {
-  const text = (await response.text()).slice(0, 64_000);
+  const text = await response.text();
   if (!text) return {};
   try {
     return JSON.parse(text) as unknown;

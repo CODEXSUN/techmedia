@@ -551,6 +551,13 @@ function EnquirySummary({ record }: { record: CrmEnquiry }) {
             />
             <WorkspaceStatusBadge label={capitalize(record.priority)} tone="neutral" />
           </div>
+          <p className="text-xs text-muted-foreground sm:text-right">
+            Created by <span className="font-medium text-foreground/80">{record.createdBy.name}</span>
+            <span aria-hidden="true"> · </span>
+            <time dateTime={record.createdAt} title={formatDateTime(record.createdAt)}>
+              {formatRelativeTime(record.createdAt)}
+            </time>
+          </p>
         </div>
       </div>
     </section>
@@ -1369,6 +1376,28 @@ function formatDateTime(value: string) {
     timeZone: "Asia/Kolkata",
     year: "numeric"
   }).format(new Date(value));
+}
+
+function formatRelativeTime(value: string) {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "Unknown time";
+
+  const seconds = Math.round((Date.now() - timestamp) / 1_000);
+  const future = seconds < 0;
+  const absoluteSeconds = Math.abs(seconds);
+  const units: Array<[number, Intl.RelativeTimeFormatUnit]> = [
+    [86_400, "day"],
+    [3_600, "hour"],
+    [60, "minute"]
+  ];
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  for (const [secondsPerUnit, unit] of units) {
+    if (absoluteSeconds >= secondsPerUnit) {
+      const amount = Math.round(seconds / secondsPerUnit);
+      return formatter.format(amount, unit);
+    }
+  }
+  return future ? "in a moment" : "just now";
 }
 
 function messageAuthorDetails(record: CrmEnquiry, userId: string | null) {

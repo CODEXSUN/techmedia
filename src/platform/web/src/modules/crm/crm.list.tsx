@@ -22,8 +22,10 @@ import type {
   CrmEnquiry,
   CrmEnquiryColumnId,
   CrmEnquiryColumnVisibility,
-  CrmEnquiryPriority
+  CrmEnquiryPriority,
+  CrmEnquiryStatus
 } from "./crm.types";
+import { crmEnquiryStatusOptions } from "./crm.options";
 
 export function CrmList({
   error,
@@ -187,7 +189,7 @@ export function CrmList({
                     </td>
                   ) : null}
                   {visibleColumns.customer ? (
-                    <td className="max-w-52 truncate px-4 py-2.5" title={record.customer}>
+                    <td className="max-w-52 truncate px-4 py-2.5" title={record.customerName || record.customer}>
                       {record.customer ? (
                         <button
                           className="max-w-48 cursor-pointer truncate text-left font-medium hover:underline"
@@ -197,7 +199,7 @@ export function CrmList({
                           }}
                           type="button"
                         >
-                          {record.customer}
+                          {record.customerName || record.customer}
                         </button>
                       ) : (
                         record.customer || "—"
@@ -345,7 +347,7 @@ function SortHeader({
   );
 }
 
-function statusLabel(status: CrmEnquiry["status"] | CrmEnquiryPriority) {
+function statusLabel(status: CrmEnquiryPriority) {
   return status[0]!.toUpperCase() + status.slice(1);
 }
 
@@ -360,30 +362,94 @@ function plainText(value: string) {
     .trim();
 }
 
-function statusTone(status: CrmEnquiry["status"]): "danger" | "info" | "success" | "warning" {
-  if (status === "won") return "success";
-  if (status === "lost") return "danger";
-  if (status === "escalation") return "warning";
-  return status === "open" ? "info" : "danger";
-}
+const enquiryStatusAppearance = {
+  escalation: {
+    badgeClassName: "border-red-600 bg-red-600 text-white",
+    iconClassName: "text-white",
+    tone: "danger"
+  },
+  "hold-for-approval": {
+    badgeClassName: "border-amber-400 bg-amber-400 text-amber-950",
+    iconClassName: "text-amber-950",
+    tone: "warning"
+  },
+  "hold-for-job-out": {
+    badgeClassName: "border-amber-400 bg-amber-400 text-amber-950",
+    iconClassName: "text-amber-950",
+    tone: "warning"
+  },
+  "hold-for-spares": {
+    badgeClassName: "border-amber-400 bg-amber-400 text-amber-950",
+    iconClassName: "text-amber-950",
+    tone: "warning"
+  },
+  "long-hold": {
+    badgeClassName: "border-amber-400 bg-amber-400 text-amber-950",
+    iconClassName: "text-amber-950",
+    tone: "warning"
+  },
+  lost: {
+    badgeClassName: "border-red-600 bg-red-600 text-white",
+    iconClassName: "text-white",
+    tone: "danger"
+  },
+  new: {
+    badgeClassName: "border-slate-500 bg-slate-500 text-white",
+    iconClassName: "text-white",
+    tone: "neutral"
+  },
+  open: {
+    badgeClassName: "border-blue-600 bg-blue-600 text-white",
+    iconClassName: "text-white",
+    tone: "info"
+  },
+  reopen: {
+    badgeClassName: "border-blue-600 bg-blue-600 text-white",
+    iconClassName: "text-white",
+    tone: "info"
+  },
+  won: {
+    badgeClassName: "border-emerald-600 bg-emerald-600 text-white",
+    iconClassName: "text-white",
+    tone: "success"
+  }
+} satisfies Record<
+  CrmEnquiryStatus,
+  {
+    badgeClassName: string;
+    iconClassName: string;
+    tone: "danger" | "info" | "neutral" | "success" | "warning";
+  }
+>;
+
+const suspendedStatusAppearance = {
+  badgeClassName: "border-red-600 bg-red-600 text-white",
+  iconClassName: "text-white",
+  tone: "danger"
+} as const;
 
 function EnquiryStatusBadge({ record }: { record: CrmEnquiry }) {
   const suspended = record.lifecycleStatus === "suspended";
+  const appearance = suspended ? suspendedStatusAppearance : enquiryStatusAppearance[record.status];
   return (
     <span className="relative inline-flex">
       <span
-        className={`pointer-events-none absolute left-2 top-1/2 z-10 -translate-y-1/2 ${statusIconClassName(record.status, suspended)}`}
+        className={`pointer-events-none absolute left-2 top-1/2 z-10 -translate-y-1/2 ${appearance.iconClassName}`}
       >
         {suspended ? <Ban className="size-3" /> : statusIcon(record.status)}
       </span>
       <WorkspaceStatusBadge
-        className="rounded-full pl-6"
-        label={suspended ? "Suspended" : statusLabel(record.status)}
+        className={`rounded-full pl-6 ${appearance.badgeClassName}`}
+        label={suspended ? "Suspended" : enquiryStatusLabel(record.status)}
         showIcon={false}
-        tone={suspended ? "danger" : statusTone(record.status)}
+        tone={appearance.tone}
       />
     </span>
   );
+}
+
+function enquiryStatusLabel(status: CrmEnquiryStatus) {
+  return crmEnquiryStatusOptions.find((option) => option.value === status)?.label ?? status;
 }
 
 function statusIcon(status: CrmEnquiry["status"]) {
@@ -391,13 +457,6 @@ function statusIcon(status: CrmEnquiry["status"]) {
   if (status === "won") return <CircleCheck className="size-3" />;
   if (status === "lost") return <CircleX className="size-3" />;
   return <CircleDot className="size-3" />;
-}
-
-function statusIconClassName(status: CrmEnquiry["status"], suspended: boolean) {
-  if (suspended || status === "lost") return "text-red-700";
-  if (status === "escalation") return "text-amber-700";
-  if (status === "won") return "text-emerald-700";
-  return "text-blue-700";
 }
 
 function priorityCircleClassName(priority: CrmEnquiryPriority) {

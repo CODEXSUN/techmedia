@@ -145,6 +145,7 @@ export type FrappeLiveEnquiryMessageSavePayload = {
 export type FrappeLiveEnquiryGateway = {
   create: (input: FrappeLiveEnquirySavePayload) => Promise<FrappeLiveEnquiry>;
   customers: (search?: string) => Promise<FrappeLiveCustomerReference[]>;
+  customersByIds: (ids: string[]) => Promise<FrappeLiveCustomerReference[]>;
   delete: (name: string) => Promise<void>;
   employees: () => Promise<FrappeLiveEmployee[]>;
   get: (name: string) => Promise<FrappeLiveEnquiry>;
@@ -154,6 +155,7 @@ export type FrappeLiveEnquiryGateway = {
     input: FrappeLiveJobExecutionSavePayload
   ) => Promise<FrappeLiveJobExecution>;
   list: (input: { employee: string; view: FrappeLiveEnquiryView }) => Promise<FrappeLiveEnquiry[]>;
+  listByMobile: (mobile: string) => Promise<FrappeLiveEnquiry[]>;
   queryReport: (input: {
     filters: Record<string, string | null>;
     reportName: "Enquiry List-In wise Status" | "Enquiry Owner wise Status";

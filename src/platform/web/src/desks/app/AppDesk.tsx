@@ -400,6 +400,7 @@ function renderPage(
       }
       canForceDelete={permissions.includes("crm.enquiry.force-delete")}
       canManageJobs={permissions.includes("crm.job.manage")}
+      canMobileLookup={page === "crm.created"}
       canRefresh={canManageCrmListActions}
       showActivity={showCrmActivity}
       showProperties={showCrmProperties}

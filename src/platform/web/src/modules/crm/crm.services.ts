@@ -6,6 +6,7 @@ import type {
   CrmEnquiryCallCreatePayload,
   CrmEnquiryEmailCreatePayload,
   CrmEnquiryMessageCreatePayload,
+  CrmEnquiryMobileMatch,
   CrmEnquiryNoteCreatePayload,
   CrmEnquiryOverview,
   CrmReport,
@@ -53,6 +54,11 @@ export function getCrmReport(
 
 export function getCrmEnquiry(name: string) {
   return apiGet<CrmEnquiry>(`${path}/${encodeURIComponent(name)}`);
+}
+
+export function listCrmEnquiryMobileMatches(mobile: string) {
+  const query = new URLSearchParams({ mobile });
+  return apiGet<CrmEnquiryMobileMatch[]>(`${path}/mobile-matches?${query}`);
 }
 
 export function createCrmEnquiry(payload: CrmEnquirySavePayload) {

@@ -13,6 +13,7 @@ import {
   getCrmReport,
   listCrmCustomerReferences,
   listCrmEnquiries,
+  listCrmEnquiryMobileMatches,
   listCrmEnquiryReferences,
   listCrmUserReferences,
   startCrmEnquiryJob,
@@ -90,6 +91,16 @@ export function useCrmCustomerReferencesQuery(search: string, enabled = true) {
     queryFn: () => listCrmCustomerReferences(search),
     queryKey: [...crmEnquiryQueryKey, "customers", search.trim()],
     staleTime: 30_000
+  });
+}
+
+export function useCrmEnquiryMobileMatchesQuery(mobile: string, enabled = true) {
+  const validMobile = /^\d{10}$/u.test(mobile);
+  return useQuery({
+    enabled: enabled && validMobile,
+    queryFn: () => listCrmEnquiryMobileMatches(mobile),
+    queryKey: [...crmEnquiryQueryKey, "mobile-matches", mobile],
+    staleTime: 15_000
   });
 }
 

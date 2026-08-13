@@ -106,9 +106,39 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       .slice(0, 50);
   }
 
+  async function loadCustomersByIds(ids: string[]) {
+    const customerIds = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+    if (!customerIds.length) return [];
+
+    const target = await connection();
+    const responses = await Promise.all(
+      chunk(customerIds, 50).map((customerBatch) => {
+        const query = new URLSearchParams({
+          fields: JSON.stringify(["name", "customer_name"]),
+          filters: JSON.stringify([["name", "in", customerBatch]]),
+          limit_page_length: String(customerBatch.length)
+        });
+        return frappeRequest<{ data?: FrappeCustomerDocument[] }>(
+          target,
+          `/api/resource/Customer?${query}`
+        );
+      })
+    );
+    return responses
+      .flatMap((response) => response.data ?? [])
+      .flatMap((document) => {
+        const id = document.name?.trim();
+        return id ? [{ id, name: document.customer_name?.trim() || id }] : [];
+      });
+  }
+
   return {
     async customers(search) {
       return loadCustomers(search);
+    },
+
+    async customersByIds(ids) {
+      return loadCustomersByIds(ids);
     },
 
     async list(input) {
@@ -124,6 +154,21 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         fields: JSON.stringify(enquiryFields),
         filters: JSON.stringify(filters),
         limit_page_length: "500",
+        order_by: "creation desc"
+      });
+      const response = await frappeRequest<{ data?: FrappeEnquiryDocument[] }>(
+        target,
+        `/api/resource/Enquiry?${query}`
+      );
+      return (response.data ?? []).map((document) => toEnquiry(document));
+    },
+
+    async listByMobile(mobile) {
+      const target = await connection();
+      const query = new URLSearchParams({
+        fields: JSON.stringify(enquiryFields),
+        filters: JSON.stringify([["mobile", "=", requiredMobile(mobile)]]),
+        limit_page_length: "10",
         order_by: "creation desc"
       });
       const response = await frappeRequest<{ data?: FrappeEnquiryDocument[] }>(
@@ -561,6 +606,22 @@ function requiredName(value: string) {
   const name = value.trim();
   if (!name) throw AppError.validation("Frappe enquiry name is required.");
   return name;
+}
+
+function requiredMobile(value: string) {
+  const mobile = value.trim();
+  if (!/^\d{10}$/u.test(mobile)) {
+    throw AppError.validation("Mobile must contain exactly 10 numeric digits.");
+  }
+  return mobile;
+}
+
+function chunk<T>(values: T[], size: number) {
+  const batches: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    batches.push(values.slice(index, index + size));
+  }
+  return batches;
 }
 
 function timestamp(value?: string) {

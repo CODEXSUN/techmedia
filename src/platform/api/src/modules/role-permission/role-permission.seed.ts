@@ -27,6 +27,7 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
       "crm.enquiry.assigned.view",
       "crm.enquiry.created.view",
       "crm.enquiry.open.view",
+      "crm.enquiry.mobile.lookup",
       "crm.enquiry.create",
       "crm.enquiry.update",
       "crm.enquiry.assign",
@@ -41,6 +42,9 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
       "quotation.update",
       "ishop.view",
       "ishop.manage"
+    ],
+    user: [
+      "crm.enquiry.mobile.lookup"
     ]
   };
   for (const [roleKey, permissionKeys] of Object.entries(liveFrappeDefaults)) {

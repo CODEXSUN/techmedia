@@ -129,6 +129,7 @@ export type CrmEnquiry = {
   createdBy: CrmUserReference;
   createdByUserId: string;
   customer: string;
+  customerName: string;
   enquiryDate: string | null;
   enquiryGroup: string;
   emails: CrmEnquiryEmail[];
@@ -162,6 +163,15 @@ export type CrmEnquirySavePayload = {
   status: CrmEnquiryStatus;
   title: string;
   workspace: string;
+};
+
+export type CrmEnquiryMobileMatch = {
+  assignedTo: CrmUserReference | null;
+  createdAt: string;
+  frappeName: string;
+  id: number;
+  status: CrmEnquiryStatus;
+  title: string;
 };
 
 export type CrmEnquiryResyncResult = {

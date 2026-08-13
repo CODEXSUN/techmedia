@@ -140,6 +140,7 @@ export type CrmEnquiry = {
   createdBy: CrmUserReference;
   createdByUserId: string;
   customer: string;
+  customerName: string;
   enquiryDate: string | null;
   enquiryGroup: string;
   emails: CrmEnquiryEmail[];
@@ -213,6 +214,15 @@ export type CrmEnquiryListFilters = {
   search?: string;
   status?: CrmEnquiryStatusFilter;
   view: CrmEnquiryView;
+};
+
+export type CrmEnquiryMobileMatch = {
+  assignedTo: CrmUserReference | null;
+  createdAt: string;
+  frappeName: string;
+  id: number;
+  status: CrmEnquiryStatus;
+  title: string;
 };
 
 export type CrmEnquiryOverview = {

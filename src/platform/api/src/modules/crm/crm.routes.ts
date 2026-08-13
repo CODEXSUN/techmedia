@@ -57,6 +57,7 @@ const record = z.object({
   createdBy: userReference,
   createdByUserId: z.string(),
   customer: z.string(),
+  customerName: z.string(),
   enquiryDate: z.iso.date().nullable(),
   enquiryGroup: z.string(),
   emails: z.array(z.unknown()),
@@ -137,6 +138,17 @@ const customerReferenceQuery = z.object({
 const customerReference = z.object({
   id: z.string().min(1).max(140),
   name: z.string().min(1).max(220)
+});
+const mobileMatchQuery = z.object({
+  mobile: z.string().regex(/^\d{10}$/u, "Mobile must contain exactly 10 numeric digits.")
+});
+const mobileMatch = z.object({
+  assignedTo: userReference.nullable(),
+  createdAt: z.iso.datetime(),
+  frappeName: z.string().min(1),
+  id: z.number().int().positive(),
+  status,
+  title: z.string()
 });
 const overview = z.object({
   stats: z.object({
@@ -246,6 +258,12 @@ export async function registerCrmRoutes(
     url: `${path}/customer-references`,
     schemas: { querystring: customerReferenceQuery, response: z.array(customerReference) },
     handler: async ({ query, request }) => (await service(request)).customerReferences(query.search)
+  });
+  registerContractRoute(app, {
+    method: "GET",
+    url: `${path}/mobile-matches`,
+    schemas: { querystring: mobileMatchQuery, response: z.array(mobileMatch) },
+    handler: async ({ query, request }) => (await service(request)).mobileMatches(query.mobile)
   });
   registerContractRoute(app, {
     method: "GET",
