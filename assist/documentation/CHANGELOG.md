@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.31
+Current version: 1.0.32
 
-Release tag: v-1.0.31
+Release tag: v-1.0.32
 
-Changelog label: v 1.0.31
+Changelog label: v 1.0.32
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -21,27 +21,41 @@ New entries must keep database-facing work and application code work separate.
 
 ### App Codebase Changes
 
-- Removed Back and Next controls from My Job enquiry detail, and changed WhatsApp to open its web
-  conversation in a separate browser tab.
-- Reconciled the root workspace install and lockfile so the declared Inter font package resolves
-  for the Vite development server and production web build.
-- Made every My Job and My Calls enquiry row open its detail page, while keeping the row action
-  menu independent for supported actions.
-- Refined enquiry comments with compact aligned rows, larger readable content, a single author and
-  timestamp line, and an editor footer containing only the Comment action.
-- Replaced comment edit/delete with non-destructive suspension: the latest message remains in live
-  Frappe history and is rendered fully struck through after suspension.
-- Removed Back and Next navigation from both My Job and My Calls enquiry details; these controls
-  remain available only in Open Enquiry.
-- Restricted the immutable system-user guard to user ID 1, allowing administrators to edit and
-  reassign the role of every other administrator through the Users workspace.
-- Made CRM Reports navigation and direct route access depend on `crm.report.view` for the signed-in
-  role, including Admin.
-- Documented that role and access-control changes require a new sign-in before the browser receives
-  its updated permission token.
-- Aligned CRM Status and List in as independent fields with the live Frappe Enquiry form. Status
-  now exposes every live status value, while List in separately exposes Follow and LogicX without
-  cross-field conversion.
+- No pending app codebase changes.
+
+## v-1.0.32
+
+### [v 1.0.32] 2026-08-14 11:00 am - CRM enquiry workflow and reports
+
+#### Database Changes
+
+- Database update: Yes.
+- Added the repeatable `crm.enquiry.all.view` permission and assigned it to the Admin role.
+- Added no CRM business tables. Live Frappe remains the CRM source of truth.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.32.
+- Added a dedicated My Calls New enquiry page with mobile-first lookup, a latest-enquiry reference,
+  an existing Customer lookup, and a focused create form.
+- Added signed-in-user session history for recent mobile searches. The list supports partial-match
+  suggestions, clear, newest-first order, descending serial numbers, and a fixed slim-scroll area.
+- Added a green confirmation ring for valid 10-digit mobile numbers.
+- Added direct Open and Edit routes from the latest-enquiry card. Edit is available only when the
+  signed-in employee created the latest enquiry and no follow-up comment exists.
+- Added an Admin-only All Enquiries workspace with complete live Frappe pagination and report
+  drill-down filters for Status, List in, assigned employee, and unassigned enquiries.
+- Aligned CRM Status and List in as independent live Frappe fields. Status exposes the live status
+  values, while List in separately exposes Follow and LogicX.
+- Made CRM Reports navigation and direct route access depend on the signed-in role's
+  `crm.report.view` permission. Role changes take effect after a new sign-in.
+- Made My Job and My Calls rows open enquiry details while keeping row actions independent.
+- Removed Back and Next from My Job and My Calls details. Open Enquiry keeps these controls, and
+  WhatsApp opens its web conversation in a separate tab.
+- Refined enquiry comments with compact rows and non-destructive suspension of the latest message.
+- Restricted the immutable system-user guard to user ID 1. Administrators can edit and reassign
+  roles for other administrator accounts.
+- Reconciled the root workspace lockfile so the Inter font resolves during development and builds.
 
 ## v-1.0.31
 

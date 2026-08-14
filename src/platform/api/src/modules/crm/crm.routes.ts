@@ -127,10 +127,14 @@ const jobPayload = z
     }
   });
 const query = z.object({
+  assignedToEmployee: z.string().trim().min(1).max(140).optional(),
   enquiryId: z.string().trim().min(1).max(140).optional(),
+  enquiryGroup: z.string().trim().min(1).max(140).optional(),
   search: z.string().trim().max(220).optional(),
-  status: z.union([status, z.enum(["active", "in-progress", "closed"])]).optional(),
-  view: z.enum(["assigned", "created", "open"])
+  status: z
+    .union([status, z.enum(["active", "all", "in-progress", "closed", "hold", "other"])])
+    .optional(),
+  view: z.enum(["all", "assigned", "created", "open"])
 });
 const customerReferenceQuery = z.object({
   search: z.string().trim().max(140).optional()
@@ -144,6 +148,7 @@ const mobileMatchQuery = z.object({
 });
 const mobileMatch = z.object({
   assignedTo: userReference.nullable(),
+  canEdit: z.boolean(),
   createdAt: z.iso.datetime(),
   frappeName: z.string().min(1),
   id: z.number().int().positive(),

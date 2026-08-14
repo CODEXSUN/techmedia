@@ -10,9 +10,10 @@ export type CrmEnquiryStatus =
   | "open"
   | "reopen"
   | "won";
-export type CrmEnquiryStatusFilter = CrmEnquiryStatus | "active" | "closed" | "in-progress";
+export type CrmEnquiryStatusFilter =
+  CrmEnquiryStatus | "active" | "all" | "closed" | "hold" | "in-progress" | "other";
 export type CrmEnquiryLifecycleStatus = "active" | "suspended";
-export type CrmEnquiryView = "assigned" | "created" | "open";
+export type CrmEnquiryView = "all" | "assigned" | "created" | "open";
 export type CrmEnquiryColumnId =
   | "assignedTo"
   | "createdBy"
@@ -167,6 +168,7 @@ export type CrmEnquirySavePayload = {
 
 export type CrmEnquiryMobileMatch = {
   assignedTo: CrmUserReference | null;
+  canEdit: boolean;
   createdAt: string;
   frappeName: string;
   id: number;

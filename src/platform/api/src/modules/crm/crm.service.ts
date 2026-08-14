@@ -23,6 +23,7 @@ type LiveGateway = ReturnType<PlatformModuleDependencies["frappeLiveEnquiryGatew
 type LiveRecord = Awaited<ReturnType<LiveGateway["get"]>>;
 
 const viewPermissions: Record<CrmEnquiryView, string> = {
+  all: "crm.enquiry.all.view",
   assigned: "crm.enquiry.assigned.view",
   created: "crm.enquiry.created.view",
   open: "crm.enquiry.open.view"
@@ -57,7 +58,15 @@ export class CrmService {
     });
     const filtered = records
       .filter((record) => matchesStatus(record.status, filters.status))
+      .filter(
+        (record) =>
+          !filters.assignedToEmployee ||
+          (filters.assignedToEmployee === "__unassigned__"
+            ? !record.assignedToEmployee
+            : record.assignedToEmployee === filters.assignedToEmployee)
+      )
       .filter((record) => !filters.enquiryId || record.name === filters.enquiryId)
+      .filter((record) => !filters.enquiryGroup || record.enquiryGroup === filters.enquiryGroup)
       .filter((record) => matchesEnquirySearch(record, filters.search));
     return this.mapMany(filtered);
   }
@@ -74,9 +83,11 @@ export class CrmService {
       throw AppError.forbidden("You do not have access to mobile enquiry history.");
     }
     const records = await this.gateway.listByMobile(mobile);
+    if (records[0]) records[0] = await this.gateway.get(records[0].name);
     const employees = await this.gateway.employees();
     const byName = new Map(employees.map((employee) => [employee.name, employee]));
-    return records.map((record) => mobileMatch(record, byName));
+    const actorEmployee = this.employee();
+    return records.map((record) => mobileMatch(record, byName, actorEmployee));
   }
 
   async overview(): Promise<CrmEnquiryOverview> {
@@ -494,17 +505,24 @@ function employeeReference(employee: {
 
 function mobileMatch(
   record: LiveRecord,
-  byName: Map<string, Awaited<ReturnType<LiveGateway["employees"]>>[number]>
+  byName: Map<string, Awaited<ReturnType<LiveGateway["employees"]>>[number]>,
+  actorEmployee: string
 ): CrmEnquiryMobileMatch {
   const assigned = record.assignedToEmployee ? byName.get(record.assignedToEmployee) : undefined;
   return {
     assignedTo: assigned ? employeeReference(assigned) : null,
+    canEdit: isFreshForActor(record, actorEmployee),
     createdAt: record.createdAt,
     frappeName: record.name,
     id: numericId(record.name),
     status: fromFrappeStatus(record.status),
     title: record.title || displayTitle(record)
   };
+}
+
+function isFreshForActor(record: LiveRecord, actorEmployee: string) {
+  // Creation may store the enquiry text as the first child row; later rows are follow-up comments.
+  return record.userEmployee === actorEmployee && record.messages.length <= 1;
 }
 
 function displayTitle(record: Pick<LiveRecord, "enquiryMessage" | "name">) {
@@ -606,8 +624,14 @@ function isInProgress(status: string) {
 
 function matchesStatus(status: string, filter?: CrmEnquiryStatusFilter) {
   if (!filter || filter === "active") return !isClosed(status);
+  if (filter === "all") return true;
   if (filter === "closed") return isClosed(status);
+  if (filter === "hold")
+    return (
+      status.trim().toLowerCase().startsWith("hold") || status.trim().toLowerCase() === "long hold"
+    );
   if (filter === "in-progress") return isInProgress(status);
+  if (filter === "other") return ["escalation", "re-open"].includes(status.trim().toLowerCase());
   return fromFrappeStatus(status) === filter;
 }
 

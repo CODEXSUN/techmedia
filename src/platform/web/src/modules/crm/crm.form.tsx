@@ -24,7 +24,7 @@ import type {
   CrmUserReference
 } from "./crm.types";
 
-const emptyEnquiry: CrmEnquirySavePayload = {
+export const emptyEnquiry: CrmEnquirySavePayload = {
   assignedToUserId: null,
   customer: "",
   enquiryDate: null,
@@ -72,7 +72,7 @@ export function CrmForm({
       open={open}
       title={`${record ? "Edit" : "New"} enquiry`}
     >
-      <CrmFormBody
+      <CrmEnquiryForm
         key={`${record?.id ?? "new"}:${open}`}
         {...(error ? { error } : {})}
         initialValue={
@@ -106,10 +106,12 @@ export function CrmForm({
   );
 }
 
-function CrmFormBody({
+export function CrmEnquiryForm({
   error,
   canAssign,
   canMobileLookup,
+  displayMode = "dialog",
+  hideMobile = false,
   initialValue,
   loading,
   onCancel,
@@ -121,7 +123,9 @@ function CrmFormBody({
 }: {
   canAssign: boolean;
   canMobileLookup: boolean;
+  displayMode?: "dialog" | "page";
   error?: string;
+  hideMobile?: boolean;
   initialValue: CrmEnquirySavePayload;
   loading: boolean;
   onCancel: () => void;
@@ -140,7 +144,7 @@ function CrmFormBody({
   const customers = useCrmCustomerReferencesQuery(settledCustomerSearch, open);
   const mobileMatches = useCrmEnquiryMobileMatchesQuery(
     settledMobile,
-    canMobileLookup && open && !record && settledMobile === value.mobile
+    canMobileLookup && open && !record && !hideMobile && settledMobile === value.mobile
   );
   const customerError = customers.error instanceof Error ? customers.error.message : "";
   const shownError = validationError || error || customerError;
@@ -177,65 +181,71 @@ function CrmFormBody({
           messages: record ? parsed.data.messages : [{ comment: value.workspace.trim() }]
         });
       }}
-      className="flex min-h-0 flex-col overflow-hidden"
+      className={cn("flex min-h-0 flex-col", displayMode === "dialog" && "overflow-hidden")}
     >
-      <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+      <div className={cn("min-h-0 flex-1", displayMode === "dialog" && "overflow-y-auto pr-2")}>
         {shownError ? (
           <WorkspaceFormBanner title="Unable to save">{shownError}</WorkspaceFormBanner>
         ) : null}
         <div
           className={cn(
             "grid gap-4",
-            record
-              ? "lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)]"
-              : "lg:grid-cols-[14rem_minmax(0,1fr)_18rem]"
+            displayMode === "page"
+              ? "xl:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)]"
+              : record
+                ? "lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)]"
+                : "lg:grid-cols-[14rem_minmax(0,1fr)_18rem]"
           )}
         >
-          {!record ? (
+          {!record && !hideMobile ? (
             <MobileHistoryDrawer
               canMobileLookup={canMobileLookup}
               loading={mobileMatches.isFetching}
               matches={settledMobile === value.mobile ? (mobileMatches.data ?? []) : []}
               mobile={value.mobile}
               onOpen={onOpenExisting}
-              {...(mobileMatches.error instanceof Error ? { error: mobileMatches.error.message } : {})}
+              {...(mobileMatches.error instanceof Error
+                ? { error: mobileMatches.error.message }
+                : {})}
             />
           ) : null}
           <section className="flex min-w-0 flex-col gap-5 rounded-md border border-border/80 bg-muted/10 p-4">
-            <WorkspaceFormGrid>
-              <WorkspaceFormField label="Mobile" required>
-                <div className="grid gap-1.5">
-                  <Input
-                    {...(mobileHint ? { "aria-describedby": "enquiry-mobile-hint" } : {})}
-                    aria-invalid={value.mobile.length > 0 && value.mobile.length !== 10}
-                    autoFocus
-                    className={
-                      mobileBlurred && value.mobile.length === 10
-                        ? "border-emerald-500 focus-visible:ring-emerald-500"
-                        : undefined
-                    }
-                    inputMode="tel"
-                    maxLength={10}
-                    pattern="[0-9]{10}"
-                    required
-                    value={value.mobile}
-                    onBlur={() => setMobileBlurred(true)}
-                    onChange={(event) => {
-                      setMobileBlurred(false);
-                      setValue((current) => ({
-                        ...current,
-                        mobile: normalizeMobile(event.target.value)
-                      }));
-                    }}
-                    onFocus={() => setMobileBlurred(false)}
-                  />
-                  {mobileHint ? (
-                    <p className="text-xs text-muted-foreground" id="enquiry-mobile-hint">
-                      {mobileHint}
-                    </p>
-                  ) : null}
-                </div>
-              </WorkspaceFormField>
+            <WorkspaceFormGrid columns={hideMobile ? 1 : 2}>
+              {!hideMobile ? (
+                <WorkspaceFormField label="Mobile" required>
+                  <div className="grid gap-1.5">
+                    <Input
+                      {...(mobileHint ? { "aria-describedby": "enquiry-mobile-hint" } : {})}
+                      aria-invalid={value.mobile.length > 0 && value.mobile.length !== 10}
+                      autoFocus
+                      className={
+                        mobileBlurred && value.mobile.length === 10
+                          ? "border-emerald-500 focus-visible:ring-emerald-500"
+                          : undefined
+                      }
+                      inputMode="tel"
+                      maxLength={10}
+                      pattern="[0-9]{10}"
+                      required
+                      value={value.mobile}
+                      onBlur={() => setMobileBlurred(true)}
+                      onChange={(event) => {
+                        setMobileBlurred(false);
+                        setValue((current) => ({
+                          ...current,
+                          mobile: normalizeMobile(event.target.value)
+                        }));
+                      }}
+                      onFocus={() => setMobileBlurred(false)}
+                    />
+                    {mobileHint ? (
+                      <p className="text-xs text-muted-foreground" id="enquiry-mobile-hint">
+                        {mobileHint}
+                      </p>
+                    ) : null}
+                  </div>
+                </WorkspaceFormField>
+              ) : null}
               <WorkspaceFormField label="Customer">
                 <WorkspaceLookup
                   allowTextValue={false}
@@ -361,7 +371,7 @@ function CrmFormBody({
       <WorkspaceFormFooter
         className={cn(
           "mt-4 shrink-0 border-t pt-4",
-          !record && "lg:ml-[calc(14rem+1rem)]"
+          !record && !hideMobile && "lg:ml-[calc(14rem+1rem)]"
         )}
         onCancel={onCancel}
         primaryLabel={record ? "Update enquiry" : "Save enquiry"}
@@ -440,39 +450,40 @@ function MobileHistoryDrawer({
           </p>
         ) : null}
         <div className="mt-3 space-y-2">
-        {!canMobileLookup ? (
-          <p className="text-sm text-muted-foreground">
-            Ask an administrator to enable Mobile enquiry lookup for your role.
-          </p>
-        ) : !ready ? null : loading ? (
-          <p className="text-sm text-muted-foreground">Checking live enquiries...</p>
-        ) : error ? (
-          <p className="text-sm text-destructive">{error}</p>
-        ) : matches.length ? (
-          matches.map((match) => (
-            <Button
-              className="h-auto w-full items-start justify-start whitespace-normal rounded-md border bg-background px-3 py-2 text-left hover:bg-accent"
-              key={match.frappeName}
-              type="button"
-              variant="ghost"
-              onClick={() => onOpen(match)}
-            >
-              <span className="grid min-w-0 gap-1">
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <MessageSquareText className="size-3.5" /> #{match.id} · {statusLabel(match.status)}
+          {!canMobileLookup ? (
+            <p className="text-sm text-muted-foreground">
+              Ask an administrator to enable Mobile enquiry lookup for your role.
+            </p>
+          ) : !ready ? null : loading ? (
+            <p className="text-sm text-muted-foreground">Checking live enquiries...</p>
+          ) : error ? (
+            <p className="text-sm text-destructive">{error}</p>
+          ) : matches.length ? (
+            matches.map((match) => (
+              <Button
+                className="h-auto w-full items-start justify-start whitespace-normal rounded-md border bg-background px-3 py-2 text-left hover:bg-accent"
+                key={match.frappeName}
+                type="button"
+                variant="ghost"
+                onClick={() => onOpen(match)}
+              >
+                <span className="grid min-w-0 gap-1">
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MessageSquareText className="size-3.5" /> #{match.id} ·{" "}
+                    {statusLabel(match.status)}
+                  </span>
+                  <span className="line-clamp-2 text-sm font-medium">{match.title}</span>
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <UserRound className="size-3.5" /> {match.assignedTo?.name ?? "Unassigned"}
+                  </span>
                 </span>
-                <span className="line-clamp-2 text-sm font-medium">{match.title}</span>
-                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <UserRound className="size-3.5" /> {match.assignedTo?.name ?? "Unassigned"}
-                </span>
-              </span>
-            </Button>
-          ))
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No previous enquiries match this number. Create a new enquiry.
-          </p>
-        )}
+              </Button>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No previous enquiries match this number. Create a new enquiry.
+            </p>
+          )}
         </div>
       </div>
     </aside>

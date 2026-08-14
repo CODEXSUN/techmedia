@@ -53,7 +53,7 @@ export type FrappeUserVerificationResult = FrappeConnectionVerificationResult & 
   employeeCode: string;
 };
 
-export type FrappeLiveEnquiryView = "assigned" | "created" | "open";
+export type FrappeLiveEnquiryView = "all" | "assigned" | "created" | "open";
 
 export type FrappeLiveEmployee = {
   email: string;

@@ -8,6 +8,7 @@ export {
   type CrmInAppNotification
 } from "./crm.call-notifications";
 export { CrmNotificationSettings } from "./crm.notification-settings";
+export { CrmEnquiryUpsertPage } from "./crm.upsert-page";
 export { CrmWorkspace } from "./crm.workspace";
 export { useCrmOverviewQuery } from "./crm.hooks";
 export type {

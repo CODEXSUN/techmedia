@@ -48,6 +48,7 @@ type EnquirySort = {
 };
 
 const viewDetails: Record<CrmEnquiryView, { description: string; title: string }> = {
+  all: { description: "Every live Frappe enquiry across the CRM.", title: "All Enquiries" },
   assigned: { description: "Enquiries assigned to your user account.", title: "My Job" },
   created: { description: "Enquiries created by your account.", title: "My Calls" },
   open: {
@@ -93,6 +94,7 @@ export function CrmWorkspace({
   canRefresh,
   canUpdateEstimate,
   canUpdateQuotation,
+  onCreate,
   onSearchValueChange,
   searchValue,
   showActivity,
@@ -112,13 +114,15 @@ export function CrmWorkspace({
   canUpdate: boolean;
   canUpdateEstimate: boolean;
   canUpdateQuotation: boolean;
+  onCreate: () => void;
   onSearchValueChange: (value: string) => void;
   searchValue: string;
   showActivity: boolean;
   showProperties: boolean;
   view: CrmEnquiryView;
 }) {
-  const [statusFilter, setStatusFilter] = useState<CrmEnquiryStatusFilter>(statusFilterFromUrl);
+  const reportFilters = reportFiltersFromUrl(view === "all" ? "all" : "active");
+  const [statusFilter, setStatusFilter] = useState<CrmEnquiryStatusFilter>(reportFilters.status);
   const [visibleColumns, setVisibleColumns] = useState<CrmEnquiryColumnVisibility>(
     defaultEnquiryColumnVisibility
   );
@@ -131,6 +135,10 @@ export function CrmWorkspace({
   const query = useCrmEnquiriesQuery({
     view,
     status: statusFilter,
+    ...(reportFilters.assignedToEmployee
+      ? { assignedToEmployee: reportFilters.assignedToEmployee }
+      : {}),
+    ...(reportFilters.enquiryGroup ? { enquiryGroup: reportFilters.enquiryGroup } : {}),
     ...(searchValue ? { search: searchValue } : {})
   });
   const users = useCrmUsersQuery();
@@ -163,6 +171,27 @@ export function CrmWorkspace({
     }
   }
 
+  useEffect(() => {
+    const route = recordRouteFromUrl();
+    if (!route || (route.target === "edit" && !canUpdate)) return;
+    let active = true;
+    void getCrmEnquiry(route.frappeName)
+      .then((record) => {
+        if (!active) return;
+        if (route.target === "edit") setEditing(record);
+        else setViewing(record);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        toast.error(
+          error instanceof Error ? error.message : "The live Frappe enquiry could not be loaded."
+        );
+      });
+    return () => {
+      active = false;
+    };
+  }, [canUpdate]);
+
   async function openMobileMatch(match: CrmEnquiryMobileMatch) {
     try {
       setViewing(await getCrmEnquiry(match.frappeName));
@@ -174,7 +203,10 @@ export function CrmWorkspace({
     }
   }
 
-  useEffect(() => setPage(1), [view, searchValue, statusFilter]);
+  useEffect(
+    () => setPage(1),
+    [view, searchValue, statusFilter, reportFilters.assignedToEmployee, reportFilters.enquiryGroup]
+  );
 
   async function save(value: CrmEnquirySavePayload) {
     try {
@@ -185,6 +217,7 @@ export function CrmWorkspace({
         description: `#${saved.id} · ${saved.title}`
       });
       setEditing(undefined);
+      clearRecordRoute();
     } catch {}
   }
 
@@ -223,11 +256,14 @@ export function CrmWorkspace({
         canUpdateQuotation={canUpdateQuotation}
         showActivity={showActivity}
         showProperties={showProperties}
-        onBack={() => setViewing(null)}
+        onBack={() => {
+          setViewing(null);
+          clearRecordRoute();
+        }}
         {...(nextViewing ? { onNext: () => void loadRecord(nextViewing, "view") } : {})}
         onRecordChange={setViewing}
         record={viewing}
-        view={view}
+        view={view === "all" ? "open" : view}
       />
     );
   }
@@ -278,7 +314,7 @@ export function CrmWorkspace({
               <Button
                 className="h-9 rounded-md"
                 disabled={users.isLoading || !users.data?.length}
-                onClick={() => setEditing(null)}
+                onClick={onCreate}
                 type="button"
               >
                 <Plus className="size-4" /> New enquiry
@@ -301,7 +337,14 @@ export function CrmWorkspace({
               setVisibleColumns((current) => ({ ...current, [column.id]: checked }))
           }))}
         filterOptions={[
+          ...(view === "all" ? [{ id: "all", label: "All statuses" }] : []),
           { id: "active", label: "Active (except won and lost)" },
+          ...(view === "all"
+            ? [
+                { id: "hold", label: "Hold" },
+                { id: "other", label: "Other" }
+              ]
+            : []),
           { id: "in-progress", label: "In progress (holds and escalation)" },
           { id: "closed", label: "Closed (won, lost)" },
           ...crmEnquiryStatusOptions.map(({ label, value }) => ({ id: value, label }))
@@ -366,7 +409,10 @@ export function CrmWorkspace({
           ? { error: (mutations.create.error ?? (mutations.update.error as Error)).message }
           : {})}
         loading={mutations.create.isPending || mutations.update.isPending}
-        onCancel={() => setEditing(undefined)}
+        onCancel={() => {
+          setEditing(undefined);
+          clearRecordRoute();
+        }}
         onOpenExisting={(match) => void openMobileMatch(match)}
         onSubmit={(value) => void save(value)}
         open={editing !== undefined}
@@ -416,13 +462,19 @@ function compareEnquiries(left: CrmEnquiry, right: CrmEnquiry, sort: EnquirySort
     : String(a).localeCompare(String(b), undefined, { numeric: true }) * direction;
 }
 
-function statusFilterFromUrl(): CrmEnquiryStatusFilter {
-  if (typeof window === "undefined") return "active";
-  const value = new URLSearchParams(window.location.search).get("status");
+function reportFiltersFromUrl(defaultStatus: CrmEnquiryStatusFilter) {
+  if (typeof window === "undefined") {
+    return { assignedToEmployee: "", enquiryGroup: "", status: defaultStatus };
+  }
+  const query = new URLSearchParams(window.location.search);
+  const value = query.get("status");
   return [
     "active",
+    "all",
     "in-progress",
     "closed",
+    "hold",
+    "other",
     "open",
     "escalation",
     "won",
@@ -434,8 +486,30 @@ function statusFilterFromUrl(): CrmEnquiryStatusFilter {
     "long-hold",
     "reopen"
   ].includes(value ?? "")
-    ? (value as CrmEnquiryStatusFilter)
-    : "active";
+    ? {
+        assignedToEmployee: query.get("assignedToEmployee") ?? "",
+        enquiryGroup: query.get("enquiryGroup") ?? "",
+        status: value as CrmEnquiryStatusFilter
+      }
+    : {
+        assignedToEmployee: query.get("assignedToEmployee") ?? "",
+        enquiryGroup: query.get("enquiryGroup") ?? "",
+        status: defaultStatus
+      };
+}
+
+function recordRouteFromUrl(): { frappeName: string; target: "edit" | "view" } | null {
+  if (typeof window === "undefined") return null;
+  const query = new URLSearchParams(window.location.search);
+  const edit = query.get("edit")?.trim();
+  if (edit) return { frappeName: edit, target: "edit" };
+  const show = query.get("show")?.trim();
+  return show ? { frappeName: show, target: "view" } : null;
+}
+
+function clearRecordRoute() {
+  if (typeof window === "undefined" || !window.location.search) return;
+  window.history.replaceState(null, "", window.location.pathname);
 }
 
 function CrmActionDialog({

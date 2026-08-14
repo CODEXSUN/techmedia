@@ -51,7 +51,9 @@ export function useCrmReportQuery(
 }
 
 export function useCrmEnquiriesQuery(input: {
+  assignedToEmployee?: string;
   enquiryId?: string;
+  enquiryGroup?: string;
   search?: string;
   status?: CrmEnquiryStatusFilter;
   view: CrmEnquiryView;
@@ -65,6 +67,8 @@ export function useCrmEnquiriesQuery(input: {
       ...crmEnquiryQueryKey,
       input.view,
       input.status ?? "active",
+      input.assignedToEmployee ?? "",
+      input.enquiryGroup ?? "",
       input.search ?? "",
       input.enquiryId ?? 0
     ]

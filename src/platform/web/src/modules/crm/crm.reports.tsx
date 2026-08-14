@@ -7,7 +7,7 @@ import { WorkspaceLookup } from "@codexsun/ui/workspace/lookup";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";
 import { useCrmReportQuery, useCrmUsersQuery } from "./crm.hooks";
 import { crmEnquiryListInOptions } from "./crm.options";
-import type { CrmReport, CrmReportName } from "./crm.types";
+import type { CrmEnquiryStatusFilter, CrmReport, CrmReportName, CrmUserReference } from "./crm.types";
 
 type Filters = {
   assignedToEmployee: string;
@@ -23,7 +23,15 @@ const emptyFilters: Filters = {
   toDate: ""
 };
 
-export function CrmReports() {
+export function CrmReports({
+  onOpenEnquiries
+}: {
+  onOpenEnquiries: (filters: {
+    assignedToEmployee?: string;
+    enquiryGroup?: string;
+    status: CrmEnquiryStatusFilter;
+  }) => void;
+}) {
   const [report, setReport] = useState<CrmReportName>("list-in-status");
   const [draft, setDraft] = useState(emptyFilters);
   const [filters, setFilters] = useState(emptyFilters);
@@ -132,13 +140,33 @@ export function CrmReports() {
         </Card>
       ) : null}
       {query.data ? (
-        <ReportTable key={`${report}:${JSON.stringify(filters)}`} report={query.data} />
+        <ReportTable
+          key={`${report}:${JSON.stringify(filters)}`}
+          report={query.data}
+          reportName={report}
+          users={users.data ?? []}
+          onOpenEnquiries={onOpenEnquiries}
+        />
       ) : null}
     </WorkspacePage>
   );
 }
 
-function ReportTable({ report }: { report: CrmReport }) {
+function ReportTable({
+  onOpenEnquiries,
+  report,
+  reportName,
+  users
+}: {
+  onOpenEnquiries: (filters: {
+    assignedToEmployee?: string;
+    enquiryGroup?: string;
+    status: CrmEnquiryStatusFilter;
+  }) => void;
+  report: CrmReport;
+  reportName: CrmReportName;
+  users: CrmUserReference[];
+}) {
   const [sort, setSort] = useState<{ direction: "asc" | "desc"; fieldname: string } | null>(null);
   const totalRows = report.rows.filter(isTotalRow);
   const rows = report.rows
@@ -201,7 +229,14 @@ function ReportTable({ report }: { report: CrmReport }) {
                     }`}
                     key={column.fieldname}
                   >
-                    {row[column.fieldname] ?? "—"}
+                    <ReportValue
+                      column={column}
+                      report={report}
+                      reportName={reportName}
+                      row={row}
+                      users={users}
+                      onOpenEnquiries={onOpenEnquiries}
+                    />
                   </td>
                 ))}
               </tr>
@@ -221,6 +256,71 @@ function ReportTable({ report }: { report: CrmReport }) {
       </CardContent>
     </Card>
   );
+}
+
+function ReportValue({
+  column,
+  onOpenEnquiries,
+  report,
+  reportName,
+  row,
+  users
+}: {
+  column: CrmReport["columns"][number];
+  onOpenEnquiries: (filters: {
+    assignedToEmployee?: string;
+    enquiryGroup?: string;
+    status: CrmEnquiryStatusFilter;
+  }) => void;
+  report: CrmReport;
+  reportName: CrmReportName;
+  row: Record<string, number | string | null>;
+  users: CrmUserReference[];
+}) {
+  const value = row[column.fieldname];
+  const status = reportStatusFilter(column.label);
+  const identityColumn = report.columns.find((candidate) => isIdentityColumn(candidate.label));
+  const identityValue = identityColumn ? String(row[identityColumn.fieldname] ?? "") : "";
+  if (typeof value !== "number" || value <= 0 || !status) return value ?? "—";
+  const scopedRow = !isTotalRow(row);
+
+  return (
+    <button
+      className="cursor-pointer font-medium text-primary underline-offset-2 hover:underline"
+      type="button"
+      onClick={() =>
+        onOpenEnquiries({
+          ...(reportName === "list-in-status" && identityValue && scopedRow
+            ? { enquiryGroup: identityValue }
+            : {}),
+          ...(reportName === "owner-status" && scopedRow
+            ? { assignedToEmployee: employeeIdForReport(identityValue, users) }
+            : {}),
+          status
+        })
+      }
+    >
+      {value}
+    </button>
+  );
+}
+
+function employeeIdForReport(value: string, users: CrmUserReference[]) {
+  if (value.trim().toLowerCase() === "(unassigned)") return "__unassigned__";
+  return users.find((user) => user.name === value)?.id ?? value;
+}
+
+function reportStatusFilter(label: string): CrmEnquiryStatusFilter | null {
+  const filters: Record<string, CrmEnquiryStatusFilter> = {
+    hold: "hold",
+    lost: "lost",
+    new: "new",
+    open: "open",
+    other: "other",
+    total: "all",
+    won: "won"
+  };
+  return filters[label.trim().toLowerCase()] ?? null;
 }
 
 function compareReportRows(

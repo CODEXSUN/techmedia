@@ -27,6 +27,7 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
       "crm.enquiry.assigned.view",
       "crm.enquiry.created.view",
       "crm.enquiry.open.view",
+      "crm.enquiry.all.view",
       "crm.enquiry.mobile.lookup",
       "crm.enquiry.create",
       "crm.enquiry.update",

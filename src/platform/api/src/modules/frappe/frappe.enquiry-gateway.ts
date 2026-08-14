@@ -150,17 +150,27 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         filters.push(["assigned_to_employee", "is", "not set"]);
         filters.push(["status", "not in", ["Won", "Lost"]]);
       }
-      const query = new URLSearchParams({
-        fields: JSON.stringify(enquiryFields),
-        filters: JSON.stringify(filters),
-        limit_page_length: "500",
-        order_by: "creation desc"
-      });
-      const response = await frappeRequest<{ data?: FrappeEnquiryDocument[] }>(
-        target,
-        `/api/resource/Enquiry?${query}`
-      );
-      return (response.data ?? []).map((document) => toEnquiry(document));
+      const records: FrappeEnquiryDocument[] = [];
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const query = new URLSearchParams({
+          fields: JSON.stringify(enquiryFields),
+          filters: JSON.stringify(filters),
+          limit_page_length: "500",
+          limit_start: String(offset),
+          order_by: "creation desc"
+        });
+        const response = await frappeRequest<{ data?: FrappeEnquiryDocument[] }>(
+          target,
+          `/api/resource/Enquiry?${query}`
+        );
+        const page = response.data ?? [];
+        records.push(...page);
+        hasMore = input.view === "all" && page.length === 500;
+        offset += page.length;
+      }
+      return records.map((document) => toEnquiry(document));
     },
 
     async listByMobile(mobile) {
