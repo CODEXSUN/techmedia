@@ -73,7 +73,7 @@ export function SidemenuSection({ items, title }: { items: SidemenuItem[]; title
                     tooltip={item.title}
                     className={cn(
                       item.prominent &&
-                        "mb-2 h-10 bg-primary font-semibold text-primary-foreground shadow-sm hover:translate-x-0 hover:bg-primary/90 hover:text-primary-foreground hover:shadow-md data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md"
+                        "mb-2 h-10 bg-primary font-semibold text-primary-foreground shadow-sm transition-[transform,box-shadow,background-color,color] duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary/90 hover:text-primary-foreground hover:shadow-md active:translate-y-0 motion-reduce:transform-none motion-reduce:transition-none data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-md"
                     )}
                   >
                     {item.onSelect ? (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BellOff, BellRing, Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "@codexsun/ui/components/sonner";
 import {
   AlertDialog,
@@ -18,10 +18,6 @@ import { WorkspacePage } from "@codexsun/ui/workspace/page";
 import { WorkspacePagination } from "@codexsun/ui/workspace/pagination";
 import { buildShowingLabel } from "@codexsun/ui/workspace/utils";
 import { CrmForm } from "./crm.form";
-import {
-  useBrowserNotificationPermission,
-  useCrmCallNotificationPreference
-} from "./crm.call-notifications";
 import { useCrmEnquiriesQuery, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
 import { CrmList } from "./crm.list";
 import { crmEnquiryStatusOptions } from "./crm.options";
@@ -145,8 +141,6 @@ export function CrmWorkspace({
   const mutations = useCrmEnquiryMutations();
   const initialLoading = query.data === undefined && query.isFetching;
   const records = query.data ?? [];
-  const browserNotifications = useBrowserNotificationPermission();
-  const notificationPreference = useCrmCallNotificationPreference();
   const sortedRecords = [...records].sort((left, right) => compareEnquiries(left, right, sort));
   const totalPages = Math.max(1, Math.ceil(sortedRecords.length / rowsPerPage));
   const currentPage = Math.min(page, totalPages);
@@ -234,16 +228,6 @@ export function CrmWorkspace({
     }
   }
 
-  function toggleDesktopAlerts() {
-    if (browserNotifications.permission === "granted") {
-      notificationPreference.setEnabled(!notificationPreference.enabled);
-      return;
-    }
-    void browserNotifications.requestPermission().then((permission) => {
-      if (permission === "granted") notificationPreference.setEnabled(true);
-    });
-  }
-
   if (viewing) {
     return (
       <CrmShow
@@ -271,34 +255,8 @@ export function CrmWorkspace({
   return (
     <WorkspacePage
       actions={
-        canRefresh || canCreate || view === "created" ? (
+        canRefresh || canCreate ? (
           <div className="flex items-center gap-2">
-            {view === "created" && browserNotifications.isSupported ? (
-              <Button
-                className="h-9 rounded-md"
-                disabled={browserNotifications.permission === "denied"}
-                title={
-                  browserNotifications.permission === "denied"
-                    ? "Allow notifications in the browser settings to enable desktop alerts."
-                    : notificationPreference.enabled &&
-                        browserNotifications.permission === "granted"
-                      ? "Disable desktop notifications for My Calls."
-                      : "Enable desktop notifications for My Calls."
-                }
-                type="button"
-                variant="outline"
-                onClick={toggleDesktopAlerts}
-              >
-                {notificationPreference.enabled && browserNotifications.permission === "granted" ? (
-                  <BellOff className="size-4" />
-                ) : (
-                  <BellRing className="size-4" />
-                )}
-                {notificationPreference.enabled && browserNotifications.permission === "granted"
-                  ? "Desktop alerts on"
-                  : "Desktop alerts off"}
-              </Button>
-            ) : null}
             {canRefresh ? (
               <Button
                 className="h-9 rounded-md"
@@ -329,7 +287,11 @@ export function CrmWorkspace({
     >
       <WorkspaceFilters
         columnOptions={enquiryColumnOptions
-          .filter((column) => view !== "assigned" || column.id !== "assignedTo")
+          .filter(
+            (column) =>
+              !(view === "assigned" && column.id === "assignedTo") &&
+              !(view === "created" && column.id === "createdBy")
+          )
           .map((column) => ({
             ...column,
             checked: visibleColumns[column.id],
@@ -382,7 +344,8 @@ export function CrmWorkspace({
         sort={sort}
         visibleColumns={{
           ...visibleColumns,
-          assignedTo: view === "assigned" ? false : visibleColumns.assignedTo
+          assignedTo: view === "assigned" ? false : visibleColumns.assignedTo,
+          createdBy: view === "created" ? false : visibleColumns.createdBy
         }}
       />
       {query.data !== undefined ? (

@@ -189,7 +189,10 @@ export function CrmList({
                     </td>
                   ) : null}
                   {visibleColumns.customer ? (
-                    <td className="max-w-52 truncate px-4 py-2.5" title={record.customerName || record.customer}>
+                    <td
+                      className="max-w-52 truncate px-4 py-2.5"
+                      title={record.customerName || record.customer}
+                    >
                       {record.customer ? (
                         <button
                           className="max-w-48 cursor-pointer truncate text-left font-medium hover:underline"
@@ -394,8 +397,8 @@ const enquiryStatusAppearance = {
     tone: "danger"
   },
   new: {
-    badgeClassName: "border-slate-500 bg-slate-500 text-white",
-    iconClassName: "text-white",
+    badgeClassName: "border-slate-300 bg-slate-200 text-slate-700",
+    iconClassName: "text-slate-600",
     tone: "neutral"
   },
   open: {

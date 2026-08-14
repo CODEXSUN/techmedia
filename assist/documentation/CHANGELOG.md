@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.32
+Current version: 1.0.33
 
-Release tag: v-1.0.32
+Release tag: v-1.0.33
 
-Changelog label: v 1.0.32
+Changelog label: v 1.0.33
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -22,6 +22,28 @@ New entries must keep database-facing work and application code work separate.
 ### App Codebase Changes
 
 - No pending app codebase changes.
+
+## v-1.0.33
+
+### [v 1.0.33] 2026-08-14 11:14 am - CRM navigation and table polish
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.33.
+- Added a permission-aware New enquiry button above the CRM sidebar menu. The button opens the
+  dedicated enquiry page.
+- Added a slight hover lift and smooth shadow transition to the New enquiry sidebar button. The
+  button stays static when the user enables reduced motion.
+- Removed the Desktop alerts toggle from CRM list pages. Desktop notification controls remain in
+  Settings under Desktop notifications.
+- Hid the redundant User column and its visibility option from My Calls. Other CRM lists keep the
+  User column.
+- Changed the New status badge to a light gray tone with readable dark text and icon colors.
+- Added a slightly darker gray hover and a short color transition to workspace table rows.
 
 ## v-1.0.32
 

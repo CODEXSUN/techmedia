@@ -6,6 +6,7 @@ import {
   BotIcon,
   MessagesSquareIcon,
   PlugZapIcon,
+  PlusIcon,
   ShoppingBagIcon,
   Settings2Icon,
   ShieldCheckIcon,
@@ -195,6 +196,7 @@ export function AppDesk() {
     select,
     superAdmin,
     canUseCrm,
+    canCreateEnquiry,
     canViewAllEnquiries,
     canViewCrmReports,
     canUseIshop,
@@ -495,6 +497,7 @@ function buildMenu(
   select: (page: Page) => void,
   superAdmin: boolean,
   canUseCrm: boolean,
+  canCreateEnquiry: boolean,
   canViewAllEnquiries: boolean,
   canViewCrmReports: boolean,
   canUseIshop: boolean,
@@ -542,6 +545,17 @@ function buildMenu(
   }
   if (canUseCrm && (!superAdmin || page.startsWith("crm.") || page.startsWith("estimate."))) {
     return [
+      ...(canCreateEnquiry
+        ? [
+            {
+              icon: PlusIcon,
+              isActive: page === "crm.created.new",
+              onSelect: () => select("crm.created.new"),
+              prominent: true,
+              title: "New enquiry"
+            }
+          ]
+        : []),
       {
         icon: MessagesSquareIcon,
         isActive: true,

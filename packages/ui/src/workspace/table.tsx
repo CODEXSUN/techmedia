@@ -20,7 +20,7 @@ export const workspaceTableHeaderClass =
   "border-b border-border/70 bg-muted/50 px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground";
 
 export const workspaceTableRowClass =
-  "border-b border-border/70 transition-colors last:border-b-0 hover:bg-accent/60";
+  "border-b border-border/70 transition-colors duration-150 last:border-b-0 hover:bg-muted/80";
 
 export const workspaceTableCellClass = "px-4 py-2.5 text-foreground";
 
