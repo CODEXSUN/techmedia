@@ -142,8 +142,15 @@ export type FrappeLiveEnquiryMessageSavePayload = {
   parentMessage?: string | null;
 };
 
+export type FrappeLiveEnquiryCommentMetricInput = {
+  createdAfter: string;
+  createdBy: string;
+  enquiryNames: string[];
+};
+
 export type FrappeLiveEnquiryGateway = {
   create: (input: FrappeLiveEnquirySavePayload) => Promise<FrappeLiveEnquiry>;
+  countComments: (input: FrappeLiveEnquiryCommentMetricInput) => Promise<number | null>;
   customers: (search?: string) => Promise<FrappeLiveCustomerReference[]>;
   customersByIds: (ids: string[]) => Promise<FrappeLiveCustomerReference[]>;
   delete: (name: string) => Promise<void>;
@@ -183,6 +190,50 @@ export type FrappeLiveEnquiryGatewayFactory = (context: {
   employee: string | null;
   userId: number;
 }) => FrappeLiveEnquiryGateway;
+
+export type FrappeLiveStaffRequestComment = {
+  content: string;
+  createdAt: string;
+  createdBy: string;
+  name: string;
+};
+
+export type FrappeLiveStaffRequest = {
+  comments: FrappeLiveStaffRequestComment[];
+  createdAt: string;
+  days: number;
+  date: string;
+  details: string;
+  employee: string;
+  modifiedAt: string;
+  name: string;
+  requestType: string;
+};
+
+export type FrappeLiveStaffRequestSavePayload = {
+  date: string;
+  days: number;
+  details: string;
+  requestType: string;
+};
+
+export type FrappeLiveStaffRequestGateway = {
+  addApprovalComment: (name: string, content: string) => Promise<FrappeLiveStaffRequest>;
+  create: (employee: string, input: FrappeLiveStaffRequestSavePayload) => Promise<FrappeLiveStaffRequest>;
+  get: (name: string) => Promise<FrappeLiveStaffRequest>;
+  list: (input: { employee?: string }) => Promise<FrappeLiveStaffRequest[]>;
+  update: (
+    name: string,
+    employee: string,
+    input: FrappeLiveStaffRequestSavePayload
+  ) => Promise<FrappeLiveStaffRequest>;
+};
+
+export type FrappeLiveStaffRequestGatewayFactory = (context: {
+  database: Kysely<TechMediaDatabase>;
+  employee: string | null;
+  userId: number;
+}) => FrappeLiveStaffRequestGateway;
 
 export type FrappeUserPreview = {
   email: string;

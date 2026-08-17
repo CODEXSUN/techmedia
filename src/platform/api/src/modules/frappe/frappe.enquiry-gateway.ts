@@ -238,6 +238,38 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       return hydrate(target, response.data.name, response.data);
     },
 
+    async countComments(input) {
+      const enquiryNames = [...new Set(input.enquiryNames.map(requiredName))];
+      if (!enquiryNames.length) return 0;
+      const target = await connection();
+      try {
+        const responses = await Promise.all(
+          chunk(enquiryNames, 100).map((names) =>
+            frappeRequest<{ message?: Array<{ name?: string }> }>(
+              target,
+              "/api/v2/method/frappe.client.get_list",
+              {
+                body: JSON.stringify({
+                  doctype: "Enquiry Message",
+                  fields: ["name"],
+                  filters: [
+                    ["parent", "in", names],
+                    ["owner", "=", input.createdBy],
+                    ["creation", ">=", input.createdAfter]
+                  ],
+                  limit_page_length: 500
+                }),
+                method: "POST"
+              }
+            )
+          )
+        );
+        return responses.reduce((total, response) => total + (response.message?.length ?? 0), 0);
+      } catch {
+        return null;
+      }
+    },
+
     async update(name, input) {
       const target = await connection();
       const enquiryName = requiredName(name);

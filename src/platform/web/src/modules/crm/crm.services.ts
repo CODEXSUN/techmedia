@@ -9,6 +9,7 @@ import type {
   CrmEnquiryMobileMatch,
   CrmEnquiryNoteCreatePayload,
   CrmEnquiryOverview,
+  CrmEnquiryPriority,
   CrmReport,
   CrmReportName,
   CrmEnquiryReference,
@@ -26,8 +27,11 @@ export function listCrmEnquiries(input: {
   assignedToEmployee?: string;
   enquiryId?: string;
   enquiryGroup?: string;
+  fromDate?: string;
+  priority?: CrmEnquiryPriority;
   search?: string;
   status?: CrmEnquiryStatusFilter;
+  toDate?: string;
   view: CrmEnquiryView;
 }) {
   const query = new URLSearchParams({ view: input.view });
@@ -35,7 +39,10 @@ export function listCrmEnquiries(input: {
   if (input.search?.trim()) query.set("search", input.search.trim());
   if (input.enquiryId) query.set("enquiryId", String(input.enquiryId));
   if (input.enquiryGroup) query.set("enquiryGroup", input.enquiryGroup);
+  if (input.fromDate) query.set("fromDate", input.fromDate);
+  if (input.priority) query.set("priority", input.priority);
   if (input.status) query.set("status", input.status);
+  if (input.toDate) query.set("toDate", input.toDate);
   return apiGet<CrmEnquiry[]>(`${path}?${query}`);
 }
 
@@ -58,6 +65,10 @@ export function getCrmReport(
 
 export function getCrmEnquiry(name: string) {
   return apiGet<CrmEnquiry>(`${path}/${encodeURIComponent(name)}`);
+}
+
+export function receiveCrmEnquiryAssignment(name: string) {
+  return apiPost<CrmEnquiry>(`${path}/${encodeURIComponent(name)}/assignment-receipt`, {});
 }
 
 export function listCrmEnquiryMobileMatches(mobile: string) {

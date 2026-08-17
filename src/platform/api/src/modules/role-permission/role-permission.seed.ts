@@ -24,6 +24,11 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
 
   const liveFrappeDefaults: Record<string, string[]> = {
     admin: [
+      "hr.request.own.view",
+      "hr.request.create",
+      "hr.request.own.update",
+      "hr.request.all.view",
+      "hr.request.approve",
       "crm.enquiry.assigned.view",
       "crm.enquiry.created.view",
       "crm.enquiry.open.view",
@@ -45,6 +50,9 @@ export async function seedRolePermissionModule(database: Kysely<TechMediaDatabas
       "ishop.manage"
     ],
     user: [
+      "hr.request.own.view",
+      "hr.request.create",
+      "hr.request.own.update",
       "crm.enquiry.mobile.lookup"
     ]
   };

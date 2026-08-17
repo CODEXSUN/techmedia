@@ -24,6 +24,7 @@ import {
 } from "./crm.services";
 import type {
   CrmEnquiry,
+  CrmEnquiryPriority,
   CrmEnquirySavePayload,
   CrmEnquiryStatusFilter,
   CrmEnquiryView,
@@ -54,8 +55,11 @@ export function useCrmEnquiriesQuery(input: {
   assignedToEmployee?: string;
   enquiryId?: string;
   enquiryGroup?: string;
+  fromDate?: string;
+  priority?: CrmEnquiryPriority;
   search?: string;
   status?: CrmEnquiryStatusFilter;
+  toDate?: string;
   view: CrmEnquiryView;
 }, options: { enabled?: boolean; poll?: boolean; refetchInterval?: number } = {}) {
   return useQuery({
@@ -69,6 +73,8 @@ export function useCrmEnquiriesQuery(input: {
       input.status ?? "active",
       input.assignedToEmployee ?? "",
       input.enquiryGroup ?? "",
+      input.fromDate ?? "",
+      input.toDate ?? "",
       input.search ?? "",
       input.enquiryId ?? 0
     ]

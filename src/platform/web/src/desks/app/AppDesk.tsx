@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   CircleGaugeIcon,
   BotIcon,
+  CalendarDaysIcon,
   MessagesSquareIcon,
   PlugZapIcon,
   PlusIcon,
@@ -65,6 +66,9 @@ const CrmReports = lazy(() =>
 const CrmNotificationSettings = lazy(() =>
   import("../../modules/crm").then((module) => ({ default: module.CrmNotificationSettings }))
 );
+const HrStaffRequestWorkspace = lazy(() =>
+  import("../../modules/hr").then((module) => ({ default: module.HrStaffRequestWorkspace }))
+);
 const EstimateWorkspace = lazy(() =>
   import("../../modules/estimate").then((module) => ({ default: module.EstimateWorkspace }))
 );
@@ -96,6 +100,8 @@ type Page =
   | "settings.frappe.overview"
   | "settings.frappe.users"
   | "settings.notifications"
+  | "hr.my"
+  | "hr.all"
   | "crm.overview"
   | "crm.assigned"
   | "crm.all"
@@ -125,6 +131,11 @@ type Claims = {
 
 type AppNotification = CrmInAppNotification;
 
+function pagePath(page: Page) {
+  const path = `/app/${page.replaceAll(".", "/")}`;
+  return page === "crm.created" ? `${path}?status=all` : path;
+}
+
 export function AppDesk() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -144,6 +155,11 @@ export function AppDesk() {
     claims.role === "admin" && permissions.includes("crm.enquiry.all.view");
   const canCreateEnquiry = permissions.includes("crm.enquiry.create");
   const canUseIshop = permissions.some((permission) => permission.startsWith("ishop."));
+  // HR is available to each employee role. The API still evaluates each request against the
+  // current database permissions, so this remains safe while an older browser token is active.
+  const canUseHr = claims.role === "admin" || claims.role === "user";
+  const canViewAllHr = claims.role === "admin";
+  const canApproveHr = claims.role === "admin";
   const canManageCrmListActions = claims.role === "admin";
   const showCrmActivity = claims.role === "admin";
   const showCrmProperties = claims.role !== "manager" && claims.role !== "user";
@@ -169,6 +185,8 @@ export function AppDesk() {
     canCreateEnquiry,
     canViewAllEnquiries,
     canViewCrmReports,
+    canUseHr,
+    canViewAllHr,
     canUseIshop,
     temaEnabled
   );
@@ -177,17 +195,21 @@ export function AppDesk() {
   );
   const select = (next: Page) => {
     setMenuNavigationRevision((revision) => revision + 1);
-    void navigate({ to: `/app/${next.replaceAll(".", "/")}` });
+    void navigate({ to: pagePath(next) });
   };
   const openAllEnquiries = (filters: {
     assignedToEmployee?: string;
     enquiryGroup?: string;
+    fromDate?: string;
     status: import("../../modules/crm/crm.types").CrmEnquiryStatusFilter;
+    toDate?: string;
   }) => {
     const query = new URLSearchParams();
     if (filters.assignedToEmployee) query.set("assignedToEmployee", filters.assignedToEmployee);
     if (filters.enquiryGroup) query.set("enquiryGroup", filters.enquiryGroup);
+    if (filters.fromDate) query.set("fromDate", filters.fromDate);
     query.set("status", filters.status);
+    if (filters.toDate) query.set("toDate", filters.toDate);
     void navigate({ to: `/app/crm/all?${query}` });
   };
   const openNewEnquiry = () => void navigate({ to: "/app/crm/created/new" });
@@ -199,6 +221,8 @@ export function AppDesk() {
     canCreateEnquiry,
     canViewAllEnquiries,
     canViewCrmReports,
+    canUseHr,
+    canViewAllHr,
     canUseIshop,
     temaEnabled,
     crmOverviewQuery.data?.stats
@@ -206,7 +230,7 @@ export function AppDesk() {
 
   useEffect(() => {
     if (page !== requestedPage) {
-      void navigate({ replace: true, to: `/app/${page.replaceAll(".", "/")}` });
+      void navigate({ replace: true, to: pagePath(page) });
     }
   }, [navigate, page, requestedPage]);
 
@@ -350,6 +374,9 @@ export function AppDesk() {
                   permissions,
                   superAdmin,
                   canUseCrm,
+                  canUseHr,
+                  canViewAllHr,
+                  canApproveHr,
                   canManageCrmListActions,
                   showCrmActivity,
                   showCrmProperties,
@@ -376,6 +403,9 @@ function renderPage(
   permissions: string[],
   superAdmin: boolean,
   canUseCrm: boolean,
+  canUseHr: boolean,
+  canViewAllHr: boolean,
+  canApproveHr: boolean,
   canManageCrmListActions: boolean,
   showCrmActivity: boolean,
   showCrmProperties: boolean,
@@ -384,7 +414,9 @@ function renderPage(
   onOpenAllEnquiries: (filters: {
     assignedToEmployee?: string;
     enquiryGroup?: string;
+    fromDate?: string;
     status: import("../../modules/crm/crm.types").CrmEnquiryStatusFilter;
+    toDate?: string;
   }) => void,
   onCreateEnquiry: () => void
 ) {
@@ -394,7 +426,7 @@ function renderPage(
     return superAdmin ? <SkillLibraryWorkspace /> : <UserProfileWorkspace />;
   if (page === "ai.honey") return <HoneyWorkspace />;
   if (isAdministratorPage(page) && !superAdmin) {
-    return canUseCrm ? <CrmOverview /> : <UserProfileWorkspace />;
+    return canUseCrm ? <CrmOverview userName={claims.name} /> : <UserProfileWorkspace />;
   }
   if (page === "identity.users") return <UserWorkspace actorEmail={claims.email} />;
   if (page === "identity.roles") return <RoleWorkspace />;
@@ -415,8 +447,18 @@ function renderPage(
     );
   }
   if (page === "settings.notifications") return <CrmNotificationSettings />;
+  if (page === "hr.my" || page === "hr.all") {
+    return (
+      <HrStaffRequestWorkspace
+        canApprove={canApproveHr}
+        canCreate={canUseHr}
+        canUpdate={canUseHr}
+        view={page === "hr.all" && canViewAllHr ? "all" : "my"}
+      />
+    );
+  }
   if (page === "crm.overview") {
-    return <CrmOverview />;
+    return <CrmOverview userName={claims.name} />;
   }
   if (page === "crm.created.new") {
     return (
@@ -500,6 +542,8 @@ function buildMenu(
   canCreateEnquiry: boolean,
   canViewAllEnquiries: boolean,
   canViewCrmReports: boolean,
+  canUseHr: boolean,
+  canViewAllHr: boolean,
   canUseIshop: boolean,
   temaEnabled: boolean,
   crmStats?: CrmEnquiryOverview["stats"]
@@ -561,17 +605,32 @@ function buildMenu(
         isActive: true,
         items: [
           { ...item("Overview", "crm.overview"), icon: CircleGaugeIcon },
-          item("My Job", "crm.assigned", crmStats?.myEnquiries),
+          item("My Job", "crm.assigned", crmStats?.myJob.total),
           {
-            ...item("My Calls", "crm.created", crmStats?.createdByMe),
+            ...item("My Calls", "crm.created", crmStats?.myCalls.total),
             isActive: page === "crm.created" || page === "crm.created.new"
           },
-          ...(canViewAllEnquiries ? [item("All Enquiries", "crm.all")] : []),
+          ...(canViewAllEnquiries
+            ? [item("All Enquiries", "crm.all", crmStats?.allEnquiries?.total)]
+            : []),
           ...(superAdmin ? [item("Open Enquiry", "crm.open")] : []),
           ...(canViewCrmReports ? [item("Reports", "crm.reports")] : [])
         ],
         title: "CRM"
       },
+      ...(canUseHr
+        ? [
+            {
+              icon: CalendarDaysIcon,
+              isActive: page.startsWith("hr."),
+              items: [
+                item("My requests", "hr.my"),
+                ...(canViewAllHr ? [item("All requests", "hr.all")] : [])
+              ],
+              title: "HR"
+            }
+          ]
+        : []),
       notificationSettings,
       ...(temaEnabled || superAdmin ? [temaMenu(page, item, superAdmin, temaEnabled)] : [])
     ];
@@ -600,6 +659,8 @@ function accessiblePage(
   canCreateEnquiry: boolean,
   canViewAllEnquiries: boolean,
   canViewCrmReports: boolean,
+  canUseHr: boolean,
+  canViewAllHr: boolean,
   canUseIshop: boolean,
   temaEnabled: boolean
 ): Page {
@@ -613,6 +674,10 @@ function accessiblePage(
     return canUseCrm ? "crm.overview" : "identity.profile";
   if (page === "crm.created.new" && !canCreateEnquiry)
     return canUseCrm ? "crm.created" : "identity.profile";
+  if (page === "hr.all" && !canViewAllHr)
+    return canUseHr ? "hr.my" : canUseCrm ? "crm.overview" : "identity.profile";
+  if (!canUseHr && page.startsWith("hr."))
+    return canUseCrm ? "crm.overview" : "identity.profile";
   if (!canUseCrm && (page.startsWith("crm.") || page === "estimate.list"))
     return "identity.profile";
   if (!canUseIshop && page.startsWith("ishop."))
@@ -669,6 +734,8 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "settings.frappe.overview",
     "settings.frappe.users",
     "settings.notifications",
+    "hr.my",
+    "hr.all",
     "crm.overview",
     "crm.assigned",
     "crm.all",
@@ -702,6 +769,8 @@ function titleFor(page: Page) {
     "crm.created.new": "New enquiry",
     "crm.open": "Open Enquiry",
     "crm.reports": "Enquiry reports",
+    "hr.my": "My requests",
+    "hr.all": "All requests",
     "estimate.list": "Estimate",
     "settings.frappe.overview": "Frappe connection",
     "settings.frappe.users": "Frappe Users",

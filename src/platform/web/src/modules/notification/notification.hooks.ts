@@ -8,7 +8,7 @@ export function useNotificationInboxQuery(enabled = true) {
     enabled,
     queryFn: listNotifications,
     queryKey: notificationInboxQueryKey,
-    refetchInterval: 5_000,
+    refetchInterval: 2_000,
     refetchIntervalInBackground: true
   });
 }

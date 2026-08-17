@@ -21,6 +21,12 @@ import type { NotificationPublisher } from "../notification/notification.types.j
 
 type LiveGateway = ReturnType<PlatformModuleDependencies["frappeLiveEnquiryGateway"]>;
 type LiveRecord = Awaited<ReturnType<LiveGateway["get"]>>;
+type LiveMessagePayload = {
+  comment: string;
+  mode?: "comment" | "reply";
+  name?: string;
+  parentMessage?: string | null;
+};
 
 const viewPermissions: Record<CrmEnquiryView, string> = {
   all: "crm.enquiry.all.view",
@@ -41,6 +47,15 @@ function isSuspendedMessage(comment: string) {
 
 function suspendMessage(comment: string) {
   return `${suspendedMessagePrefix}${comment}${suspendedMessageSuffix}`;
+}
+
+function messagesForUpdate(messages: LiveRecord["messages"]): LiveMessagePayload[] {
+  return messages.map(({ comment, name, parentMessage }) => ({
+    comment,
+    mode: parentMessage ? ("reply" as const) : ("comment" as const),
+    name,
+    parentMessage
+  }));
 }
 
 export class CrmService {
@@ -67,8 +82,13 @@ export class CrmService {
       )
       .filter((record) => !filters.enquiryId || record.name === filters.enquiryId)
       .filter((record) => !filters.enquiryGroup || record.enquiryGroup === filters.enquiryGroup)
+      .filter((record) => matchesEnquiryDate(record.enquiryDate, filters.fromDate, filters.toDate))
+      .filter((record) => !filters.priority || record.priority === filters.priority)
       .filter((record) => matchesEnquirySearch(record, filters.search));
-    return this.mapMany(filtered);
+    const unreadAssignmentResourceIds = await this.notifications.unreadAssignmentResourceIds(
+      this.context.actorUserId
+    );
+    return this.mapMany(filtered, unreadAssignmentResourceIds);
   }
 
   async get(name: string) {
@@ -76,6 +96,28 @@ export class CrmService {
     const record = await this.gateway.get(name);
     await this.authorizeRecord(record);
     return { ...(await this.map(record)), jobs: await this.gateway.jobs(name) };
+  }
+
+  async receiveAssignment(name: string) {
+    await this.context.authorize(viewPermissions.assigned);
+    const current = await this.gateway.get(name);
+    await this.authorizeRecord(current);
+    const claimedNotificationIds = await this.notifications.claimUnreadAssignments(
+      this.context.actorUserId,
+      name
+    );
+    if (!claimedNotificationIds.length) return this.get(name);
+
+    try {
+      const messages = messagesForUpdate(current.messages);
+      messages.push({ comment: `Job opened by ${this.context.actorName}`, mode: "comment" });
+      const record = await this.gateway.updateMessages(name, messages, current.status);
+      await this.audit("assignment-opened", record);
+      return { ...(await this.map(record)), jobs: await this.gateway.jobs(name) };
+    } catch (error) {
+      await this.notifications.restoreUnreadAssignments(this.context.actorUserId, claimedNotificationIds);
+      throw error;
+    }
   }
 
   async mobileMatches(mobile: string): Promise<CrmEnquiryMobileMatch[]> {
@@ -95,17 +137,25 @@ export class CrmService {
     const employee = this.employee();
     const listPersonal = async (view: "assigned" | "created"): Promise<LiveRecord[]> =>
       (await this.context.can(viewPermissions[view])) ? this.gateway.list({ employee, view }) : [];
-    const [assigned, created] = await Promise.all([
+    const [assigned, created, all] = await Promise.all([
       listPersonal("assigned"),
-      listPersonal("created")
+      listPersonal("created"),
+      (await this.context.can(viewPermissions.all))
+        ? this.gateway.list({ employee, view: "all" })
+        : Promise.resolve(null)
     ]);
-    const personal = uniqueByName([...assigned, ...created]);
+    const personalRecords = uniqueRecords([...assigned, ...created]);
+    const commentsByMeLast30Days = await this.gateway.countComments({
+      createdAfter: daysAgoIso(30),
+      createdBy: this.context.actorEmail,
+      enquiryNames: personalRecords.map((record) => record.name)
+    });
     return {
       stats: {
-        closedByMe: personal.filter((record) => isClosed(record.status)).length,
-        createdByMe: created.length,
-        inProgress: personal.filter((record) => isInProgress(record.status)).length,
-        myEnquiries: assigned.length
+        allEnquiries: all ? overviewGroup(all, this.context.actorEmail) : null,
+        myCalls: overviewGroup(created, this.context.actorEmail),
+        myJob: overviewGroup(assigned, this.context.actorEmail),
+        commentsByMeLast30Days
       }
     };
   }
@@ -163,17 +213,7 @@ export class CrmService {
     await this.context.authorize("crm.enquiry.update");
     const current = await this.gateway.get(name);
     await this.authorizeRecord(current);
-    const messages: Array<{
-      comment: string;
-      mode?: "comment" | "reply";
-      name?: string;
-      parentMessage?: string | null;
-    }> = current.messages.map(({ comment, name: childName, parentMessage }) => ({
-      comment,
-      ...(parentMessage ? { mode: "reply" as const } : { mode: "comment" as const }),
-      name: childName,
-      parentMessage
-    }));
+    const messages = messagesForUpdate(current.messages);
     const comment = input.comment.trim();
     if (!plainText(comment)) throw AppError.validation("Comment cannot be empty.");
     const parentMessage =
@@ -288,19 +328,24 @@ export class CrmService {
     return records.map((record) => ({ id: record.name, title: displayTitle(record) }));
   }
 
-  private async mapMany(records: LiveRecord[]) {
+  private async mapMany(records: LiveRecord[], unreadAssignmentResourceIds = new Set<string>()) {
     const [employees, customers] = await Promise.all([
       this.gateway.employees(),
       this.gateway.customersByIds(records.map((record) => record.customer))
     ]);
     const customerNames = new Map(customers.map((customer) => [customer.id, customer.name]));
-    return Promise.all(records.map((record) => this.map(record, employees, customerNames)));
+    return Promise.all(
+      records.map((record) =>
+        this.map(record, employees, customerNames, unreadAssignmentResourceIds.has(record.name))
+      )
+    );
   }
 
   private async map(
     record: LiveRecord,
     knownEmployees?: Awaited<ReturnType<LiveGateway["employees"]>>,
-    knownCustomerNames?: ReadonlyMap<string, string>
+    knownCustomerNames?: ReadonlyMap<string, string>,
+    hasUnreadAssignment = false
   ) {
     const [employees, customers] = await Promise.all([
       knownEmployees ?? this.gateway.employees(),
@@ -330,7 +375,8 @@ export class CrmService {
         uuid: entry.name
       })),
       assignedTo: assigned ? employeeReference(assigned) : null,
-      assignedToUserId: assigned?.name ?? null,
+      // Frappe assignments are keyed by Employee name, while the visible title is only for display.
+      assignedToUserId: record.assignedToEmployee,
       attachments: [],
       calls: [],
       createdAt: record.createdAt,
@@ -338,6 +384,7 @@ export class CrmService {
       createdByUserId: created.name,
       customer: record.customer,
       customerName,
+      hasUnreadAssignment,
       enquiryDate: record.enquiryDate,
       enquiryGroup: record.enquiryGroup,
       emails: [],
@@ -573,6 +620,16 @@ function matchesEnquirySearch(record: LiveRecord, search?: string) {
   return terms.every((term) => searchable.includes(term));
 }
 
+function matchesEnquiryDate(
+  enquiryDate: string | null,
+  fromDate?: string,
+  toDate?: string
+) {
+  if (!fromDate && !toDate) return true;
+  if (!enquiryDate) return false;
+  return (!fromDate || enquiryDate >= fromDate) && (!toDate || enquiryDate <= toDate);
+}
+
 function numericId(name: string) {
   const digits = name.match(/\d+/g)?.join("");
   if (digits) return Math.max(Number(digits) % 2_147_483_647, 1);
@@ -622,6 +679,78 @@ function isInProgress(status: string) {
   ].includes(status.trim().toLowerCase());
 }
 
+function overviewGroup(records: LiveRecord[], actorEmail: string) {
+  const priorityCounts = new Map<CrmEnquiry["priority"], number>();
+  const statusCounts = new Map<CrmEnquiry["status"], number>();
+  const now = Date.now();
+  const sevenDaysAgo = now - 7 * 86_400_000;
+  const thirtyDaysAgo = now - 30 * 86_400_000;
+  let createdLast7Days = 0;
+  let createdLast30Days = 0;
+  let reactionsLast7Days = 0;
+  let reactionsLast30Days = 0;
+  let updatedLast7Days = 0;
+  let updatedLast30Days = 0;
+  let oldestActiveDays = 0;
+  let inProgress = 0;
+
+  for (const record of records) {
+    const status = fromFrappeStatus(record.status);
+    const createdAt = Date.parse(record.createdAt);
+    const modifiedAt = Date.parse(record.modifiedAt);
+    priorityCounts.set(record.priority, (priorityCounts.get(record.priority) ?? 0) + 1);
+    statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
+    if (createdAt >= sevenDaysAgo) createdLast7Days += 1;
+    if (createdAt >= thirtyDaysAgo) createdLast30Days += 1;
+    if (modifiedAt >= sevenDaysAgo) updatedLast7Days += 1;
+    if (modifiedAt >= thirtyDaysAgo) updatedLast30Days += 1;
+    if (record.modifiedBy === actorEmail && modifiedAt >= sevenDaysAgo) reactionsLast7Days += 1;
+    if (record.modifiedBy === actorEmail && modifiedAt >= thirtyDaysAgo) reactionsLast30Days += 1;
+    if (isInProgress(record.status)) inProgress += 1;
+    if (!isClosed(record.status)) {
+      oldestActiveDays = Math.max(oldestActiveDays, elapsedDays(record.createdAt));
+    }
+  }
+
+  return {
+    activity: {
+      createdLast7Days,
+      createdLast30Days,
+      reactionsLast7Days,
+      reactionsLast30Days,
+      updatedLast7Days,
+      updatedLast30Days
+    },
+    inProgress,
+    oldestActiveDays,
+    priorityCounts: [...priorityCounts]
+      .map(([priority, count]) => ({ count, priority }))
+      .sort((left, right) => priorityRank(left.priority) - priorityRank(right.priority)),
+    statusCounts: [...statusCounts]
+      .map(([status, count]) => ({ count, status }))
+      .sort((left, right) => right.count - left.count || left.status.localeCompare(right.status)),
+    total: records.length
+  };
+}
+
+function uniqueRecords(records: LiveRecord[]) {
+  return [...new Map(records.map((record) => [record.name, record])).values()];
+}
+
+function daysAgoIso(days: number) {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
+function priorityRank(priority: CrmEnquiry["priority"]) {
+  return { urgent: 0, high: 1, normal: 2, low: 3 }[priority];
+}
+
+function elapsedDays(timestamp: string) {
+  const createdAt = Date.parse(timestamp);
+  if (Number.isNaN(createdAt)) return 0;
+  return Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000));
+}
+
 function matchesStatus(status: string, filter?: CrmEnquiryStatusFilter) {
   if (!filter || filter === "active") return !isClosed(status);
   if (filter === "all") return true;
@@ -633,8 +762,4 @@ function matchesStatus(status: string, filter?: CrmEnquiryStatusFilter) {
   if (filter === "in-progress") return isInProgress(status);
   if (filter === "other") return ["escalation", "re-open"].includes(status.trim().toLowerCase());
   return fromFrappeStatus(status) === filter;
-}
-
-function uniqueByName(records: LiveRecord[]) {
-  return [...new Map(records.map((record) => [record.name, record])).values()];
 }

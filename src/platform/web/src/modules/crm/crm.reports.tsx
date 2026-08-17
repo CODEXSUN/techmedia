@@ -29,7 +29,9 @@ export function CrmReports({
   onOpenEnquiries: (filters: {
     assignedToEmployee?: string;
     enquiryGroup?: string;
+    fromDate?: string;
     status: CrmEnquiryStatusFilter;
+    toDate?: string;
   }) => void;
 }) {
   const [report, setReport] = useState<CrmReportName>("list-in-status");
@@ -145,6 +147,7 @@ export function CrmReports({
           report={query.data}
           reportName={report}
           users={users.data ?? []}
+          appliedFilters={filters}
           onOpenEnquiries={onOpenEnquiries}
         />
       ) : null}
@@ -153,15 +156,19 @@ export function CrmReports({
 }
 
 function ReportTable({
+  appliedFilters,
   onOpenEnquiries,
   report,
   reportName,
   users
 }: {
+  appliedFilters: Filters;
   onOpenEnquiries: (filters: {
     assignedToEmployee?: string;
     enquiryGroup?: string;
+    fromDate?: string;
     status: CrmEnquiryStatusFilter;
+    toDate?: string;
   }) => void;
   report: CrmReport;
   reportName: CrmReportName;
@@ -231,6 +238,7 @@ function ReportTable({
                   >
                     <ReportValue
                       column={column}
+                      appliedFilters={appliedFilters}
                       report={report}
                       reportName={reportName}
                       row={row}
@@ -259,6 +267,7 @@ function ReportTable({
 }
 
 function ReportValue({
+  appliedFilters,
   column,
   onOpenEnquiries,
   report,
@@ -266,11 +275,14 @@ function ReportValue({
   row,
   users
 }: {
+  appliedFilters: Filters;
   column: CrmReport["columns"][number];
   onOpenEnquiries: (filters: {
     assignedToEmployee?: string;
     enquiryGroup?: string;
+    fromDate?: string;
     status: CrmEnquiryStatusFilter;
+    toDate?: string;
   }) => void;
   report: CrmReport;
   reportName: CrmReportName;
@@ -283,22 +295,25 @@ function ReportValue({
   const identityValue = identityColumn ? String(row[identityColumn.fieldname] ?? "") : "";
   if (typeof value !== "number" || value <= 0 || !status) return value ?? "—";
   const scopedRow = !isTotalRow(row);
+  const destination = {
+    ...(reportName === "list-in-status" && identityValue && scopedRow
+      ? { enquiryGroup: identityValue }
+      : {}),
+    ...(reportName === "owner-status" && scopedRow
+      ? { assignedToEmployee: employeeIdForReport(identityValue, users) }
+      : {}),
+    ...(appliedFilters.fromDate ? { fromDate: appliedFilters.fromDate } : {}),
+    status,
+    ...(appliedFilters.toDate ? { toDate: appliedFilters.toDate } : {})
+  };
 
   return (
     <button
+      aria-label={reportDrilldownLabel(value, column.label, destination)}
       className="cursor-pointer font-medium text-primary underline-offset-2 hover:underline"
+      title={reportDrilldownLabel(value, column.label, destination)}
       type="button"
-      onClick={() =>
-        onOpenEnquiries({
-          ...(reportName === "list-in-status" && identityValue && scopedRow
-            ? { enquiryGroup: identityValue }
-            : {}),
-          ...(reportName === "owner-status" && scopedRow
-            ? { assignedToEmployee: employeeIdForReport(identityValue, users) }
-            : {}),
-          status
-        })
-      }
+      onClick={() => onOpenEnquiries(destination)}
     >
       {value}
     </button>
@@ -310,13 +325,41 @@ function employeeIdForReport(value: string, users: CrmUserReference[]) {
   return users.find((user) => user.name === value)?.id ?? value;
 }
 
+function reportDrilldownLabel(
+  count: number,
+  statusLabel: string,
+  filters: {
+    assignedToEmployee?: string;
+    enquiryGroup?: string;
+    fromDate?: string;
+    status: CrmEnquiryStatusFilter;
+    toDate?: string;
+  }
+) {
+  const scope = [
+    filters.enquiryGroup ? `List in ${filters.enquiryGroup}` : "All enquiries",
+    filters.assignedToEmployee ? "selected owner" : "",
+    filters.fromDate ? `from ${filters.fromDate}` : "",
+    filters.toDate ? `to ${filters.toDate}` : ""
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return `Open ${count} ${statusLabel} enquiries in All Enquiries (${scope})`;
+}
+
 function reportStatusFilter(label: string): CrmEnquiryStatusFilter | null {
   const filters: Record<string, CrmEnquiryStatusFilter> = {
     hold: "hold",
+    "hold for approval": "hold-for-approval",
+    "hold for job-out": "hold-for-job-out",
+    "hold for spares": "hold-for-spares",
+    "in progress": "in-progress",
+    "long hold": "long-hold",
     lost: "lost",
     new: "new",
     open: "open",
     other: "other",
+    "re-open": "reopen",
     total: "all",
     won: "won"
   };

@@ -2,6 +2,7 @@ import {
   ArrowDown,
   ArrowUp,
   Ban,
+  BellRing,
   CircleCheck,
   CircleDot,
   CircleX,
@@ -37,6 +38,7 @@ export function CrmList({
   onSort,
   onSuspend,
   onView,
+  maskNewCalls = false,
   records,
   sort,
   visibleColumns
@@ -50,6 +52,7 @@ export function CrmList({
   onSort: (column: CrmEnquiryColumnId) => void;
   onSuspend?: (record: CrmEnquiry) => void;
   onView: (record: CrmEnquiry) => void;
+  maskNewCalls?: boolean;
   records: CrmEnquiry[];
   sort: { column: CrmEnquiryColumnId; direction: "asc" | "desc" };
   visibleColumns: CrmEnquiryColumnVisibility;
@@ -120,7 +123,7 @@ export function CrmList({
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.status ? (
-                  <WorkspaceTableHeaderCell className="w-24 min-w-24 max-w-24">
+                  <WorkspaceTableHeaderCell className="w-36 min-w-36 max-w-36">
                     <SortHeader column="status" label="Status" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
@@ -211,16 +214,23 @@ export function CrmList({
                   ) : null}
                   {visibleColumns.title ? (
                     <td className="max-w-80 px-4 py-2.5">
-                      <button
-                        className="block w-full truncate cursor-pointer text-left font-medium hover:underline"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onView(record);
-                        }}
-                        type="button"
-                      >
-                        {plainText(record.title) || plainText(record.workspace)}
-                      </button>
+                      {record.hasUnreadAssignment || (maskNewCalls && record.status === "new") ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+                          <BellRing className="size-3.5" />
+                          New call
+                        </span>
+                      ) : (
+                        <button
+                          className="block w-full truncate cursor-pointer text-left font-medium hover:underline"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onView(record);
+                          }}
+                          type="button"
+                        >
+                          {plainText(record.title) || plainText(record.workspace)}
+                        </button>
+                      )}
                     </td>
                   ) : null}
                   {visibleColumns.enquiryGroup ? (
@@ -266,7 +276,7 @@ export function CrmList({
                     </td>
                   ) : null}
                   {visibleColumns.status ? (
-                    <td className="w-24 min-w-24 max-w-24 px-4 py-2.5">
+                    <td className="w-36 min-w-36 max-w-36 px-2 py-2.5">
                       <EnquiryStatusBadge record={record} />
                     </td>
                   ) : null}
@@ -442,7 +452,7 @@ function EnquiryStatusBadge({ record }: { record: CrmEnquiry }) {
         {suspended ? <Ban className="size-3" /> : statusIcon(record.status)}
       </span>
       <WorkspaceStatusBadge
-        className={`rounded-full pl-6 ${appearance.badgeClassName}`}
+        className={`shrink-0 whitespace-nowrap rounded-full pl-6 ${appearance.badgeClassName}`}
         label={suspended ? "Suspended" : enquiryStatusLabel(record.status)}
         showIcon={false}
         tone={appearance.tone}

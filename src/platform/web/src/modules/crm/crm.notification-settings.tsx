@@ -54,7 +54,7 @@ export function CrmNotificationSettings() {
             <h2 className="font-semibold">Windows notifications</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {enabled
-                ? "TechMedia checks My Calls every 10 seconds and alerts you about assignments, status changes, and replies from other users."
+                ? "TechMedia checks for new calls every few seconds and alerts you about assignments, status changes, and replies from other users."
                 : "Windows alerts are disabled for this browser. Turn them on when you want alerts for My Calls."}
             </p>
           </div>

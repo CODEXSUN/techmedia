@@ -12,6 +12,7 @@
 - `settings.frappe`
 - `notification.inbox`
 - `crm.enquiry`
+- `hr.request`
 - `estimate`
 - `quotation`
 - `ishop`
@@ -40,6 +41,10 @@ and desk navigation. Business agent chat may use enabled skills without exposing
 CRM owns routes, validation, UI contracts, and enquiry workflow behavior. All CRM records are read
 or written through the Frappe gateway; adding a CRM repository, migration, seed, cache table, or
 local source of truth is prohibited.
+
+HR owns Staff Request routes, validation, UI contracts, and access rules. Staff Request records and
+approval comments are read and written through the Frappe gateway. HR must not add local business
+tables, repositories, migrations, seeds, or caches.
 
 iShop owns its TechMedia routes and UI contracts. LogicX iShop and ERPNext catalog records remain
 on the connected Frappe site. iShop must not add local commerce tables or caches.

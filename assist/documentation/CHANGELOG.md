@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.33
+Current version: 1.0.35
 
-Release tag: v-1.0.33
+Release tag: v-1.0.35
 
-Changelog label: v 1.0.33
+Changelog label: v 1.0.35
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -22,6 +22,40 @@ New entries must keep database-facing work and application code work separate.
 ### App Codebase Changes
 
 - No pending app codebase changes.
+
+## v-1.0.35
+
+### [v 1.0.35] 2026-08-17 5:28 pm - HR Staff Requests
+
+#### Database Changes
+
+- Database update: Yes.
+- Added the HR request permissions and assigned defaults for Admin and User roles.
+- Kept Staff Request records and approval comments in Frappe. No local HR business table was added.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.35.
+- Added the live-Frappe HR Staff Request module with My requests and an Admin-only All requests view.
+- Added server-side ownership checks for Staff Requests and Admin-only approval comments.
+- Kept CRM and HR visible together in the desk menu.
+- Removed request-page refresh actions. Only My requests can create a new request.
+
+## v-1.0.34
+
+### [v 1.0.34] 2026-08-17 4:44 pm - CRM report drill-down filters
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.34.
+- Made report count cells open All Enquiries with the exact status, List-In or owner, and date-range filters.
+- Added clear drill-down labels so each count explains the destination before the user opens it.
+- Applied report date ranges to the live Frappe enquiry list and showed the active report scope on All Enquiries.
+- Restored priority forwarding in the CRM list route so priority drill-down filters reach the live enquiry query.
 
 ## v-1.0.33
 

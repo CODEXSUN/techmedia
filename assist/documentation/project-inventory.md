@@ -15,6 +15,7 @@
 - `frappe`
 - `notification`
 - `crm`
+- `hr`
 - `estimate`
 - `quotation`
 - `ishop`

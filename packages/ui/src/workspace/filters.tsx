@@ -1,13 +1,12 @@
 "use client";
 
-import { Check, Columns3, Filter, Search } from "lucide-react";
-import type { ChangeEvent, ReactNode } from "react";
+import { Check, Columns3, Filter, Search, X } from "lucide-react";
+import { useState, type ChangeEvent, type ReactNode } from "react";
 import { Button } from "../components/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
@@ -41,6 +40,11 @@ export function WorkspaceFilters({
   searchValue: string;
   toolbarAction?: ReactNode;
 }) {
+  const activeFilter = filterOptions?.find((option) => option.id === filterValue);
+  const defaultFilter = filterOptions?.[0];
+  const showActiveFilter =
+    activeFilter && defaultFilter && activeFilter.id !== defaultFilter.id && onFilterValueChange;
+
   return (
     <div
       className={cn(
@@ -61,6 +65,24 @@ export function WorkspaceFilters({
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2.5 self-end sm:self-auto">
         {toolbarAction}
+        {showActiveFilter ? (
+          <span className="inline-flex h-8 items-center gap-1.5 rounded-md border border-primary/20 bg-primary/10 py-1 pl-2.5 pr-1 text-sm font-medium text-primary">
+            <span className="max-w-40 truncate">{activeFilter.label}</span>
+            {activeFilter.count !== undefined ? (
+              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-xs tabular-nums">
+                {activeFilter.count}
+              </span>
+            ) : null}
+            <button
+              aria-label={`Clear ${activeFilter.label} filter`}
+              className="flex size-6 cursor-pointer items-center justify-center rounded-sm transition-colors hover:bg-primary/15 focus-visible:bg-primary/15 focus-visible:outline-none"
+              onClick={() => onFilterValueChange(defaultFilter.id)}
+              type="button"
+            >
+              <X aria-hidden="true" className="size-3.5" />
+            </button>
+          </span>
+        ) : null}
         {filterOptions && filterOptions.length > 0 && filterValue && onFilterValueChange ? (
           <FilterMenu
             filterOptions={filterOptions}
@@ -88,8 +110,15 @@ function FilterMenu({
   filterValue: string;
   onFilterValueChange: (value: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+
+  function applyFilter(value: string) {
+    onFilterValueChange(value);
+    setOpen(false);
+  }
+
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={setOpen} open={open}>
       <DropdownMenuTrigger asChild>
         <Button
           className="h-8 rounded-md border-border/80 bg-white px-3 text-sm shadow-none"
@@ -105,7 +134,7 @@ function FilterMenu({
           <DropdownMenuLabel className="p-0 text-sm font-medium">Filter options</DropdownMenuLabel>
           <button
             className="cursor-pointer text-sm text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => onFilterValueChange(filterOptions[0]?.id ?? filterValue)}
+            onClick={() => applyFilter(filterOptions[0]?.id ?? filterValue)}
             type="button"
           >
             Clear
@@ -116,16 +145,25 @@ function FilterMenu({
           {filterOptions.map((option) => {
             const selected = filterValue === option.id;
             return (
-              <DropdownMenuItem
+              <button
                 key={option.id}
-                className="gap-3 rounded-md px-3 py-2.5"
-                onSelect={() => onFilterValueChange(option.id)}
+                className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:outline-none"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  applyFilter(option.id);
+                }}
+                type="button"
               >
-                <span className="flex size-4 items-center justify-center">
-                  {selected ? <Check className="size-4" /> : null}
+                <span className="flex size-4 shrink-0 items-center justify-center">
+                  {selected ? <Check aria-hidden="true" className="size-4" /> : null}
                 </span>
-                <span>{option.label}</span>
-              </DropdownMenuItem>
+                <span className="min-w-0 flex-1">{option.label}</span>
+                {option.count !== undefined ? (
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium tabular-nums text-primary ring-1 ring-inset ring-primary/15">
+                    {option.count}
+                  </span>
+                ) : null}
+              </button>
             );
           })}
         </div>

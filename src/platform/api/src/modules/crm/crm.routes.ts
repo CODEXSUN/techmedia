@@ -58,6 +58,7 @@ const record = z.object({
   createdByUserId: z.string(),
   customer: z.string(),
   customerName: z.string(),
+  hasUnreadAssignment: z.boolean(),
   enquiryDate: z.iso.date().nullable(),
   enquiryGroup: z.string(),
   emails: z.array(z.unknown()),
@@ -130,10 +131,13 @@ const query = z.object({
   assignedToEmployee: z.string().trim().min(1).max(140).optional(),
   enquiryId: z.string().trim().min(1).max(140).optional(),
   enquiryGroup: z.string().trim().min(1).max(140).optional(),
+  fromDate: z.iso.date().optional(),
+  priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
   search: z.string().trim().max(220).optional(),
   status: z
     .union([status, z.enum(["active", "all", "in-progress", "closed", "hold", "other"])])
     .optional(),
+  toDate: z.iso.date().optional(),
   view: z.enum(["all", "assigned", "created", "open"])
 });
 const customerReferenceQuery = z.object({
@@ -155,12 +159,27 @@ const mobileMatch = z.object({
   status,
   title: z.string()
 });
+const overviewGroup = z.object({
+  activity: z.object({
+    createdLast7Days: z.number().int().nonnegative(),
+    createdLast30Days: z.number().int().nonnegative(),
+    reactionsLast7Days: z.number().int().nonnegative(),
+    reactionsLast30Days: z.number().int().nonnegative(),
+    updatedLast7Days: z.number().int().nonnegative(),
+    updatedLast30Days: z.number().int().nonnegative()
+  }),
+  inProgress: z.number().int().nonnegative(),
+  oldestActiveDays: z.number().int().nonnegative(),
+  priorityCounts: z.array(z.object({ count: z.number().int().nonnegative(), priority })),
+  statusCounts: z.array(z.object({ count: z.number().int().nonnegative(), status })),
+  total: z.number().int().nonnegative()
+});
 const overview = z.object({
   stats: z.object({
-    closedByMe: z.number().int().nonnegative(),
-    createdByMe: z.number().int().nonnegative(),
-    inProgress: z.number().int().nonnegative(),
-    myEnquiries: z.number().int().nonnegative()
+    allEnquiries: overviewGroup.nullable(),
+    commentsByMeLast30Days: z.number().int().nonnegative().nullable(),
+    myCalls: overviewGroup,
+    myJob: overviewGroup
   })
 });
 const reportQuery = z.object({
@@ -186,9 +205,14 @@ export async function registerCrmRoutes(
     handler: async ({ query, request }) =>
       (await service(request)).list({
         view: query.view,
+        ...(query.assignedToEmployee ? { assignedToEmployee: query.assignedToEmployee } : {}),
         ...(query.enquiryId ? { enquiryId: query.enquiryId } : {}),
+        ...(query.enquiryGroup ? { enquiryGroup: query.enquiryGroup } : {}),
+        ...(query.fromDate ? { fromDate: query.fromDate } : {}),
+        ...(query.priority ? { priority: query.priority } : {}),
         ...(query.search ? { search: query.search } : {}),
-        ...(query.status ? { status: query.status } : {})
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.toDate ? { toDate: query.toDate } : {})
       })
   });
   registerContractRoute(app, {
@@ -278,6 +302,12 @@ export async function registerCrmRoutes(
   });
   registerContractRoute(app, {
     method: "POST",
+    url: `${path}/:id/assignment-receipt`,
+    schemas: { params, response: record },
+    handler: async ({ params, request }) => (await service(request)).receiveAssignment(params.id)
+  });
+  registerContractRoute(app, {
+    method: "POST",
     url: path,
     schemas: { body: payload, response: record },
     handler: async ({ body, request }) => (await service(request)).create(body)
@@ -315,6 +345,7 @@ export async function registerCrmRoutes(
     if (!actor) throw new Error("Active user is required.");
     const crmContext = {
       ...context,
+      actorName: actor.name,
       actorUserId: actor.id,
       frappeEmployeeCode: actor.frappeEmployeeCode
     };

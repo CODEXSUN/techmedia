@@ -90,6 +90,51 @@ class DatabaseNotificationPublisher implements NotificationPublisher {
       .values({ notification_id: Number(inserted.insertId), uuid: randomUUID() })
       .execute();
   }
+
+  async unreadAssignmentResourceIds(recipientUserId: number): Promise<Set<string>> {
+    const records = await this.database
+      .selectFrom("notifications")
+      .select("resource_id")
+      .where("recipient_user_id", "=", recipientUserId)
+      .where("event_type", "=", "assignment")
+      .where("status", "=", "unread")
+      .execute();
+    return new Set(records.map((record) => record.resource_id));
+  }
+
+  async claimUnreadAssignments(recipientUserId: number, resourceId: string): Promise<number[]> {
+    const notifications = await this.database
+      .selectFrom("notifications")
+      .select("id")
+      .where("recipient_user_id", "=", recipientUserId)
+      .where("resource_id", "=", resourceId)
+      .where("event_type", "=", "assignment")
+      .where("status", "=", "unread")
+      .execute();
+    const claimed: number[] = [];
+    for (const notification of notifications) {
+      const result = await this.database
+        .updateTable("notifications")
+        .set({ read_at: new Date(), status: "read" })
+        .where("id", "=", notification.id)
+        .where("recipient_user_id", "=", recipientUserId)
+        .where("status", "=", "unread")
+        .executeTakeFirst();
+      if (Number(result.numUpdatedRows) > 0) claimed.push(notification.id);
+    }
+    return claimed;
+  }
+
+  async restoreUnreadAssignments(recipientUserId: number, notificationIds: number[]): Promise<void> {
+    if (!notificationIds.length) return;
+    await this.database
+      .updateTable("notifications")
+      .set({ read_at: null, status: "unread" })
+      .where("id", "in", notificationIds)
+      .where("recipient_user_id", "=", recipientUserId)
+      .where("event_type", "=", "assignment")
+      .execute();
+  }
 }
 
 function toInboxItem(record: {

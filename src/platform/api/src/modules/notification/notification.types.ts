@@ -14,6 +14,9 @@ export type NotificationEvent = {
 
 export type NotificationPublisher = {
   enqueue(input: NotificationEvent): Promise<void>;
+  claimUnreadAssignments(recipientUserId: number, resourceId: string): Promise<number[]>;
+  restoreUnreadAssignments(recipientUserId: number, notificationIds: number[]): Promise<void>;
+  unreadAssignmentResourceIds(recipientUserId: number): Promise<Set<string>>;
 };
 
 export type NotificationContext = {

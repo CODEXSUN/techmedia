@@ -9,8 +9,13 @@ import {
 } from "./database/techmedia-database.js";
 import { env } from "./env.js";
 import { crmModule } from "./modules/crm/index.js";
+import { hrModule } from "./modules/hr/index.js";
 import { estimateModule } from "./modules/estimate/index.js";
-import { frappeLiveEnquiryGatewayContract, frappeModule } from "./modules/frappe/index.js";
+import {
+  frappeLiveEnquiryGatewayContract,
+  frappeLiveStaffRequestGatewayContract,
+  frappeModule
+} from "./modules/frappe/index.js";
 import { permissionModule } from "./modules/permission/index.js";
 import { createNotificationPublisher, notificationModule } from "./modules/notification/index.js";
 import { quotationModule } from "./modules/quotation/index.js";
@@ -30,6 +35,7 @@ const modules = [
   frappeModule,
   notificationModule,
   crmModule,
+  hrModule,
   estimateModule,
   quotationModule,
   ishopModule,
@@ -70,6 +76,7 @@ export async function createApp() {
     {
       app,
       frappeLiveEnquiryGateway: frappeLiveEnquiryGatewayContract,
+      frappeLiveStaffRequestGateway: frappeLiveStaffRequestGatewayContract,
       notificationPublisher: createNotificationPublisher(getTechMediaDatabase())
     },
     {

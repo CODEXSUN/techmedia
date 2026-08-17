@@ -29,6 +29,7 @@ export interface WorkspaceListAction<T> {
 }
 
 export interface WorkspaceFilterOption {
+  count?: number;
   id: string;
   label: string;
 }

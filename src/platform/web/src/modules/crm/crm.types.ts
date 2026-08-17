@@ -131,6 +131,7 @@ export type CrmEnquiry = {
   createdByUserId: string;
   customer: string;
   customerName: string;
+  hasUnreadAssignment: boolean;
   enquiryDate: string | null;
   enquiryGroup: string;
   emails: CrmEnquiryEmail[];
@@ -211,11 +212,27 @@ export type CrmEnquiryReference = { id: string; title: string };
 
 export type CrmEnquiryOverview = {
   stats: {
-    closedByMe: number;
-    createdByMe: number;
-    inProgress: number;
-    myEnquiries: number;
+    allEnquiries: CrmEnquiryOverviewGroup | null;
+    commentsByMeLast30Days: number | null;
+    myCalls: CrmEnquiryOverviewGroup;
+    myJob: CrmEnquiryOverviewGroup;
   };
+};
+
+export type CrmEnquiryOverviewGroup = {
+  activity: {
+    createdLast7Days: number;
+    createdLast30Days: number;
+    reactionsLast7Days: number;
+    reactionsLast30Days: number;
+    updatedLast7Days: number;
+    updatedLast30Days: number;
+  };
+  inProgress: number;
+  oldestActiveDays: number;
+  priorityCounts: Array<{ count: number; priority: CrmEnquiryPriority }>;
+  statusCounts: Array<{ count: number; status: CrmEnquiryStatus }>;
+  total: number;
 };
 
 export type CrmReportName = "list-in-status" | "owner-status";
