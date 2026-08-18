@@ -4,6 +4,8 @@
 
 - `src/platform/api`: Fastify API and composition root.
 - `src/platform/web`: React application with one login and one desk.
+- `src/mobile`: Capacitor mobile application reusing the platform web feature composition through
+  native runtime adapters.
 
 ## API Modules
 
@@ -22,7 +24,8 @@
 - `honey`
 
 Honey includes the system-administrator global availability control for TEMA chat and mascot
-surfaces.
+surfaces, plus separate web and mobile pet visibility controls. The shared responsive side menu
+contains the current device's personal pet toggle.
 
 ## Shared Dependencies
 
@@ -37,5 +40,6 @@ No parent-folder or sibling product repository is part of the TechMedia install,
 - `dist/packages/framework`: compiled Framework runtime.
 - `dist/platform/api`: compiled API runtime.
 - `dist/platform/web`: production web bundle.
+- `dist/mobile/web`: Capacitor web bundle copied into the native Android and iOS projects.
 
 Workspace-local `node_modules`, `dist`, and `dist-types` directories are prohibited.

@@ -1,12 +1,13 @@
 {
   "name": "techmedia",
-  "version": "1.0.35",
+  "version": "1.0.42",
   "private": true,
   "packageManager": "npm@12.0.1",
   "description": "techmedia orchestrator",
   "type": "module",
   "workspaces": [
     "packages/*",
+    "src/mobile",
     "src/platform/*",
     "tools/*"
   ],
@@ -17,6 +18,13 @@
     "dev": "node tools/dev-stack.mjs",
     "dev:api": "node tools/preflight.mjs platform-api",
     "dev:web": "node tools/preflight.mjs platform-web",
+    "dev:mobile": "npm run dev --workspace @techmedia/mobile",
+    "mobile:sync": "npm run sync --workspace @techmedia/mobile",
+    "mobile:android": "npm run open:android --workspace @techmedia/mobile",
+    "mobile:apk:debug": "npm run mobile:sync && npm run apk:debug --workspace @techmedia/mobile",
+    "mobile:apk:release": "npm run mobile:sync && npm run apk:release --workspace @techmedia/mobile",
+    "mobile:run:android": "npm run run:android --workspace @techmedia/mobile",
+    "mobile:ios": "npm run open:ios --workspace @techmedia/mobile",
     "dev:restartable": "node tools/dev-stack.mjs",
     "clean": "node tools/clean-root-dist.mjs && node tools/clean-workspace-artifacts.mjs",
     "build": "npm run clean && node tools/stack-command.mjs build",

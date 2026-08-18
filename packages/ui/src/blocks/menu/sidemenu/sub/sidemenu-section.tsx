@@ -2,6 +2,7 @@
 
 import { type LucideIcon } from "lucide-react";
 import { cn } from "../../../../lib/utils";
+import { Switch } from "../../../../components/switch";
 
 import {
   Collapsible,
@@ -27,6 +28,11 @@ export type SidemenuSubItem = {
   items?: SidemenuSubItem[];
   onSelect?: () => void;
   title: string;
+  toggle?: {
+    checked: boolean;
+    disabled?: boolean;
+    onCheckedChange: (checked: boolean) => void;
+  };
   url?: string;
 };
 
@@ -120,6 +126,26 @@ function SidemenuSubItemNode({ item }: { item: SidemenuSubItem }) {
   );
   const active = item.isActive ?? childActive;
   const Icon = item.icon;
+
+  if (item.toggle) {
+    return (
+      <SidebarMenuSubItem>
+        <SidebarMenuSubButton asChild className="min-h-10">
+          <div>
+            {Icon ? <Icon className="size-4 shrink-0" /> : null}
+            <span>{item.title}</span>
+            <Switch
+              aria-label={item.title}
+              checked={item.toggle.checked}
+              className="ml-auto"
+              disabled={item.toggle.disabled}
+              onCheckedChange={item.toggle.onCheckedChange}
+            />
+          </div>
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+    );
+  }
 
   if (hasChildren) {
     return (

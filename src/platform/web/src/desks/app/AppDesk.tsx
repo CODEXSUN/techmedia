@@ -30,7 +30,12 @@ import {
 } from "../../modules/crm";
 import { markNotificationRead, useNotificationInboxQuery } from "../../modules/notification";
 import { applicationEntryPath, canAccessAdministratorSettings } from "./app-shell-access";
-import { getHoneyAvailability, TemaMascot } from "../../modules/honey";
+import { getHoneyAvailability, getHoneyPetVisibility, TemaMascot } from "../../modules/honey";
+import {
+  currentTemaPetPlatform,
+  readTemaPetPreference,
+  saveTemaPetPreference
+} from "../../modules/honey/tema-pet-preference";
 
 const UserWorkspace = lazy(() =>
   import("../../modules/user").then((module) => ({ default: module.UserWorkspace }))
@@ -87,6 +92,9 @@ const AgentConnectorWorkspace = lazy(() =>
 const SkillLibraryWorkspace = lazy(() =>
   import("../../modules/honey").then((module) => ({ default: module.SkillLibraryWorkspace }))
 );
+const TemaControlWorkspace = lazy(() =>
+  import("../../modules/honey").then((module) => ({ default: module.TemaControlWorkspace }))
+);
 const IshopWorkspace = lazy(() =>
   import("../../modules/ishop").then((module) => ({ default: module.IshopWorkspace }))
 );
@@ -112,6 +120,7 @@ type Page =
   | "estimate.list"
   | "ai.honey"
   | "ai.connector"
+  | "ai.control"
   | "ai.skills"
   | "ishop.catalogs"
   | "ishop.categories"
@@ -172,6 +181,20 @@ export function AppDesk() {
     queryKey: ["honey", "availability"]
   });
   const temaEnabled = temaAvailability.data?.enabled !== false;
+  const temaPetVisibility = useQuery({
+    enabled: Boolean(getToken()),
+    queryFn: getHoneyPetVisibility,
+    queryKey: ["honey", "pet-visibility"]
+  });
+  const temaPetPlatform = currentTemaPetPlatform();
+  const [temaPetPreferred, setTemaPetPreferred] = useState(() =>
+    readTemaPetPreference(temaPetPlatform)
+  );
+  const temaPetAllowed =
+    temaPetPlatform === "mobile"
+      ? temaPetVisibility.data?.mobileEnabled !== false
+      : temaPetVisibility.data?.webEnabled !== false;
+  const temaPetVisible = temaEnabled && temaPetAllowed && temaPetPreferred;
   const browserNotifications = useBrowserNotificationPermission();
   const notificationPreference = useCrmCallNotificationPreference();
   const inboxNotificationIds = useRef(new Set<number>());
@@ -213,6 +236,10 @@ export function AppDesk() {
     void navigate({ to: `/app/crm/all?${query}` });
   };
   const openNewEnquiry = () => void navigate({ to: "/app/crm/created/new" });
+  const setTemaPetVisible = (visible: boolean) => {
+    saveTemaPetPreference(temaPetPlatform, visible);
+    setTemaPetPreferred(visible);
+  };
   const menuItems = buildMenu(
     page,
     select,
@@ -225,6 +252,9 @@ export function AppDesk() {
     canViewAllHr,
     canUseIshop,
     temaEnabled,
+    temaPetVisible,
+    !temaEnabled || !temaPetAllowed,
+    setTemaPetVisible,
     crmOverviewQuery.data?.stats
   );
 
@@ -389,7 +419,7 @@ export function AppDesk() {
             </Suspense>
           </main>
         </ApplicationLayout>
-        {temaEnabled && page !== "ai.honey" ? (
+        {temaPetVisible && page !== "ai.honey" ? (
           <TemaMascot onOpen={() => select("ai.honey")} />
         ) : null}
       </>
@@ -424,6 +454,8 @@ function renderPage(
     return superAdmin ? <AgentConnectorWorkspace /> : <UserProfileWorkspace />;
   if (page === "ai.skills")
     return superAdmin ? <SkillLibraryWorkspace /> : <UserProfileWorkspace />;
+  if (page === "ai.control")
+    return superAdmin ? <TemaControlWorkspace /> : <UserProfileWorkspace />;
   if (page === "ai.honey") return <HoneyWorkspace />;
   if (isAdministratorPage(page) && !superAdmin) {
     return canUseCrm ? <CrmOverview userName={claims.name} /> : <UserProfileWorkspace />;
@@ -546,6 +578,9 @@ function buildMenu(
   canViewAllHr: boolean,
   canUseIshop: boolean,
   temaEnabled: boolean,
+  temaPetVisible: boolean,
+  temaPetToggleDisabled: boolean,
+  onTemaPetVisibleChange: (visible: boolean) => void,
   crmStats?: CrmEnquiryOverview["stats"]
 ): SidemenuItem[] {
   const item = (title: string, target: Page, badge?: number) => ({
@@ -632,11 +667,35 @@ function buildMenu(
           ]
         : []),
       notificationSettings,
-      ...(temaEnabled || superAdmin ? [temaMenu(page, item, superAdmin, temaEnabled)] : [])
+      ...(temaEnabled || superAdmin
+        ? [
+            temaMenu(
+              page,
+              item,
+              superAdmin,
+              temaEnabled,
+              temaPetVisible,
+              temaPetToggleDisabled,
+              onTemaPetVisibleChange
+            )
+          ]
+        : [])
     ];
   }
   return [
-    ...(temaEnabled || superAdmin ? [temaMenu(page, item, superAdmin, temaEnabled)] : []),
+    ...(temaEnabled || superAdmin
+      ? [
+          temaMenu(
+            page,
+            item,
+            superAdmin,
+            temaEnabled,
+            temaPetVisible,
+            temaPetToggleDisabled,
+            onTemaPetVisibleChange
+          )
+        ]
+      : []),
     {
       icon: ShieldCheckIcon,
       isActive: page.startsWith("identity."),
@@ -676,8 +735,7 @@ function accessiblePage(
     return canUseCrm ? "crm.created" : "identity.profile";
   if (page === "hr.all" && !canViewAllHr)
     return canUseHr ? "hr.my" : canUseCrm ? "crm.overview" : "identity.profile";
-  if (!canUseHr && page.startsWith("hr."))
-    return canUseCrm ? "crm.overview" : "identity.profile";
+  if (!canUseHr && page.startsWith("hr.")) return canUseCrm ? "crm.overview" : "identity.profile";
   if (!canUseCrm && (page.startsWith("crm.") || page === "estimate.list"))
     return "identity.profile";
   if (!canUseIshop && page.startsWith("ishop."))
@@ -698,15 +756,35 @@ function temaMenu(
     title: string;
   },
   superAdmin: boolean,
-  temaEnabled: boolean
+  temaEnabled: boolean,
+  temaPetVisible: boolean,
+  temaPetToggleDisabled: boolean,
+  onTemaPetVisibleChange: (visible: boolean) => void
 ): SidemenuItem {
   return {
     icon: BotIcon,
-    isActive: page === "ai.honey" || page === "ai.connector" || page === "ai.skills",
+    isActive:
+      page === "ai.honey" ||
+      page === "ai.connector" ||
+      page === "ai.control" ||
+      page === "ai.skills",
     items: [
       ...(temaEnabled ? [item("Business agent chat", "ai.honey")] : []),
+      {
+        icon: BotIcon,
+        title: "TEMA pet",
+        toggle: {
+          checked: temaPetVisible,
+          disabled: temaPetToggleDisabled,
+          onCheckedChange: onTemaPetVisibleChange
+        }
+      },
       ...(superAdmin
-        ? [item("Agent Connector", "ai.connector"), item("Skills & availability", "ai.skills")]
+        ? [
+            { ...item("TEMA control", "ai.control"), icon: Settings2Icon },
+            item("Agent Connector", "ai.connector"),
+            item("Skills & availability", "ai.skills")
+          ]
         : [])
     ],
     title: "TEMA AI"
@@ -717,6 +795,7 @@ function isAdministratorPage(page: Page) {
   return (
     page === "crm.open" ||
     page === "ai.connector" ||
+    page === "ai.control" ||
     page === "ai.skills" ||
     (page.startsWith("settings.") && page !== "settings.notifications") ||
     (page.startsWith("identity.") && page !== "identity.profile")
@@ -746,6 +825,7 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "estimate.list",
     "ai.honey",
     "ai.connector",
+    "ai.control",
     "ai.skills",
     "ishop.catalogs",
     "ishop.categories",
@@ -777,6 +857,7 @@ function titleFor(page: Page) {
     "settings.notifications": "Desktop notifications",
     "ai.honey": "TEMA AI",
     "ai.connector": "Agent Connector",
+    "ai.control": "TEMA control",
     "ai.skills": "TEMA Skills",
     "ishop.catalogs": "Catalogs",
     "ishop.categories": "Categories",

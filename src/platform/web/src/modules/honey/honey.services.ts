@@ -13,9 +13,13 @@ export type HoneyOverview = {
   responseCount: number;
 };
 export type HoneyAvailability = { enabled: boolean };
+export type HoneyPetVisibility = { mobileEnabled: boolean; webEnabled: boolean };
 export const getHoneyAvailability = () => apiGet<HoneyAvailability>("/ai/honey/settings");
 export const updateHoneyAvailability = (enabled: boolean) =>
   apiPut<HoneyAvailability>("/ai/honey/settings", { enabled });
+export const getHoneyPetVisibility = () => apiGet<HoneyPetVisibility>("/ai/honey/pet-settings");
+export const updateHoneyPetVisibility = (visibility: HoneyPetVisibility) =>
+  apiPut<HoneyPetVisibility>("/ai/honey/pet-settings", visibility);
 export const getHoneyOverview = () => apiGet<HoneyOverview>("/ai/honey/overview");
 export const listHoneyConversations = () =>
   apiGet<Array<{ id: string; title: string; updatedAt: string }>>("/ai/honey/conversations");

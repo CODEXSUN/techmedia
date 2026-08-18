@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.35
+Current version: 1.0.42
 
-Release tag: v-1.0.35
+Release tag: v-1.0.42
 
-Changelog label: v 1.0.35
+Changelog label: v 1.0.42
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -22,6 +22,123 @@ New entries must keep database-facing work and application code work separate.
 ### App Codebase Changes
 
 - No pending app codebase changes.
+
+## v-1.0.42
+
+### [v 1.0.42] 2026-08-18 10:07 am - Comfortable mobile release
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.42.
+- Released the mobile app with the Comfortable display layout.
+- Kept the mobile Display settings control and Compact option removed.
+- Prepared the signed Android release APK for version 1.0.42.
+
+## v-1.0.41
+
+### [v 1.0.41] 2026-08-18 10:05 am - Comfortable mobile display
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.41.
+- Removed the floating mobile Display settings control.
+- Locked the mobile interface to Comfortable density at every application startup.
+- Removed the Compact density option and its obsolete styles.
+- Verified the Comfortable layout without the floating control in the Android emulator.
+
+## v-1.0.40
+
+### [v 1.0.40] 2026-08-18 10:03 am - Mobile detail navigation and compact header
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.40.
+- Added a mobile-only Back button to enquiry detail pages.
+- Removed global search from the mobile top menu.
+- Compacted and constrained mobile top-menu controls to prevent horizontal overflow.
+- Verified the compact header and Back-to-list navigation in the Android emulator.
+
+## v-1.0.39
+
+### [v 1.0.39] 2026-08-18 9:58 am - Mobile CRM double-tap cards
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.39.
+- Removed the visible Open action from mobile CRM cards.
+- Added double-tap navigation from the plain card surface to the enquiry detail page.
+- Verified plain-card rendering and double-tap detail navigation in the Android emulator.
+
+## v-1.0.38
+
+### [v 1.0.38] 2026-08-18 9:54 am - Mobile CRM open action
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.38.
+- Removed the icon from mobile CRM Open actions.
+- Kept Open as a clear text tap target that loads the existing enquiry detail page.
+- Verified the text-only Open action and live enquiry detail navigation in the Android emulator.
+
+## v-1.0.37
+
+### [v 1.0.37] 2026-08-18 9:52 am - Ionic mobile CRM cards
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.37.
+- Added Ionic React to the Capacitor mobile workspace without changing the desktop UI framework.
+- Added a registered mobile presentation adapter for shared CRM enquiry lists.
+- Replaced CRM tables with touch-friendly Ionic cards in the mobile application.
+- Kept shared CRM queries, permissions, filters, sorting, pagination, and record actions.
+- Added mobile card states for loading, API errors, empty results, new calls, status, and priority.
+- Verified My Calls cards with live production data in the Android emulator.
+
+## v-1.0.36
+
+### [v 1.0.36] 2026-08-18 9:29 am - Mobile application and TEMA controls
+
+#### Database Changes
+
+- Database update: Yes.
+- Added persisted TEMA pet visibility settings for the web and mobile applications.
+- Added repeatable default records that keep both TEMA pets visible after migration.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.36.
+- Added the Capacitor mobile application while keeping feature modules in the shared web application.
+- Added secure native session storage, native API transport, Android back handling, keyboard support,
+  system bars, and splash-screen control.
+- Added Android and iOS icons, splash screens, and loading screens generated from the TechMedia logo.
+- Added signed Android release builds and produced the installable TechMedia 1.0.36 APK.
+- Added system-administrator controls for TEMA pet visibility on web and mobile.
+- Kept each user's TEMA pet preference separate from the system-wide platform controls.
+- Added stable CRM column widths and horizontal scrolling for narrow screens.
 
 ## v-1.0.35
 

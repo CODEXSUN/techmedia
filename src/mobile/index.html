@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0"
+    />
+    <meta name="theme-color" content="#f8fafc" />
+    <title>TechMedia Mobile</title>
+  </head>
+  <body>
+    <div id="root">
+      <div class="mobile-boot-loader" role="status" aria-label="Loading TechMedia">
+        <img src="/logo/logo.svg" alt="" />
+      </div>
+    </div>
+    <script type="module" src="./src/main.tsx"></script>
+    <style>
+      .mobile-boot-loader {
+        align-items: center;
+        background: #f8fafc;
+        display: flex;
+        inset: 0;
+        justify-content: center;
+        position: fixed;
+      }
+
+      .mobile-boot-loader img {
+        animation: mobile-boot-pulse 1.2s ease-in-out infinite;
+        height: 72px;
+        width: 72px;
+      }
+
+      @keyframes mobile-boot-pulse {
+        50% { opacity: 0.55; transform: scale(0.94); }
+      }
+    </style>
+  </body>
+</html>

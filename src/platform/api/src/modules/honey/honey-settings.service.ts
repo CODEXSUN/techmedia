@@ -2,6 +2,8 @@ import { AppError } from "@codexsun/framework/errors";
 import type { ReturnTypeIdentityContext } from "./honey.types.js";
 
 const globalAvailabilityKey = "global-availability";
+const petMobileVisibleKey = "pet-mobile-visible";
+const petWebVisibleKey = "pet-web-visible";
 
 export class HoneySettingsService {
   constructor(private readonly context: ReturnTypeIdentityContext) {}
@@ -24,6 +26,39 @@ export class HoneySettingsService {
       .where("setting_key", "=", globalAvailabilityKey)
       .execute();
     return { enabled };
+  }
+
+  async petVisibility() {
+    await this.requireActor();
+    const settings = await this.context.database
+      .selectFrom("ai_honey_settings")
+      .select(["enabled", "setting_key"])
+      .where("setting_key", "in", [petMobileVisibleKey, petWebVisibleKey])
+      .execute();
+    const values = new Map(
+      settings.map((setting) => [setting.setting_key, Boolean(setting.enabled)])
+    );
+    return {
+      mobileEnabled: values.get(petMobileVisibleKey) ?? true,
+      webEnabled: values.get(petWebVisibleKey) ?? true
+    };
+  }
+
+  async updatePetVisibility(input: { mobileEnabled: boolean; webEnabled: boolean }) {
+    await this.requireSystemAdmin();
+    await this.context.database.transaction().execute(async (transaction) => {
+      await transaction
+        .updateTable("ai_honey_settings")
+        .set({ enabled: input.mobileEnabled })
+        .where("setting_key", "=", petMobileVisibleKey)
+        .execute();
+      await transaction
+        .updateTable("ai_honey_settings")
+        .set({ enabled: input.webEnabled })
+        .where("setting_key", "=", petWebVisibleKey)
+        .execute();
+    });
+    return input;
   }
 
   async requireEnabled() {

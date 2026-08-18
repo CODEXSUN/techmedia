@@ -1,0 +1,241 @@
+:root[data-runtime="mobile"] {
+  --mobile-safe-top: env(safe-area-inset-top, 0px);
+  --mobile-safe-right: env(safe-area-inset-right, 0px);
+  --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-safe-left: env(safe-area-inset-left, 0px);
+}
+
+:root[data-runtime="mobile"] body {
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+  padding: var(--mobile-safe-top) var(--mobile-safe-right) var(--mobile-safe-bottom)
+    var(--mobile-safe-left);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+:root[data-runtime="mobile"] button,
+:root[data-runtime="mobile"] a,
+:root[data-runtime="mobile"] input,
+:root[data-runtime="mobile"] select,
+:root[data-runtime="mobile"] textarea {
+  touch-action: manipulation;
+}
+
+:root[data-runtime="mobile"] input,
+:root[data-runtime="mobile"] select,
+:root[data-runtime="mobile"] textarea {
+  font-size: 16px;
+}
+
+:root[data-runtime="mobile"] .app-top-menu {
+  max-width: 100vw;
+  overflow: hidden;
+}
+
+:root[data-runtime="mobile"] .app-top-menu-search {
+  display: none;
+}
+
+:root[data-runtime="mobile"] .app-top-menu-context {
+  min-width: 0;
+}
+
+:root[data-runtime="mobile"] .app-top-menu-context > div:last-child {
+  gap: 4px;
+  padding-left: 8px;
+  padding-right: 4px;
+}
+
+:root[data-runtime="mobile"] .app-top-menu-actions {
+  gap: 2px;
+  min-width: 0;
+  padding-left: 4px;
+  padding-right: 8px;
+}
+
+:root[data-runtime="mobile"] .app-top-menu-actions > div:last-child {
+  gap: 6px;
+  margin-left: 4px;
+}
+
+:root[data-runtime="mobile"] .mobile-enquiry-back {
+  display: inline-flex !important;
+}
+
+:root[data-runtime="mobile"] .desktop-enquiry-back {
+  display: none;
+}
+
+:root[data-runtime="mobile"] .techmedia-login-shell {
+  grid-template-columns: 1fr;
+  max-width: 440px;
+}
+
+:root[data-runtime="mobile"] .techmedia-login-story {
+  display: none;
+}
+
+:root[data-runtime="mobile"] .techmedia-login-panel {
+  border: 1px solid color-mix(in oklab, var(--border) 78%, transparent);
+  border-radius: 18px;
+}
+
+.mobile-crm-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 16px;
+}
+
+ion-card.mobile-crm-card {
+  --background: var(--card);
+  --color: var(--foreground);
+  border: 1px solid color-mix(in oklab, var(--border) 82%, transparent);
+  border-radius: 18px;
+  box-shadow: 0 6px 18px rgb(15 23 42 / 7%);
+  margin: 0;
+}
+
+.mobile-crm-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 16px 8px;
+}
+
+.mobile-crm-card-header ion-card-title {
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 23px;
+}
+
+.mobile-crm-card-header ion-card-subtitle {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.mobile-crm-card-topline,
+.mobile-crm-card-footer,
+.mobile-crm-card-actions {
+  align-items: center;
+  display: flex;
+}
+
+.mobile-crm-card-topline,
+.mobile-crm-card-footer {
+  justify-content: space-between;
+}
+
+.mobile-crm-card-topline {
+  gap: 12px;
+}
+
+.mobile-crm-card-summary {
+  color: var(--muted-foreground);
+  display: -webkit-box;
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mobile-crm-card-content {
+  padding: 8px 16px 14px;
+}
+
+ion-badge.mobile-crm-new-badge {
+  align-items: center;
+  display: inline-flex;
+  font-size: 13px;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 6px 9px;
+}
+
+.mobile-crm-new-badge svg {
+  height: 14px;
+  width: 14px;
+}
+
+.mobile-crm-card-details {
+  display: grid;
+  gap: 12px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.mobile-crm-card-details div {
+  min-width: 0;
+}
+
+.mobile-crm-card-details dt {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.mobile-crm-card-details dd {
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 21px;
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-crm-card-footer {
+  border-top: 1px solid var(--border);
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
+}
+
+.mobile-crm-card-actions {
+  gap: 2px;
+}
+
+.mobile-crm-card-actions ion-button {
+  --color: var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+}
+
+ion-badge.mobile-crm-priority {
+  --background: var(--muted);
+  --color: var(--foreground);
+  font-size: 13px;
+  padding: 6px 9px;
+}
+
+ion-badge.mobile-crm-priority.is-high,
+ion-badge.mobile-crm-priority.is-urgent {
+  --background: #fef3c7;
+  --color: #92400e;
+}
+
+.mobile-crm-list-state {
+  align-items: center;
+  color: var(--muted-foreground);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 220px;
+  padding: 24px;
+  text-align: center;
+}
+
+.mobile-crm-list-state strong {
+  color: var(--foreground);
+  font-size: 16px;
+}

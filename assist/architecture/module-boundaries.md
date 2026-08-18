@@ -35,6 +35,8 @@ OpenAI-compatible environment configuration. Content writing uses bounded strate
 editor workers and performs no external side effects.
 Honey also owns the persisted global availability setting. Only a system administrator can change
 it. Disabled TEMA routes reject new chat work, and the desk hides chat and mascot surfaces.
+Honey owns separate administrator controls for web and mobile pet visibility. Each device can also
+hide its local pet through the shared responsive side menu without disabling TEMA chat.
 Agent Connector and skill administration require the protected `super-admin` role in API routes
 and desk navigation. Business agent chat may use enabled skills without exposing their editor.
 

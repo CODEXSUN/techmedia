@@ -1,31 +1,27 @@
 import { requiredClientEnv } from "../env/client-env";
 import { beginTemaJob, finishTemaJob } from "../tema-activity";
+import { currentSessionStore } from "../auth/session-store";
 
 const apiBaseUrl = requiredClientEnv("VITE_PLATFORM_API_URL");
-const TOKEN_KEY = "techmedia_session";
 const SESSION_EXPIRED_WARNING_KEY = "techmedia_session_expired_warning";
 
 export type Desk = "app";
 type ApiEnvelope<T> = { data: T; success: true } | { error: { message: string }; success: false };
 
 export function getToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
+  return currentSessionStore().get();
 }
 
 export function setToken(token: string): void {
-  try {
-    localStorage.setItem(TOKEN_KEY, token);
-  } catch {}
+  void currentSessionStore()
+    .set(token)
+    .catch(() => {});
 }
 
 export function clearToken(): void {
-  try {
-    localStorage.removeItem(TOKEN_KEY);
-  } catch {}
+  void currentSessionStore()
+    .clear()
+    .catch(() => {});
 }
 
 export function clearBrowserSession(): void {
@@ -78,7 +74,8 @@ export function clearSessionExpiredWarning(): void {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const tracksJob = options.method !== undefined && options.method !== "GET" && !isCredentialRequest(path);
+  const tracksJob =
+    options.method !== undefined && options.method !== "GET" && !isCredentialRequest(path);
   if (tracksJob) beginTemaJob();
   const token = getToken();
   try {

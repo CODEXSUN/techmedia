@@ -9,6 +9,7 @@ import {
   Trash2,
   TriangleAlert
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@codexsun/ui";
 import { WorkspaceRowActions } from "@codexsun/ui/workspace/row-actions";
 import { WorkspaceStatusBadge } from "@codexsun/ui/workspace/status";
@@ -28,21 +29,7 @@ import type {
 } from "./crm.types";
 import { crmEnquiryStatusOptions } from "./crm.options";
 
-export function CrmList({
-  error,
-  loading,
-  onForceDelete,
-  onRowClick,
-  onRestore,
-  onSelect,
-  onSort,
-  onSuspend,
-  onView,
-  maskNewCalls = false,
-  records,
-  sort,
-  visibleColumns
-}: {
+export type CrmListProps = {
   error: boolean;
   loading: boolean;
   onForceDelete?: (record: CrmEnquiry) => void;
@@ -56,31 +43,60 @@ export function CrmList({
   records: CrmEnquiry[];
   sort: { column: CrmEnquiryColumnId; direction: "asc" | "desc" };
   visibleColumns: CrmEnquiryColumnVisibility;
-}) {
+};
+
+type MobileCrmListRenderer = (props: CrmListProps) => ReactNode;
+
+let mobileCrmListRenderer: MobileCrmListRenderer | undefined;
+
+export function configureMobileCrmListRenderer(renderer: MobileCrmListRenderer) {
+  mobileCrmListRenderer = renderer;
+}
+
+export function CrmList(props: CrmListProps) {
+  if (mobileCrmListRenderer) return mobileCrmListRenderer(props);
+  return <DesktopCrmList {...props} />;
+}
+
+function DesktopCrmList({
+  error,
+  loading,
+  onForceDelete,
+  onRowClick,
+  onRestore,
+  onSelect,
+  onSort,
+  onSuspend,
+  onView,
+  maskNewCalls = false,
+  records,
+  sort,
+  visibleColumns
+}: CrmListProps) {
   return (
     <TooltipProvider>
       <WorkspaceTablePanel>
         <div className="overflow-x-auto [scrollbar-color:hsl(var(--muted-foreground)/0.35)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-0.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/35 [&::-webkit-scrollbar-track]:bg-transparent">
-          <table className="w-full table-fixed border-collapse text-sm">
+          <table className="min-w-[1040px] w-full table-fixed border-collapse text-sm">
             <thead className="bg-muted/50">
               <tr>
                 {visibleColumns.id ? (
-                  <WorkspaceTableHeaderCell className="w-[72px] min-w-[72px] max-w-[72px]">
+                  <WorkspaceTableHeaderCell className="w-[72px] min-w-[72px] max-w-[72px] whitespace-nowrap">
                     <SortHeader column="id" label="ID" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.mobile ? (
-                  <WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell className="w-32 min-w-32 whitespace-nowrap">
                     <SortHeader column="mobile" label="Mobile" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.customer ? (
-                  <WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell className="w-44 min-w-44 whitespace-nowrap">
                     <SortHeader column="customer" label="Customer" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.title ? (
-                  <WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell className="w-60 min-w-60 whitespace-nowrap">
                     <SortHeader
                       column="title"
                       label="Enquiry details"
@@ -90,30 +106,30 @@ export function CrmList({
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.enquiryGroup ? (
-                  <WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell className="w-28 min-w-28 whitespace-nowrap">
                     <SortHeader column="enquiryGroup" label="List in" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.dueDate ? (
-                  <WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell className="w-32 min-w-32 whitespace-nowrap">
                     <SortHeader column="dueDate" label="Due date" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.priority ? (
                   <WorkspaceTableHeaderCell
                     aria-label="Priority"
-                    className="w-12 min-w-12 max-w-12 p-0 text-center"
+                    className="w-12 min-w-12 max-w-12 whitespace-nowrap p-0 text-center"
                   >
                     <SortHeader column="priority" label="Priority" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.createdBy ? (
-                  <WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell className="w-40 min-w-40 whitespace-nowrap">
                     <SortHeader column="createdBy" label="User" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.assignedTo ? (
-                  <WorkspaceTableHeaderCell>
+                  <WorkspaceTableHeaderCell className="w-40 min-w-40 whitespace-nowrap">
                     <SortHeader
                       column="assignedTo"
                       label="Assigned to"
@@ -123,11 +139,11 @@ export function CrmList({
                   </WorkspaceTableHeaderCell>
                 ) : null}
                 {visibleColumns.status ? (
-                  <WorkspaceTableHeaderCell className="w-36 min-w-36 max-w-36">
+                  <WorkspaceTableHeaderCell className="w-36 min-w-36 max-w-36 whitespace-nowrap">
                     <SortHeader column="status" label="Status" onSort={onSort} sort={sort} />
                   </WorkspaceTableHeaderCell>
                 ) : null}
-                <WorkspaceTableHeaderCell className="w-16 min-w-16 max-w-16 text-right">
+                <WorkspaceTableHeaderCell className="w-16 min-w-16 max-w-16 whitespace-nowrap text-right">
                   Action
                 </WorkspaceTableHeaderCell>
               </tr>
@@ -174,7 +190,7 @@ export function CrmList({
                     </td>
                   ) : null}
                   {visibleColumns.mobile ? (
-                    <td className="truncate whitespace-nowrap px-4 py-2.5">
+                    <td className="w-32 min-w-32 truncate whitespace-nowrap px-4 py-2.5">
                       {record.mobile ? (
                         <button
                           className="cursor-pointer font-medium hover:underline"
@@ -193,7 +209,7 @@ export function CrmList({
                   ) : null}
                   {visibleColumns.customer ? (
                     <td
-                      className="max-w-52 truncate px-4 py-2.5"
+                      className="w-44 min-w-44 max-w-44 truncate px-4 py-2.5"
                       title={record.customerName || record.customer}
                     >
                       {record.customer ? (
@@ -213,7 +229,7 @@ export function CrmList({
                     </td>
                   ) : null}
                   {visibleColumns.title ? (
-                    <td className="max-w-80 px-4 py-2.5">
+                    <td className="w-60 min-w-60 max-w-60 px-4 py-2.5">
                       {record.hasUnreadAssignment || (maskNewCalls && record.status === "new") ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
                           <BellRing className="size-3.5" />
@@ -234,12 +250,12 @@ export function CrmList({
                     </td>
                   ) : null}
                   {visibleColumns.enquiryGroup ? (
-                    <td className="truncate whitespace-nowrap px-4 py-2.5">
+                    <td className="w-28 min-w-28 truncate whitespace-nowrap px-4 py-2.5">
                       {record.enquiryGroup || "—"}
                     </td>
                   ) : null}
                   {visibleColumns.dueDate ? (
-                    <td className="truncate whitespace-nowrap px-4 py-2.5">
+                    <td className="w-32 min-w-32 truncate whitespace-nowrap px-4 py-2.5">
                       {record.schedules[0]?.scheduledOn
                         ? new Intl.DateTimeFormat("en-IN", {
                             day: "2-digit",
@@ -268,15 +284,17 @@ export function CrmList({
                     </td>
                   ) : null}
                   {visibleColumns.createdBy ? (
-                    <td className="truncate px-4 py-2.5">{record.createdBy.name}</td>
+                    <td className="w-40 min-w-40 truncate whitespace-nowrap px-4 py-2.5">
+                      {record.createdBy.name}
+                    </td>
                   ) : null}
                   {visibleColumns.assignedTo ? (
-                    <td className="truncate px-4 py-2.5">
+                    <td className="w-40 min-w-40 truncate whitespace-nowrap px-4 py-2.5">
                       {record.assignedTo?.name ?? "Unassigned"}
                     </td>
                   ) : null}
                   {visibleColumns.status ? (
-                    <td className="w-36 min-w-36 max-w-36 px-2 py-2.5">
+                    <td className="w-36 min-w-36 max-w-36 whitespace-nowrap px-2 py-2.5">
                       <EnquiryStatusBadge record={record} />
                     </td>
                   ) : null}
@@ -441,7 +459,7 @@ const suspendedStatusAppearance = {
   tone: "danger"
 } as const;
 
-function EnquiryStatusBadge({ record }: { record: CrmEnquiry }) {
+export function EnquiryStatusBadge({ record }: { record: CrmEnquiry }) {
   const suspended = record.lifecycleStatus === "suspended";
   const appearance = suspended ? suspendedStatusAppearance : enquiryStatusAppearance[record.status];
   return (

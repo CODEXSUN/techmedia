@@ -276,6 +276,15 @@ export function CrmShow({
     <WorkspacePage
       actions={
         <div className="flex items-center gap-2">
+          <Button
+            className="mobile-enquiry-back hidden"
+            onClick={onBack}
+            type="button"
+            variant="outline"
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </Button>
           {whatsappTargets ? (
             <Button
               className={whatsappButtonClassName}
@@ -298,7 +307,7 @@ export function CrmShow({
           ) : null}
           {view === "open" ? (
             <>
-              <Button onClick={onBack} type="button" variant="outline">
+              <Button className="desktop-enquiry-back" onClick={onBack} type="button" variant="outline">
                 <ArrowLeft className="size-4" />
                 Back
               </Button>

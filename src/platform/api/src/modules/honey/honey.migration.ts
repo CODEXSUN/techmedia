@@ -4,7 +4,8 @@ import type { TechMediaDatabase } from "../../database/schema.js";
 export const honeyMigrations = [
   { key: "ai.honey.content-v1" },
   { key: "ai.honey.archive-v1" },
-  { key: "ai.honey.global-availability-v1" }
+  { key: "ai.honey.global-availability-v1" },
+  { key: "ai.honey.pet-platform-visibility-v1" }
 ] as const;
 
 export async function migrateHoneyModule(database: Kysely<TechMediaDatabase>) {
@@ -19,7 +20,9 @@ export async function migrateHoneyModule(database: Kysely<TechMediaDatabase>) {
   ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
     )
     .execute(database);
-  await sql.raw("ALTER TABLE ai_honey_threads ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL").execute(database);
+  await sql
+    .raw("ALTER TABLE ai_honey_threads ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL")
+    .execute(database);
   await sql
     .raw(
       `CREATE TABLE IF NOT EXISTS ai_honey_skills (
@@ -68,7 +71,11 @@ export async function migrateHoneyModule(database: Kysely<TechMediaDatabase>) {
   await database
     .insertInto("ai_honey_settings")
     .ignore()
-    .values({ enabled: true, setting_key: "global-availability" })
+    .values([
+      { enabled: true, setting_key: "global-availability" },
+      { enabled: true, setting_key: "pet-mobile-visible" },
+      { enabled: true, setting_key: "pet-web-visible" }
+    ])
     .execute();
   await sql
     .raw(

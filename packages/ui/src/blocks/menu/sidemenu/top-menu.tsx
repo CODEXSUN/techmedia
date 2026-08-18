@@ -105,8 +105,8 @@ export function TopMenu({
   const ActiveWorkspaceIcon = activeWorkspace?.icon ?? BriefcaseBusinessIcon;
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 w-full shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
-      <div className="flex h-full shrink-0 items-center">
+    <header className="app-top-menu sticky top-0 z-30 flex h-14 w-full shrink-0 items-center border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+      <div className="app-top-menu-context flex h-full shrink-0 items-center">
         <div className="flex h-full w-16 items-center justify-center border-r bg-background">
           <SidebarTrigger className="size-9 rounded-full border-0 bg-transparent shadow-none" />
         </div>
@@ -123,7 +123,7 @@ export function TopMenu({
           ) : null}
         </div>
       </div>
-      <div className="mx-3 flex min-w-24 max-w-3xl flex-1 items-center sm:mx-6">
+      <div className="app-top-menu-search mx-3 flex min-w-24 max-w-3xl flex-1 items-center sm:mx-6">
         <div className="relative w-full">
           <SearchIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -136,7 +136,7 @@ export function TopMenu({
           />
         </div>
       </div>
-      <div className="ml-auto flex shrink-0 items-center gap-1 px-3">
+      <div className="app-top-menu-actions ml-auto flex shrink-0 items-center gap-1 px-3">
         <TopMenuNotifications
           notifications={notifications}
           {...(onNotificationDismiss ? { onDismiss: onNotificationDismiss } : {})}

@@ -24,6 +24,7 @@ const overview = z.object({
   responseCount: z.number().int().nonnegative()
 });
 const availability = z.object({ enabled: z.boolean() });
+const petVisibility = z.object({ mobileEnabled: z.boolean(), webEnabled: z.boolean() });
 
 export function registerHoneyRoutes(app: FastifyInstance) {
   registerContractRoute(app, {
@@ -31,6 +32,18 @@ export function registerHoneyRoutes(app: FastifyInstance) {
     url: "/ai/honey/settings",
     schemas: { response: availability },
     handler: ({ request }) => honeySettings(request).availability()
+  });
+  registerContractRoute(app, {
+    method: "GET",
+    url: "/ai/honey/pet-settings",
+    schemas: { response: petVisibility },
+    handler: ({ request }) => honeySettings(request).petVisibility()
+  });
+  registerContractRoute(app, {
+    method: "PUT",
+    url: "/ai/honey/pet-settings",
+    schemas: { body: petVisibility, response: petVisibility },
+    handler: ({ body, request }) => honeySettings(request).updatePetVisibility(body)
   });
   registerContractRoute(app, {
     method: "PUT",
