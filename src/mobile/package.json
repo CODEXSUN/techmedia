@@ -1,6 +1,6 @@
 {
   "name": "@techmedia/mobile",
-  "version": "1.0.42",
+  "version": "1.0.43",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,7 @@
     "sync": "npm run build && cap sync",
     "apk:debug": "cd android && gradlew.bat assembleDebug",
     "apk:release": "cd android && gradlew.bat assembleRelease",
+    "bundle:release": "cd android && gradlew.bat bundleRelease",
     "run:android": "cap run android",
     "open:android": "cap open android",
     "open:ios": "cap open ios"

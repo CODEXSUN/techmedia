@@ -47,3 +47,27 @@ signed production APK at `src/mobile/android/app/build/outputs/apk/release/app-r
 Keep the ignored Android keystore and signing properties backed up; later releases must use the
 same key. `mobile:run:android` selects a connected Android device or emulator. The iOS project
 requires Xcode on macOS for signing and device builds.
+
+## GitHub APK updates
+
+On Android, the application checks the latest GitHub Release at startup. A newer release shows an
+update prompt. The app verifies the APK SHA-256 value before it opens Android's package installer.
+Android requires the user to approve installation. This is not a silent update flow.
+
+Build and prepare the GitHub release files:
+
+```powershell
+$env:VITE_MOBILE_API_URL="https://app.techmedia.in/api/platform"
+npm.cmd run mobile:release
+```
+
+Review the generated APK, `latest.json`, and release notes under `dist/mobile/github-release`.
+After the source commit is pushed and the branch is synchronized, publish the tag and GitHub Release:
+
+```powershell
+$env:VITE_MOBILE_API_URL="https://app.techmedia.in/api/platform"
+npm.cmd run mobile:release -- --publish
+```
+
+Use `--mandatory` only when users must update before they continue. Use `--dry-run` to validate an
+already-built release APK without publishing anything.

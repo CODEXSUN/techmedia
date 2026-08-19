@@ -1,6 +1,6 @@
 {
   "name": "techmedia",
-  "version": "1.0.42",
+  "version": "1.0.43",
   "private": true,
   "packageManager": "npm@12.0.1",
   "description": "techmedia orchestrator",
@@ -23,6 +23,8 @@
     "mobile:android": "npm run open:android --workspace @techmedia/mobile",
     "mobile:apk:debug": "npm run mobile:sync && npm run apk:debug --workspace @techmedia/mobile",
     "mobile:apk:release": "npm run mobile:sync && npm run apk:release --workspace @techmedia/mobile",
+    "mobile:bundle:release": "npm run mobile:sync && npm run bundle:release --workspace @techmedia/mobile",
+    "mobile:release": "node tools/mobile-github-release.mjs",
     "mobile:run:android": "npm run run:android --workspace @techmedia/mobile",
     "mobile:ios": "npm run open:ios --workspace @techmedia/mobile",
     "dev:restartable": "node tools/dev-stack.mjs",
