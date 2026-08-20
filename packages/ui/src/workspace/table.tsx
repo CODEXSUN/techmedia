@@ -1,11 +1,14 @@
 "use client";
 
 import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
+  createSortedRowModel,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
   type ColumnDef,
+  type RowData,
   type SortingState
 } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
@@ -24,7 +27,20 @@ export const workspaceTableRowClass =
 
 export const workspaceTableCellClass = "px-4 py-2.5 text-foreground";
 
-export function WorkspaceTable<T>({
+const workspaceTableFeatures = tableFeatures({
+  columnSizingFeature,
+  columnVisibilityFeature,
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel()
+});
+
+export type WorkspaceColumnDef<T extends RowData> = ColumnDef<
+  typeof workspaceTableFeatures,
+  T,
+  unknown
+>;
+
+export function WorkspaceTable<T extends RowData>({
   columns,
   data,
   emptyState,
@@ -32,7 +48,7 @@ export function WorkspaceTable<T>({
   minWidth = "640px",
   onRowClick
 }: {
-  columns: ColumnDef<T>[];
+  columns: WorkspaceColumnDef<T>[];
   data: T[];
   emptyState?: ReactNode;
   isLoading?: boolean;
@@ -45,11 +61,10 @@ export function WorkspaceTable<T>({
   if (!isLoading) settledData.current = data;
   const visibleData = isLoading && data.length === 0 ? settledData.current : data;
 
-  const table = useReactTable({
+  const table = useTable({
+    features: workspaceTableFeatures,
     columns,
     data: visibleData,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
     state: { sorting }
   });
@@ -74,7 +89,7 @@ export function WorkspaceTable<T>({
                         )}
                         onClick={header.column.getToggleSortingHandler()}
                       >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        <table.FlexRender header={header} />
                         {header.column.getCanSort() ? (
                           <ArrowUpDown className="size-3.5 text-muted-foreground/60" />
                         ) : null}
@@ -94,7 +109,7 @@ export function WorkspaceTable<T>({
               >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className={workspaceTableCellClass}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <table.FlexRender cell={cell} />
                   </td>
                 ))}
               </tr>

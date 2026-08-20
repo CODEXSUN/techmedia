@@ -152,7 +152,7 @@ function LoginSurface({ landing }: { landing: boolean }) {
   return landing ? (
     <TechMediaLandingLayout>{form}</TechMediaLandingLayout>
   ) : (
-    <TechMediaAuthLayout surface="app" title="TechMedia Login">
+    <TechMediaAuthLayout surface="app" title="Tech Media Login">
       {form}
     </TechMediaAuthLayout>
   );

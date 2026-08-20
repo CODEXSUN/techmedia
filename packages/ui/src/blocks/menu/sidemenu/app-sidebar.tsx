@@ -51,7 +51,7 @@ export type SidebarBrand = {
   selectedSecondaryOptionId?: string;
   secondaryOptions?: SidebarBrandOption[];
   secondaryOptionsLabel?: string;
-  subtitle: string;
+  subtitle?: string;
   title: string;
 };
 
@@ -268,14 +268,14 @@ function BrandIdentity({
   };
   fallback: SidebarBrand;
 }) {
+  const subtitle = brand.subtitle ?? fallback.subtitle;
+
   return (
     <>
       <BrandLogo brand={brand} fallback={fallback} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
         <span className="truncate font-semibold">{brand.title}</span>
-        <span className="truncate text-xs text-muted-foreground">
-          {brand.subtitle ?? fallback.subtitle}
-        </span>
+        {subtitle ? <span className="truncate text-xs text-muted-foreground">{subtitle}</span> : null}
       </div>
     </>
   );

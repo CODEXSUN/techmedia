@@ -11,6 +11,7 @@ const allowed = new Set([
   "hr",
   "honey",
   "ishop",
+  "messaging",
   "notification",
   "permission",
   "quotation",

@@ -1,6 +1,6 @@
 ﻿import { useEffect } from "react";
 
-const applicationName = "TechMedia";
+const applicationName = "Tech Media";
 
 export function setPlatformDocumentTitle(pageTitle: string) {
   document.title = `${applicationName} | ${pageTitle}`;

@@ -14,7 +14,7 @@ export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
 
   return (
     <main className="techmedia-login-page">
-      <section className="techmedia-login-shell" aria-label="TechMedia Login">
+      <section className="techmedia-login-shell" aria-label="Tech Media Login">
         <div className="techmedia-login-story">
           <div className="techmedia-login-brand">
             <span className="auth-surface-mark" data-surface="app">
@@ -24,7 +24,7 @@ export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
               </span>
             </span>
             <span>
-              <strong>TechMedia</strong>
+              <strong>Tech Media</strong>
               <small>Live CRM workspace</small>
             </span>
           </div>
@@ -46,13 +46,13 @@ export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
         <div className="techmedia-login-panel">
           <div className="techmedia-login-panel-brand" aria-hidden="true">
             <Logo />
-            <span>TechMedia</span>
+            <span>Tech Media</span>
           </div>
           <div className="auth-card-frame auth-card-frame-app techmedia-login-card-frame">
             <div className="auth-card techmedia-login-card">
               <header className="auth-card-header">
                 <h1>Welcome back</h1>
-                <p>Access TechMedia with your registered credentials.</p>
+                <p>Access Tech Media with your registered credentials.</p>
               </header>
               {children}
             </div>

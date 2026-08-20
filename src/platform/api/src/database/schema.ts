@@ -158,11 +158,82 @@ export type AiHoneySettingsTable = {
   updated_at: TimestampColumn;
 };
 
+export type ConversationType = "DIRECT" | "GROUP" | "TEAM" | "PROJECT" | "CUSTOMER" | "SUPPORT" | "SYSTEM";
+export type ConversationStatus = "active" | "archived" | "deleted";
+export type ConversationMemberRole = "ADMIN" | "MEMBER" | "OWNER" | "VIEWER";
+export type MessageType =
+  | "TEXT"
+  | "IMAGE"
+  | "VIDEO"
+  | "AUDIO"
+  | "VOICE"
+  | "DOCUMENT"
+  | "FILE"
+  | "SYSTEM"
+  | "TASK"
+  | "ORDER"
+  | "INVOICE"
+  | "AGENT"
+  | "CONTACT"
+  | "LOCATION";
+export type MessageStatus = "DELIVERED" | "FAILED" | "READ" | "SENDING" | "SENT";
+
+export type ConversationsTable = {
+  avatar: NullableStringColumn;
+  created_at: TimestampColumn;
+  created_by: number;
+  id: Generated<number>;
+  last_message_id: number | null;
+  last_message_sequence: DefaultedNumberColumn;
+  metadata_json: string;
+  status: DefaultedStringColumn<ConversationStatus>;
+  title: NullableStringColumn;
+  type: ConversationType;
+  updated_at: TimestampColumn;
+  uuid: string;
+};
+
+export type ConversationMembersTable = {
+  archived: boolean | number;
+  conversation_id: number;
+  id: Generated<number>;
+  joined_at: TimestampColumn;
+  last_read_message_id: number | null;
+  left_at: NullableTimestampColumn;
+  muted: boolean | number;
+  notification_level: DefaultedStringColumn<"all" | "mentions" | "muted">;
+  role: ConversationMemberRole;
+  user_id: number;
+};
+
+export type MessagesTable = {
+  client_message_id: NullableStringColumn;
+  content: string;
+  conversation_id: number;
+  created_at: TimestampColumn;
+  deleted_at: NullableTimestampColumn;
+  edited_at: NullableTimestampColumn;
+  forwarded_from_message_id: number | null;
+  id: Generated<number>;
+  metadata_json: string;
+  reply_to_message_id: number | null;
+  sender_id: number;
+  sequence_number: number;
+  status: DefaultedStringColumn<MessageStatus>;
+  thread_id: number | null;
+  type: MessageType;
+  updated_at: TimestampColumn;
+  uuid: string;
+};
+
 export type TechMediaDatabase = {
   ai_honey_messages: AiHoneyMessagesTable;
   ai_honey_settings: AiHoneySettingsTable;
   ai_honey_skills: AiHoneySkillsTable;
   ai_honey_threads: AiHoneyThreadsTable;
+  conversation_members: ConversationMembersTable;
+  conversations: ConversationsTable;
+  messages: MessagesTable;
   notification_outbox: NotificationOutboxTable;
   notifications: NotificationsTable;
   permissions: PermissionsTable;

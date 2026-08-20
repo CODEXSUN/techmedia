@@ -1,6 +1,6 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { createConnection } from "mysql2/promise";
-import { createPool, type PoolOptions } from "mysql2";
+import { createPool, type Pool, type PoolOptions } from "mysql2";
 import { Kysely, MysqlDialect, sql } from "kysely";
 import { env } from "../env.js";
 import { migratePermissionModule } from "../modules/permission/permission.migration.js";
@@ -15,6 +15,7 @@ import { migrateRolePermissionModule } from "../modules/role-permission/role-per
 import { seedRolePermissionModule } from "../modules/role-permission/role-permission.seed.js";
 import { migrateNotificationModule } from "../modules/notification/notification.migration.js";
 import { migrateHoneyModule } from "../modules/honey/honey.migration.js";
+import { migrateMessagingModule } from "../modules/messaging/messaging.migration.js";
 import { assertDatabaseName, quoteIdentifier } from "./database-utils.js";
 import type { TechMediaDatabase } from "./schema.js";
 
@@ -28,7 +29,8 @@ export const techMediaMigrationOrder = Object.freeze([
   "identity.user-role",
   "identity.role-permission",
   "notification.inbox",
-  "ai.honey"
+  "ai.honey",
+  "messaging"
 ]);
 
 export const techMediaSeedOrder = Object.freeze([
@@ -57,15 +59,25 @@ export function getTechMediaDatabase() {
   if (!database) {
     database = new Kysely<TechMediaDatabase>({
       dialect: new MysqlDialect({
-        pool: createPool({
-          ...techMediaDatabaseConfig(),
-          connectionLimit: 10,
-          timezone: "Z"
-        } satisfies PoolOptions)
+        pool: createUtcPool()
       })
     });
   }
   return database;
+}
+
+function createUtcPool(): Pool {
+  const pool = createPool({
+    ...techMediaDatabaseConfig(),
+    connectionLimit: 10,
+    timezone: "Z"
+  } satisfies PoolOptions);
+  // DATETIME has no timezone. Keep database-generated and JavaScript dates on
+  // the same UTC clock before converting them to the viewer's local timezone.
+  pool.on("connection", (connection) => {
+    connection.query("SET time_zone = '+00:00'");
+  });
+  return pool;
 }
 
 export async function bootstrapTechMediaDatabase() {
@@ -120,6 +132,7 @@ export async function migrateTechMediaDatabase() {
   await migrateRolePermissionModule(db);
   await migrateNotificationModule(db);
   await migrateHoneyModule(db);
+  await migrateMessagingModule(db);
 }
 
 export async function seedTechMediaDatabase() {

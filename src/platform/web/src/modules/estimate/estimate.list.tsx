@@ -1,4 +1,4 @@
-import type { ColumnDef } from "@tanstack/react-table";
+import type { WorkspaceColumnDef } from "@codexsun/ui/workspace/table";
 import { WorkspaceRowActions } from "@codexsun/ui/workspace/row-actions";
 import { WorkspaceTable } from "@codexsun/ui/workspace/table";
 import type { Estimate, EstimateColumnVisibility } from "./estimate.types";
@@ -16,7 +16,7 @@ export function EstimateList({
   records: Estimate[];
   visibleColumns: EstimateColumnVisibility;
 }) {
-  const columns: ColumnDef<Estimate>[] = [];
+  const columns: WorkspaceColumnDef<Estimate>[] = [];
   if (visibleColumns.name) {
     columns.push({
       accessorKey: "name",

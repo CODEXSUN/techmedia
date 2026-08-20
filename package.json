@@ -1,8 +1,8 @@
 {
   "name": "techmedia",
-  "version": "1.0.43",
+  "version": "1.0.44",
   "private": true,
-  "packageManager": "npm@12.0.1",
+  "packageManager": "npm@12.0.2",
   "description": "techmedia orchestrator",
   "type": "module",
   "workspaces": [
@@ -62,25 +62,32 @@
     "env:jwt-secret": "node tools/env-jwt-secret.mjs"
   },
   "devDependencies": {
-    "@eslint/js": "^9.17.0",
-    "@tailwindcss/vite": "^4.3.1",
-    "@types/node": "^26.1.1",
-    "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2",
-    "@typescript-eslint/eslint-plugin": "^8.18.1",
-    "@typescript-eslint/parser": "^8.18.1",
-    "@vitejs/plugin-react": "^6.0.3",
-    "eslint": "^10.8.0",
-    "prettier": "^3.4.2",
-    "tailwindcss": "^4.3.1",
-    "tsx": "^4.19.2",
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/parser": "^8.67.0",
+    "@vitejs/plugin-react": "^6.1.0",
+    "eslint": "^10.8.1",
+    "prettier": "^3.9.6",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.12",
     "typescript": "^7.0.2",
     "typescript-eslint-compiler": "npm:typescript@6.0.3",
-    "vite": "^8.1.5"
+    "vite": "^8.2.1"
   },
   "engines": {
     "node": ">=26.5.0",
     "npm": ">=12.0.1"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.9",
+    "fast-uri": "4.1.2",
+    "nanoid": "6.0.1",
+    "postcss": "8.5.26",
+    "uuid": "14.0.2"
   },
   "allowScripts": {
     "bullmq": false,

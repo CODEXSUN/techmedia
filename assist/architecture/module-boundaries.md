@@ -17,9 +17,13 @@
 - `quotation`
 - `ishop`
 - `ai.honey`
+- `messaging`
 
 The composition root orders modules and injects the public live-Frappe enquiry gateway. It must not
 contain entity SQL or business workflows.
+
+Messaging owns local conversations, membership, message persistence, and authenticated realtime
+delivery. Identity remains the source of truth for all contact users.
 
 ## Backend Leaves
 
@@ -63,6 +67,10 @@ seed, cache table, or local business persistence.
 Frontend modules own their workspaces, forms, lists, services, hooks, schemas, and types. The app
 desk composes Identity, Settings, CRM navigation, and the recipient notification inbox; CRM enquiry detail consumes the public
 Estimate and Quotation tab components.
+
+The messaging frontend owns the contact picker, conversation list, message thread, composer, and
+WebSocket lifecycle. Its messaging contact contract exposes only active Identity user references;
+Identity remains the source of truth and administration data is not exposed.
 
 The internal Framework workspace supplies infrastructure contracts. The internal UI workspace
 supplies presentation primitives. TechMedia does not import parent-repository source or compose

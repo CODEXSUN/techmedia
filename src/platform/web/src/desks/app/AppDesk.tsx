@@ -5,6 +5,8 @@ import {
   CircleGaugeIcon,
   BotIcon,
   CalendarDaysIcon,
+  InboxIcon,
+  MessageCircleIcon,
   MessagesSquareIcon,
   PlugZapIcon,
   PlusIcon,
@@ -98,6 +100,9 @@ const TemaControlWorkspace = lazy(() =>
 const IshopWorkspace = lazy(() =>
   import("../../modules/ishop").then((module) => ({ default: module.IshopWorkspace }))
 );
+const MessagingWorkspace = lazy(() =>
+  import("../../modules/messaging").then((module) => ({ default: module.MessagingWorkspace }))
+);
 
 type Page =
   | "identity.users"
@@ -128,7 +133,8 @@ type Page =
   | "ishop.products"
   | "ishop.items"
   | "ishop.variants"
-  | "ishop.images";
+  | "ishop.images"
+  | "messaging.inbox";
 
 type Claims = {
   email: string;
@@ -313,7 +319,7 @@ export function AppDesk() {
     <AuthGate>
       <>
         <ApplicationLayout
-          brand={{ subtitle: "Trusted Since 2002", title: "TechMedia" }}
+          brand={{ subtitle: "", title: "Tech Media" }}
           globalSearchPlaceholder="Search CRM enquiries"
           globalSearchValue={globalSearch}
           headerTitle={titleFor(page)}
@@ -346,6 +352,13 @@ export function AppDesk() {
               icon: UserRoundIcon,
               title: "Account",
               url: "/app/identity/profile"
+            },
+            {
+              active: page === "messaging.inbox",
+              description: "Private business conversations.",
+              icon: MessagesSquareIcon,
+              title: "Messaging",
+              url: "/app/messaging/inbox"
             },
             ...(canUseCrm
               ? [
@@ -525,6 +538,7 @@ function renderPage(
       />
     );
   }
+  if (page === "messaging.inbox") return <MessagingWorkspace actorEmail={claims.email} />;
   if (!canUseCrm) return <UserProfileWorkspace />;
   const view =
     page === "crm.all"
@@ -619,6 +633,7 @@ function buildMenu(
         ],
         title: "LogicX iShop"
       },
+      messagesMenu(page, item),
       notificationSettings
     ];
   }
@@ -666,6 +681,7 @@ function buildMenu(
             }
           ]
         : []),
+      messagesMenu(page, item),
       notificationSettings,
       ...(temaEnabled || superAdmin
         ? [
@@ -696,6 +712,7 @@ function buildMenu(
           )
         ]
       : []),
+    messagesMenu(page, item),
     {
       icon: ShieldCheckIcon,
       isActive: page.startsWith("identity."),
@@ -741,6 +758,27 @@ function accessiblePage(
   if (!canUseIshop && page.startsWith("ishop."))
     return canUseCrm ? "crm.overview" : "identity.profile";
   return page;
+}
+
+function messagesMenu(
+  page: Page,
+  item: (
+    title: string,
+    target: Page,
+    badge?: number
+  ) => {
+    badge?: number;
+    isActive: boolean;
+    onSelect: () => void;
+    title: string;
+  }
+): SidemenuItem {
+  return {
+    icon: MessageCircleIcon,
+    isActive: page === "messaging.inbox",
+    items: [{ ...item("Inbox", "messaging.inbox"), icon: InboxIcon }],
+    title: "Messages"
+  };
 }
 
 function temaMenu(
@@ -833,7 +871,8 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "ishop.products",
     "ishop.items",
     "ishop.variants",
-    "ishop.images"
+    "ishop.images",
+    "messaging.inbox"
   ];
   if (allowed.includes(value as Page)) return value as Page;
   return applicationEntryPath(role)
@@ -865,7 +904,8 @@ function titleFor(page: Page) {
     "ishop.products": "Products",
     "ishop.items": "Product Details",
     "ishop.variants": "Product Variants",
-    "ishop.images": "Product Images"
+    "ishop.images": "Product Images",
+    "messaging.inbox": "Messaging"
   };
   if (labels[page]) return labels[page];
   return page

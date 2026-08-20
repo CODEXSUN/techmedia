@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { WorkspaceColumnDef } from "@codexsun/ui/workspace/table";
 import { FilePlus2, Save } from "lucide-react";
 import { Button } from "@codexsun/ui/components/button";
 import { Input } from "@codexsun/ui/components/input";
@@ -125,7 +125,7 @@ function QuotationTable({
   onEdit: (record: Quotation) => void;
   records: Quotation[];
 }) {
-  const columns: ColumnDef<Quotation>[] = [
+  const columns: WorkspaceColumnDef<Quotation>[] = [
     {
       accessorKey: "name",
       cell: ({ row }) =>

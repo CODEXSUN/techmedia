@@ -91,8 +91,7 @@ export class UserService {
     }
     const currentCredentials = await this.repository.findFrappeCredentials(current.id);
     const credentials = await this.credentialsForSave(value, currentCredentials);
-    let record = current;
-    record = (await this.save(() =>
+    let record = (await this.save(() =>
       this.repository.update(
         current.id,
         value,

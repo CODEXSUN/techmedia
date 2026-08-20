@@ -22,6 +22,7 @@
 - `quotation`
 - `ishop`
 - `honey`
+- `messaging`
 
 Honey includes the system-administrator global availability control for TEMA chat and mascot
 surfaces, plus separate web and mobile pet visibility controls. The shared responsive side menu

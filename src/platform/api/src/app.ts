@@ -25,6 +25,7 @@ import { userRoleModule } from "./modules/user-role/index.js";
 import { userModule } from "./modules/user/index.js";
 import { honeyModule } from "./modules/honey/index.js";
 import { ishopModule } from "./modules/ishop/index.js";
+import { messagingModule } from "./modules/messaging/index.js";
 
 const modules = [
   userModule,
@@ -39,7 +40,8 @@ const modules = [
   estimateModule,
   quotationModule,
   ishopModule,
-  honeyModule
+  honeyModule,
+  messagingModule
 ];
 
 export async function createApp() {

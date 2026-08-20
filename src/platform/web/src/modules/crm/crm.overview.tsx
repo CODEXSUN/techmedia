@@ -69,9 +69,9 @@ function EnquiryOverviewTable({
 
   return (
     <div className="mx-auto w-full md:w-[70%]">
-      <Card className="overflow-hidden border-border/80 shadow-sm">
+      <Card className="overflow-hidden border-0 bg-transparent shadow-none">
         <CardContent className="p-0">
-          <div className="border-b bg-primary/[0.045] px-4 py-5 sm:px-5">
+          <div className="border-b bg-background px-4 py-6 sm:px-5 sm:py-7">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-medium text-primary">Welcome back</p>
@@ -82,16 +82,16 @@ function EnquiryOverviewTable({
                 {nextActionLabel({ attentionJobs, newJobs })} <ArrowUpRightIcon className="size-4" />
               </a>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:max-w-2xl sm:grid-cols-3">
-              {[
-                { href: "/app/crm/assigned?status=new", label: "New to open", value: newJobs },
-                { href: "/app/crm/assigned?status=active", label: "Needs attention", value: attentionJobs },
-                { href: "/app/crm/assigned?status=active", label: "Active follow-ups", value: activeJobs }
-              ].filter((metric) => metric.value > 0).map((metric) => <FocusMetric {...metric} key={metric.label} />)}
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:max-w-2xl sm:grid-cols-3">
+              {([
+                { href: "/app/crm/assigned?status=new", label: "New to open", tone: "sky", value: newJobs },
+                { href: "/app/crm/assigned?status=active", label: "Needs attention", tone: "amber", value: attentionJobs },
+                { href: "/app/crm/assigned?status=active", label: "Active follow-ups", tone: "blue", value: activeJobs }
+              ] as const).filter((metric) => metric.value > 0).map((metric) => <FocusMetric {...metric} key={metric.label} />)}
             </div>
           </div>
           <DashboardInsights stats={stats} />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/25 px-4 py-4 sm:px-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b bg-muted/25 px-4 py-6 sm:px-5 sm:py-7">
             <div>
               <h2 className="text-base font-semibold">Your work mix</h2>
               <p className="text-sm text-muted-foreground">
@@ -99,7 +99,7 @@ function EnquiryOverviewTable({
               </p>
             </div>
           </div>
-          <div className="overflow-x-auto overscroll-x-contain px-3 py-3 sm:px-4">
+          <div className="overflow-x-auto overscroll-x-contain px-3 py-5 sm:px-4 sm:py-6">
             <table className="min-w-[580px] w-full border-collapse border border-border text-xs sm:min-w-[620px] sm:text-sm">
             <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
@@ -134,7 +134,7 @@ function DashboardInsights({ stats }: { stats: CrmEnquiryOverview["stats"] }) {
   const attention = countForPriority(stats.myJob, "urgent") + countForPriority(stats.myJob, "high");
 
   return (
-    <div className="grid gap-3 border-b bg-muted/[0.16] p-4 sm:grid-cols-2 sm:p-5">
+    <div className="grid gap-5 border-b bg-muted/[0.16] px-4 py-6 sm:grid-cols-2 sm:px-5 sm:py-7">
       <InsightCard icon={BarChart3Icon} title="Priority focus">
         {priorityRows.length ? <PriorityChart rows={priorityRows} /> : <EmptyMetric>No assigned priorities right now.</EmptyMetric>}
       </InsightCard>
@@ -205,8 +205,34 @@ function MetricGrid({ metrics }: { metrics: Array<{ href: string; label: string;
 
 function EmptyMetric({ children }: { children: React.ReactNode }) { return <p className="text-sm text-muted-foreground">{children}</p>; }
 
-function FocusMetric({ href, label, value }: { href: string; label: string; value: number }) {
-  return <a className="rounded-md border border-border/80 bg-background px-3 py-2.5 transition-colors hover:border-primary/40 hover:bg-primary/[0.04]" href={href}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums">{number.format(value)}</p></a>;
+function FocusMetric({
+  href,
+  label,
+  tone,
+  value
+}: {
+  href: string;
+  label: string;
+  tone: "amber" | "blue" | "sky";
+  value: number;
+}) {
+  return (
+    <a
+      className={`rounded-md border border-border/70 border-l-2 bg-background px-3 py-2.5 transition-colors hover:border-primary/40 ${focusMetricTone(tone)}`}
+      href={href}
+    >
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums">{number.format(value)}</p>
+    </a>
+  );
+}
+
+function focusMetricTone(tone: "amber" | "blue" | "sky") {
+  return {
+    amber: "border-l-amber-500 hover:bg-amber-50/40",
+    blue: "border-l-blue-600 hover:bg-blue-50/40",
+    sky: "border-l-sky-500 hover:bg-sky-50/40"
+  }[tone];
 }
 
 function Header({ icon: Icon, label, subtitle }: { icon: typeof BriefcaseBusinessIcon; label: string; subtitle: string }) {

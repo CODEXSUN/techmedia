@@ -1,5 +1,5 @@
 import { Trash2 } from "lucide-react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { WorkspaceColumnDef } from "@codexsun/ui/workspace/table";
 import { WorkspaceProtectedIndicator } from "@codexsun/ui/workspace/protected-indicator";
 import { WorkspaceRowActions } from "@codexsun/ui/workspace/row-actions";
 import { WorkspaceStatusBadge } from "@codexsun/ui/workspace/status";
@@ -20,7 +20,7 @@ export function RoleList({
   onSuspend: (record: Role) => void;
   records: Role[];
 }) {
-  const columns: ColumnDef<Role>[] = [
+  const columns: WorkspaceColumnDef<Role>[] = [
     {
       cell: ({ row }) => <div className="text-center tabular-nums">{row.index + 1}</div>,
       header: () => <div className="text-center">#</div>,

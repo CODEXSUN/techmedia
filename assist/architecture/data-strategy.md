@@ -17,6 +17,9 @@ Local tables are limited to:
 - `ai_honey_messages`
 - `ai_honey_skills`
 - `ai_honey_settings`
+- `conversations`
+- `conversation_members`
+- `messages`
 - `schema_migrations`
 
 Per-user Frappe credentials and verification metadata are columns on `users`. Application-level
@@ -29,6 +32,9 @@ model connection settings remain environment-only and are never stored in conver
 Notifications persist internal recipient inbox and outbox events only. They retain the Frappe
 enquiry identifier, title, and message, but never duplicate enquiry data or become a CRM source
 of truth.
+
+Messaging persists private business conversations and messages. Conversation members reference
+Identity users; messaging does not create a second contact or user directory.
 
 ## CRM
 

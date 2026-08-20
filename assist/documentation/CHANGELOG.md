@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.43
+Current version: 1.0.44
 
-Release tag: v-1.0.43
+Release tag: v-1.0.44
 
-Changelog label: v 1.0.43
+Changelog label: v 1.0.44
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -22,6 +22,27 @@ New entries must keep database-facing work and application code work separate.
 ### App Codebase Changes
 
 - No pending app codebase changes.
+
+## v-1.0.44
+
+### [v 1.0.44] 2026-08-20 11:13 am - Realtime business messaging
+
+#### Database Changes
+
+- Database update: Yes.
+- Added persisted conversations, conversation members, messages, read cursors, delivery status, and message metadata.
+- Added repeatable messaging schema migration support for existing TechMedia databases.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.44.
+- Added authenticated realtime messaging with WebSocket delivery and REST fallback.
+- Added a full-height messaging workspace with conversation search, unread counts, and local timestamps.
+- Added active-user contact search and direct conversation reuse.
+- Added message delivery and read marks, date separators, thread search, reactions, and contextual message actions.
+- Added multiline message composition, attachment drop, file upload, voice recording, and voice-to-text input.
+- Added task messages, group mentions, and direct realtime copies for mentioned users.
+- Removed mention labels from the direct copy while retaining them in the source conversation.
 
 ## v-1.0.43
 

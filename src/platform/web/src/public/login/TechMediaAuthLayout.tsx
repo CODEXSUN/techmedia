@@ -9,7 +9,7 @@ type TechMediaAuthLayoutProps = {
 
 export function TechMediaAuthLayout({ children, surface, title }: TechMediaAuthLayoutProps) {
   const Icon = Building2;
-  const description = "Access TechMedia with your registered credentials.";
+  const description = "Access Tech Media with your registered credentials.";
 
   return (
     <main className="auth-page">
@@ -32,7 +32,7 @@ export function TechMediaAuthLayout({ children, surface, title }: TechMediaAuthL
               <Icon size={13} strokeWidth={2.25} />
             </span>
           </span>
-          <strong>TechMedia</strong>
+          <strong>Tech Media</strong>
         </div>
         <div className={`auth-card-frame auth-card-frame-${surface}`}>
           <div className="auth-card">

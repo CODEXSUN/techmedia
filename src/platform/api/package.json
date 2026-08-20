@@ -1,19 +1,25 @@
 {
   "name": "@techmedia/platform-api",
-  "version": "1.0.43",
+  "version": "1.0.44",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@codexsun/framework": "1.0.43",
-    "@openai/codex": "^0.147.0",
-    "fastify": "^5.2.1",
-    "kysely": "^0.29.0",
-    "mysql2": "^3.22.3",
+    "@codexsun/framework": "1.0.44",
+    "@fastify/websocket": "^11.3.0",
+    "@openai/codex": "^0.148.0",
+    "fastify": "^5.12.1",
+    "kysely": "^0.29.5",
+    "mysql2": "^3.23.3",
+    "ws": "^8.21.3",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
   }
 }

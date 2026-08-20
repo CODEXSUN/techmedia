@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { WorkspaceColumnDef } from "@codexsun/ui/workspace/table";
 import { CheckIcon, ClipboardCopyIcon, RefreshCwIcon, UserPlusIcon } from "lucide-react";
 import { Button } from "@codexsun/ui/components/button";
 import {
@@ -49,7 +49,7 @@ export function FrappeUserSyncWorkspace({ canImport }: { canImport: boolean }) {
     } catch {}
   }
 
-  const columns: ColumnDef<FrappeUserPreview>[] = [
+  const columns: WorkspaceColumnDef<FrappeUserPreview>[] = [
     {
       accessorKey: "name",
       cell: ({ row }) => (

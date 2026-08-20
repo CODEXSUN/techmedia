@@ -14,7 +14,8 @@ assertOrdered(databaseFile, database, [
   "migrateUserRoleModule(db)",
   "migrateRolePermissionModule(db)",
   "migrateNotificationModule(db)",
-  "migrateHoneyModule(db)"
+  "migrateHoneyModule(db)",
+  "migrateMessagingModule(db)"
 ]);
 assertOrdered(databaseFile, database, [
   "seedRoleModule(db)",
@@ -29,6 +30,9 @@ const expectedTables = [
   "ai_honey_settings",
   "ai_honey_skills",
   "ai_honey_threads",
+  "conversation_members",
+  "conversations",
+  "messages",
   "notification_outbox",
   "notifications",
   "permissions",
@@ -50,7 +54,7 @@ if (!database.includes("techMediaDatabaseName()")) {
 }
 
 console.info(
-  "Database lifecycle verified: one database with Identity, notifications, and actor-owned Honey tables."
+  "Database lifecycle verified: one database with Identity, notifications, actor-owned Honey tables, and messaging."
 );
 
 function assertOrdered(file, source, tokens) {
