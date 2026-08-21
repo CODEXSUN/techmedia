@@ -17,11 +17,13 @@ New entries must keep database-facing work and application code work separate.
 
 ### Database Changes
 
-- Database update: No.
+- Database update: Yes.
+- Added File Manager owner tables through package-managed startup migrations.
 
 ### App Codebase Changes
 
-- No pending app codebase changes.
+- Added File Manager files and storage connection workspaces.
+- Added mandatory File Manager environment setup and a persistent local-storage volume.
 
 ## v-1.0.44
 

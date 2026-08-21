@@ -7,6 +7,7 @@ import {
   CalendarDaysIcon,
   InboxIcon,
   MessageCircleIcon,
+  FolderIcon,
   MessagesSquareIcon,
   PlugZapIcon,
   PlusIcon,
@@ -103,6 +104,25 @@ const IshopWorkspace = lazy(() =>
 const MessagingWorkspace = lazy(() =>
   import("../../modules/messaging").then((module) => ({ default: module.MessagingWorkspace }))
 );
+const loadFileManager = () =>
+  import("@codexsun/file-manager/web").then((module) => {
+    module.configureFileManagerClient({
+      baseUrl: `${String(import.meta.env.VITE_PLATFORM_API_URL).replace(/\/$/u, "")}/file-manager`,
+      headers: () => {
+        const token = getToken();
+        return token ? { Authorization: `Bearer ${token}` } : {};
+      }
+    });
+    return module;
+  });
+const FileBrowserWorkspace = lazy(() =>
+  loadFileManager().then((module) => ({ default: module.FileBrowserWorkspace }))
+);
+const StorageConnectionsWorkspace = lazy(() =>
+  loadFileManager().then((module) => ({
+    default: module.StorageConnectionsWorkspace
+  }))
+);
 
 type Page =
   | "identity.users"
@@ -134,7 +154,9 @@ type Page =
   | "ishop.items"
   | "ishop.variants"
   | "ishop.images"
-  | "messaging.inbox";
+  | "messaging.inbox"
+  | "storage.files"
+  | "storage.connections";
 
 type Claims = {
   email: string;
@@ -463,6 +485,10 @@ function renderPage(
   }) => void,
   onCreateEnquiry: () => void
 ) {
+  if (page === "storage.files") return <FileBrowserWorkspace />;
+  if (page === "storage.connections") {
+    return superAdmin ? <StorageConnectionsWorkspace /> : <UserProfileWorkspace />;
+  }
   if (page === "ai.connector")
     return superAdmin ? <AgentConnectorWorkspace /> : <UserProfileWorkspace />;
   if (page === "ai.skills")
@@ -617,6 +643,17 @@ function buildMenu(
     ],
     title: "Settings"
   };
+  const storageMenu: SidemenuItem = {
+    icon: FolderIcon,
+    isActive: page.startsWith("storage."),
+    items: [
+      item("Files", "storage.files"),
+      ...(superAdmin ? [item("Storage connections", "storage.connections")] : [])
+    ],
+    title: "Storage"
+  };
+  if (page.startsWith("storage."))
+    return [storageMenu, messagesMenu(page, item), notificationSettings];
   if (canUseIshop && page.startsWith("ishop.")) {
     return [
       {
@@ -634,6 +671,7 @@ function buildMenu(
         title: "LogicX iShop"
       },
       messagesMenu(page, item),
+      storageMenu,
       notificationSettings
     ];
   }
@@ -682,6 +720,7 @@ function buildMenu(
           ]
         : []),
       messagesMenu(page, item),
+      storageMenu,
       notificationSettings,
       ...(temaEnabled || superAdmin
         ? [
@@ -713,6 +752,7 @@ function buildMenu(
         ]
       : []),
     messagesMenu(page, item),
+    storageMenu,
     {
       icon: ShieldCheckIcon,
       isActive: page.startsWith("identity."),
@@ -835,6 +875,7 @@ function isAdministratorPage(page: Page) {
     page === "ai.connector" ||
     page === "ai.control" ||
     page === "ai.skills" ||
+    page === "storage.connections" ||
     (page.startsWith("settings.") && page !== "settings.notifications") ||
     (page.startsWith("identity.") && page !== "identity.profile")
   );
@@ -872,7 +913,9 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "ishop.items",
     "ishop.variants",
     "ishop.images",
-    "messaging.inbox"
+    "messaging.inbox",
+    "storage.files",
+    "storage.connections"
   ];
   if (allowed.includes(value as Page)) return value as Page;
   return applicationEntryPath(role)
