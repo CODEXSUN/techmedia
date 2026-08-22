@@ -5,6 +5,7 @@ export const messagingMigrations = [
   { key: "messaging.conversations-v1" },
   { key: "messaging.members-v1" },
   { key: "messaging.messages-v1" },
+  { key: "messaging.receipts-reactions-v3" },
   { key: "messaging.utc-timestamps-v2" }
 ] as const;
 
@@ -84,6 +85,34 @@ export async function migrateMessagingModule(database: Kysely<TechMediaDatabase>
         INDEX messages_reply_to (reply_to_message_id),
         CONSTRAINT messages_conversation_fk FOREIGN KEY (conversation_id) REFERENCES conversations(id),
         CONSTRAINT messages_sender_fk FOREIGN KEY (sender_id) REFERENCES users(id)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    )
+    .execute(database);
+  await sql
+    .raw(
+      `CREATE TABLE IF NOT EXISTS message_receipts (
+        message_id INT NOT NULL,
+        user_id INT NOT NULL,
+        delivered_at DATETIME NULL,
+        read_at DATETIME NULL,
+        PRIMARY KEY (message_id, user_id),
+        INDEX message_receipts_user (user_id, read_at),
+        CONSTRAINT message_receipts_message_fk FOREIGN KEY (message_id) REFERENCES messages(id),
+        CONSTRAINT message_receipts_user_fk FOREIGN KEY (user_id) REFERENCES users(id)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    )
+    .execute(database);
+  await sql
+    .raw(
+      `CREATE TABLE IF NOT EXISTS message_reactions (
+        message_id INT NOT NULL,
+        user_id INT NOT NULL,
+        emoji VARCHAR(32) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (message_id, user_id),
+        INDEX message_reactions_message (message_id),
+        CONSTRAINT message_reactions_message_fk FOREIGN KEY (message_id) REFERENCES messages(id),
+        CONSTRAINT message_reactions_user_fk FOREIGN KEY (user_id) REFERENCES users(id)
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
     )
     .execute(database);

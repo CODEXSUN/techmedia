@@ -76,6 +76,8 @@ export type Message = {
   type: MessageType;
   updatedAt: string;
   uuid: string;
+  receipt: { deliveredCount: number; readCount: number; recipientCount: number };
+  reactions: Array<{ emoji: string; userId: number; userName: string }>;
 };
 
 export type CreateConversationInput = {

@@ -36,9 +36,9 @@ def generate_android_icons(logo) -> None:
     densities = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
     for density, size in densities.items():
         directory = ANDROID_RES / f"mipmap-{density}"
-        render_square(directory / "ic_launcher.png", size, logo, 0.68)
-        render_square(directory / "ic_launcher_round.png", size, logo, 0.62, round_background=True)
-        render_square(directory / "ic_launcher_foreground.png", round(size * 2.25), logo, 0.54, transparent=True)
+        render_square(directory / "ic_launcher.png", size, logo, 0.56)
+        render_square(directory / "ic_launcher_round.png", size, logo, 0.50, round_background=True)
+        render_square(directory / "ic_launcher_foreground.png", round(size * 2.25), logo, 0.48, transparent=True)
 
 
 def generate_android_splashes(logo) -> None:
@@ -49,7 +49,7 @@ def generate_android_splashes(logo) -> None:
 
 def generate_ios_assets(logo) -> None:
     icon = IOS_ASSETS / "AppIcon.appiconset/AppIcon-512@2x.png"
-    render_square(icon, 1024, logo, 0.68)
+    render_square(icon, 1024, logo, 0.56)
     splash_set = IOS_ASSETS / "Splash.imageset"
     for name in ("splash-2732x2732.png", "splash-2732x2732-1.png", "splash-2732x2732-2.png"):
         render_splash(splash_set / name, (2732, 2732), logo)
@@ -65,7 +65,7 @@ def render_square(path, size, logo, logo_scale, transparent=False, round_backgro
 
 def render_splash(path, size, logo) -> None:
     image = Image.new("RGB", size, BACKGROUND)
-    draw_logo(image, logo, round(min(size) * 0.18))
+    draw_logo(image, logo, round(min(size) * 0.16))
     image.save(path)
 
 

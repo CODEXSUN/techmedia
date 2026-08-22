@@ -4,8 +4,9 @@
 
 - `src/platform/api`: Fastify API and composition root.
 - `src/platform/web`: React application with one login and one desk.
-- `src/mobile`: Capacitor mobile application reusing the platform web feature composition through
-  native runtime adapters.
+- `src/mobile`: Ionic React and Capacitor mobile-first client. It owns mobile UI composition and
+  uses shared TechMedia authentication and API contracts through native runtime adapters.
+- `KMP-Mobile`: preserved Kotlin Multiplatform TechMe client for future native-only shared logic.
 
 ## API Modules
 

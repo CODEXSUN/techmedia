@@ -53,6 +53,7 @@ export class ConversationService {
 
   async create(input: CreateConversationInput): Promise<ConversationDto> {
     const actor = await this.requireActor();
+    this.assertConversationMembers(input, actor.id);
     const memberIds = uniquePositiveIds([actor.id, ...input.memberIds]);
     const users = await this.repository.findUsersByIds(memberIds);
     if (users.length !== memberIds.length) {
@@ -130,6 +131,14 @@ export class ConversationService {
       return this.enrich(toConversationDto(row, members, users), actorId);
     }
     return undefined;
+  }
+
+  private assertConversationMembers(input: CreateConversationInput, actorId: number): void {
+    if (input.type !== "DIRECT") return;
+    const targetIds = uniquePositiveIds(input.memberIds);
+    if (targetIds.length !== 1 || targetIds[0] === actorId) {
+      throw AppError.validation("A direct chat must include exactly one other active user.");
+    }
   }
 
   private async requireActor() {

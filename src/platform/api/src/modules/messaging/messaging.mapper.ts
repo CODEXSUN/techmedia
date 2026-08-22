@@ -51,7 +51,12 @@ export function toMemberDto(
   };
 }
 
-export function toMessageDto(row: MessageRow, sender?: UserReferenceRow): MessageDto {
+export function toMessageDto(
+  row: MessageRow,
+  sender?: UserReferenceRow,
+  receipt = { deliveredCount: 0, readCount: 0, recipientCount: 0 },
+  reactions: Array<{ emoji: string; userId: number; userName: string }> = []
+): MessageDto {
   const fallbackEmail = `${row.sender_id}@members.local`;
   return {
     clientMessageId: row.client_message_id,
@@ -68,11 +73,17 @@ export function toMessageDto(row: MessageRow, sender?: UserReferenceRow): Messag
     senderId: row.sender_id,
     senderName: sender?.name ?? `User ${row.sender_id}`,
     sequenceNumber: row.sequence_number,
-    status: row.status,
+    status: receipt.recipientCount > 0 && receipt.readCount === receipt.recipientCount
+      ? "READ"
+      : receipt.recipientCount > 0 && receipt.deliveredCount === receipt.recipientCount
+        ? "DELIVERED"
+        : row.status,
     threadId: row.thread_id,
     type: row.type,
     updatedAt: row.updated_at.toISOString(),
-    uuid: row.uuid
+    uuid: row.uuid,
+    receipt,
+    reactions
   };
 }
 

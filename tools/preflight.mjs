@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -26,7 +26,9 @@ const apps = {
     envKey: "PLATFORM_WEB_PORT",
     host: "127.0.0.1",
     command: process.execPath,
-    args: [nodePackageBin("vite", "bin/vite.js"), "--strictPort"]
+    // Keep the local development server usable when a browser carries stale
+    // localhost cookies. Production proxy limits remain unchanged.
+    args: ["--max-http-header-size=32768", nodePackageBin("vite", "bin/vite.js"), "--strictPort"]
   }
 };
 

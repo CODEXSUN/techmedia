@@ -21,6 +21,7 @@ export type ContractRouteContext<TSchemas extends RouteSchemas> = {
 };
 
 export type ContractRouteOptions<TSchemas extends RouteSchemas> = {
+  bodyLimit?: number;
   handler: (
     context: ContractRouteContext<TSchemas>
   ) => Promise<z.output<TSchemas["response"]>> | z.output<TSchemas["response"]>;
@@ -40,6 +41,7 @@ export function registerContractRoute<TSchemas extends RouteSchemas>(
   options: ContractRouteOptions<TSchemas>
 ): void {
   app.route({
+    ...(options.bodyLimit ? { bodyLimit: options.bodyLimit } : {}),
     method: options.method,
     url: options.url,
     ...(options.preHandler ? { preHandler: options.preHandler } : {}),

@@ -5,6 +5,7 @@ import type { Message } from "./messaging.types";
 export type RealtimeEventHandler = {
   onError?: (error: string) => void;
   onMessageCreated?: (message: Message, conversationId: number) => void;
+  onMessageChanged?: (message: Message, conversationId: number) => void;
   onStatusChange?: (status: "connecting" | "open" | "closed") => void;
   onSyncCompleted?: (payload: { conversationId: number; latestSequence: number; messages: Message[] }) => void;
 };
@@ -14,7 +15,8 @@ function websocketUrl(): string {
   if (/^https?:\/\//u.test(apiBaseUrl)) {
     const url = new URL(apiBaseUrl);
     const protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${url.host}${url.pathname}/ws/messaging`;
+    const basePath = url.pathname.replace(/\/$/u, "");
+    return `${protocol}//${url.host}${basePath}/ws/messaging`;
   }
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${protocol}//${window.location.host}${apiBaseUrl}/ws/messaging`;
@@ -42,12 +44,24 @@ export class MessagingClient {
 
   constructor(handlers: RealtimeEventHandler = {}) {
     this.handlers = handlers;
-    this.connect();
+    queueMicrotask(() => {
+      if (!this.closedByClient) this.connect();
+    });
   }
 
   private connect() {
+    if (this.closedByClient) return;
     this.handlers.onStatusChange?.("connecting");
-    const socket = new WebSocket(websocketUrl());
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(websocketUrl());
+    } catch {
+      this.open = false;
+      this.authenticated = false;
+      this.handlers.onStatusChange?.("closed");
+      this.handlers.onError?.("The messaging connection could not be established.");
+      return;
+    }
     this.socket = socket;
     socket.onopen = () => {
       this.open = true;
@@ -89,6 +103,10 @@ export class MessagingClient {
       const payload = envelope.payload as { conversationId: number; message: Message };
       this.handlers.onMessageCreated?.(payload.message, payload.conversationId);
     }
+    if (envelope.eventType === "message.updated" || envelope.eventType === "reaction.created" || envelope.eventType === "reaction.deleted") {
+      const payload = envelope.payload as { conversationId: number; message: Message };
+      this.handlers.onMessageChanged?.(payload.message, payload.conversationId);
+    }
     if (envelope.eventType === "sync.completed") {
       this.handlers.onSyncCompleted?.(
         envelope.payload as { conversationId: number; latestSequence: number; messages: Message[] }
@@ -115,9 +133,9 @@ export class MessagingClient {
     this.afterAuthenticated(() => this.send("conversation.subscribe", { conversationId }));
   }
 
-  sendMessage(conversationId: number, clientMessageId: string, content: string, type = "TEXT", metadata: Record<string, unknown> = {}) {
+  sendMessage(conversationId: number, clientMessageId: string, content: string, type = "TEXT", metadata: Record<string, unknown> = {}, replyToMessageId?: number) {
     this.afterAuthenticated(() =>
-      this.send("message.send", { clientMessageId, content, conversationId, metadata, type })
+      this.send("message.send", { clientMessageId, content, conversationId, metadata, ...(replyToMessageId ? { replyToMessageId } : {}), type })
     );
   }
 

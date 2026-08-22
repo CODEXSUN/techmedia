@@ -31,7 +31,7 @@ import {
   closeFileManagerDatabase,
   fileManagerApiModuleKeys,
   registerFileManagerApi
-} from "@codexsun/file-manager/api";
+} from "./file-manager-host.js";
 import { identityContext } from "./auth/identity-context.js";
 
 const modules = [

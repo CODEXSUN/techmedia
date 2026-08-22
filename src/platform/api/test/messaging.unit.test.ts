@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import { AppError } from "@codexsun/framework/errors";
 import { ConversationService } from "../src/modules/messaging/conversation.service.js";
 import { MessageService } from "../src/modules/messaging/message.service.js";
 import { InMemoryMessagingRepository } from "../src/modules/messaging/messaging.repositories.js";
+import { LocalMessageMediaStorage } from "../src/modules/messaging/message-media-storage.js";
 import type { MessagingActor, MessagingContext } from "../src/modules/messaging/messaging.types.js";
 
 function context(actor: MessagingActor): MessagingContext {
@@ -18,6 +22,7 @@ function seedRepository(users: MessagingActor[]) {
 
 const alice: MessagingActor = { email: "alice@example.com", id: 1, name: "Alice", uuid: "aaaa" };
 const bob: MessagingActor = { email: "bob@example.com", id: 2, name: "Bob", uuid: "bbbb" };
+const vijay: MessagingActor = { email: "vijay@techmedia.in", id: 3, name: "Vijay", uuid: "vvvv" };
 
 test("conversation creation adds the owner and the invited members", async () => {
   const repository = seedRepository([alice, bob]);
@@ -59,6 +64,32 @@ test("creating the same direct contact conversation returns the existing chat", 
   const duplicate = await service.create({ memberIds: [bob.id], type: "DIRECT" });
   assert.equal(duplicate.id, first.id);
   assert.equal(repository.conversationCount, 1);
+});
+
+test("direct chats open the selected contact and never fall back to another direct chat", async () => {
+  const repository = seedRepository([alice, bob, vijay]);
+  const service = new ConversationService(context(alice), repository);
+  const bobChat = await service.create({ memberIds: [bob.id], type: "DIRECT" });
+  const vijayChat = await service.create({ memberIds: [vijay.id], type: "DIRECT" });
+
+  assert.notEqual(vijayChat.id, bobChat.id);
+  assert.ok(vijayChat.members.some((member) => member.userId === vijay.id));
+  assert.ok(!vijayChat.members.some((member) => member.userId === bob.id));
+});
+
+test("direct chats reject self and multiple-contact requests", async () => {
+  const repository = seedRepository([alice, bob, vijay]);
+  const service = new ConversationService(context(alice), repository);
+
+  await assert.rejects(
+    service.create({ memberIds: [alice.id], type: "DIRECT" }),
+    (error) => error instanceof AppError && error.statusCode === 400
+  );
+  await assert.rejects(
+    service.create({ memberIds: [bob.id, vijay.id], type: "DIRECT" }),
+    (error) => error instanceof AppError && error.statusCode === 400
+  );
+  assert.equal(repository.conversationCount, 0);
 });
 
 test("ordinary members cannot add conversation members", async () => {
@@ -172,4 +203,34 @@ test("structured realtime message metadata persists for tasks and attachments", 
     type: "TASK"
   });
   assert.deepEqual(message.metadata, { command: "task", mentions: [bob.id] });
+});
+
+test("recipient receipts and reactions persist with the message", async () => {
+  const repository = seedRepository([alice, bob]);
+  const conversation = await new ConversationService(context(alice), repository).create({ memberIds: [bob.id], type: "DIRECT" });
+  const sent = await new MessageService(context(alice), repository).send(conversation.id, { clientMessageId: "receipt-1", content: "Please review", type: "TEXT" });
+  assert.equal(sent.receipt.recipientCount, 1);
+  assert.equal(sent.status, "SENT");
+
+  const received = await new MessageService(context(bob), repository).markRead(conversation.id, sent.id);
+  assert.equal(received.status, "READ");
+  const reacted = await new MessageService(context(bob), repository).react(conversation.id, sent.id, "👍");
+  assert.deepEqual(reacted.reactions, [{ emoji: "👍", userId: bob.id, userName: bob.name }]);
+});
+
+test("local message media is stored below its conversation root", async () => {
+  const root = await mkdtemp(join(tmpdir(), "techmedia-media-"));
+  try {
+    const storage = new LocalMessageMediaStorage(root, 1024);
+    const stored = await storage.store(42, {
+      dataUrl: "data:text/plain;base64,SGVsbG8gVGVjaE1lZGlh",
+      name: "welcome.txt",
+      type: "text/plain"
+    });
+    assert.equal(stored.name, "welcome.txt");
+    assert.equal((await storage.read(42, stored.key))?.toString(), "Hello TechMedia");
+    assert.equal(await storage.read(43, stored.key), undefined);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
 });

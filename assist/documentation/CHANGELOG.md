@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.44
+Current version: 1.0.45
 
-Release tag: v-1.0.44
+Release tag: v-1.0.45
 
-Changelog label: v 1.0.44
+Changelog label: v 1.0.45
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,22 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+### TechMe Native Mobile 0.2.0
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Added the Kotlin native TechMe Android application at version 0.2.0.
+- Added encrypted token storage and production session validation.
+- Added the shared messaging REST flow and authenticated WebSocket sync.
+- Added a debug-only emulator endpoint for the local API at `10.0.2.2:7050`.
+- Added native message, calls, and home navigation with system Back support.
+- Added the account dropdown, Sign out action, hamburger menu, and bottom navigation icons.
+- Added mobile permission declarations for contacts, media, camera, microphone, and notifications.
 
 ### Database Changes
 
@@ -24,6 +40,24 @@ New entries must keep database-facing work and application code work separate.
 
 - Added File Manager files and storage connection workspaces.
 - Added mandatory File Manager environment setup and a persistent local-storage volume.
+
+## v-1.0.45
+
+### [v 1.0.45] 2026-08-22 6:36 pm - Mobile messenger and storage fixes
+
+#### Database Changes
+
+- Database update: Yes.
+- Added local message-media storage and isolated File Manager migration storage.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.45.
+- Added persisted messaging attachments with protected media download routes.
+- Fixed inline attachment loading without creating oversized API requests.
+- Fixed mobile reaction updates to use the persisted message state.
+- Fixed development WebSocket cleanup noise and local Vite header handling.
+- Synced the mobile Capacitor bundle and aligned the Android application version.
 
 ## v-1.0.44
 

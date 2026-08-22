@@ -226,6 +226,20 @@ export type MessagesTable = {
   uuid: string;
 };
 
+export type MessageReceiptsTable = {
+  delivered_at: NullableTimestampColumn;
+  message_id: number;
+  read_at: NullableTimestampColumn;
+  user_id: number;
+};
+
+export type MessageReactionsTable = {
+  created_at: TimestampColumn;
+  emoji: string;
+  message_id: number;
+  user_id: number;
+};
+
 export type TechMediaDatabase = {
   ai_honey_messages: AiHoneyMessagesTable;
   ai_honey_settings: AiHoneySettingsTable;
@@ -234,6 +248,8 @@ export type TechMediaDatabase = {
   conversation_members: ConversationMembersTable;
   conversations: ConversationsTable;
   messages: MessagesTable;
+  message_reactions: MessageReactionsTable;
+  message_receipts: MessageReceiptsTable;
   notification_outbox: NotificationOutboxTable;
   notifications: NotificationsTable;
   permissions: PermissionsTable;

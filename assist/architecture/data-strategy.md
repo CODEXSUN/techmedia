@@ -20,6 +20,8 @@ Local tables are limited to:
 - `conversations`
 - `conversation_members`
 - `messages`
+- `message_receipts`
+- `message_reactions`
 - `schema_migrations`
 
 Per-user Frappe credentials and verification metadata are columns on `users`. Application-level
@@ -35,6 +37,10 @@ of truth.
 
 Messaging persists private business conversations and messages. Conversation members reference
 Identity users; messaging does not create a second contact or user directory.
+
+File Manager is an independently versioned package. Its file metadata and migration ledger use the
+dedicated `FILE_MANAGER_DB_NAME` database so its `migration_schema` never overlaps TechMedia's
+application migration records. File payload storage remains provider-configured.
 
 ## CRM
 

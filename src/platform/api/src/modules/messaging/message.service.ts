@@ -4,6 +4,7 @@ import { toMessageDto } from "./messaging.mapper.js";
 import type { MessageDto, MessagingContext } from "./messaging.types.js";
 import type { MessagingRepository, MessageRow } from "./messaging.repositories.js";
 import type { MessageStatus, MessageType } from "../../database/schema.js";
+import type { MessageMediaStorage } from "./message-media-storage.js";
 
 export type SendMessageInput = {
   clientMessageId: string | null;
@@ -18,7 +19,8 @@ export type SendMessageInput = {
 export class MessageService {
   constructor(
     private readonly context: MessagingContext,
-    private readonly repository: MessagingRepository
+    private readonly repository: MessagingRepository,
+    private readonly media?: MessageMediaStorage
   ) {}
 
   /** Persists a message idempotently by client_message_id. The database write
@@ -32,14 +34,15 @@ export class MessageService {
         conversationId,
         input.clientMessageId
       );
-      if (existing) return toMessageDto(existing, await this.sender(existing.sender_id));
+      if (existing) return this.withDetails([existing]).then(([message]) => message!);
     }
+    const metadata = await this.persistAttachment(conversationId, input.metadata ?? {});
     const row = await this.repository.saveMessage({
       client_message_id: input.clientMessageId,
       content: input.content,
       conversation_id: conversationId,
       forwarded_from_message_id: input.forwardedFromMessageId ?? null,
-      metadata: input.metadata ?? {},
+      metadata,
       reply_to_message_id: input.replyToMessageId ?? null,
       sender_id: actor.id,
       thread_id: input.threadId ?? null,
@@ -53,7 +56,9 @@ export class MessageService {
       recordLabel: `conversation:${conversationId}`,
       recordUuid: row.uuid
     });
-    return toMessageDto(row, await this.sender(row.sender_id));
+    const members = await this.repository.listMembers(conversationId);
+    await this.repository.saveMessageReceipts(row.id, members.filter((member) => member.user_id !== actor.id).map((member) => member.user_id));
+    return this.withDetails([row]).then(([message]) => message!);
   }
 
   async list(
@@ -64,7 +69,7 @@ export class MessageService {
     const conversation = await this.repository.findConversationByMember(conversationId, actor.id);
     if (!conversation) throw AppError.notFound("Conversation was not found.");
     const rows = await this.repository.listMessages(conversationId, options);
-    return this.withSenders(rows);
+    return this.withDetails(rows);
   }
 
   /** Offline synchronization: return messages after the last known sequence. */
@@ -77,7 +82,7 @@ export class MessageService {
     const conversation = await this.repository.findConversationByMember(conversationId, actor.id);
     if (!conversation) throw AppError.notFound("Conversation was not found.");
     const rows = await this.repository.messagesAfterSequence(conversationId, afterSequence, limit);
-    return this.withSenders(rows);
+    return this.withDetails(rows);
   }
 
   /** Advances delivery/read state for a single message in a conversation. */
@@ -97,7 +102,7 @@ export class MessageService {
     return message.sequence_number;
   }
 
-  async markRead(conversationId: number, messageId: number): Promise<void> {
+  async markRead(conversationId: number, messageId: number): Promise<MessageDto> {
     const actor = await this.requireActor();
     const member = await this.repository.findMember(conversationId, actor.id);
     if (!member) throw AppError.notFound("Conversation was not found.");
@@ -107,18 +112,56 @@ export class MessageService {
     if (!previous || previous.sequence_number < message.sequence_number) {
       await this.repository.markConversationRead(conversationId, actor.id, messageId);
     }
+    if (message.sender_id !== actor.id) await this.repository.markMessageRead(messageId, actor.id);
+    return this.withDetails([message]).then(([item]) => item!);
   }
 
-  private async withSenders(rows: MessageRow[]): Promise<MessageDto[]> {
+  async react(conversationId: number, messageId: number, emoji: string | null): Promise<MessageDto> {
+    const actor = await this.requireActor();
+    const conversation = await this.repository.findConversationByMember(conversationId, actor.id);
+    const message = await this.repository.findMessageById(messageId);
+    if (!conversation || !message || message.conversation_id !== conversationId) throw AppError.notFound("Message was not found.");
+    if (emoji) await this.repository.setMessageReaction(messageId, actor.id, emoji);
+    else await this.repository.removeMessageReaction(messageId, actor.id);
+    return this.withDetails([message]).then(([item]) => item!);
+  }
+
+  private async withDetails(rows: MessageRow[]): Promise<MessageDto[]> {
     const senderIds = [...new Set(rows.map((row) => row.sender_id))];
     const users = await this.repository.findUsersByIds(senderIds);
     const byId = new Map(users.map((user) => [user.id, user]));
-    return rows.map((row) => toMessageDto(row, byId.get(row.sender_id)));
+    const summaries = await this.repository.listMessageReceiptSummaries(rows.map((row) => row.id));
+    const summaryByMessage = new Map(summaries.map((summary) => [summary.messageId, summary]));
+    const reactionRows = await this.repository.listMessageReactions(rows.map((row) => row.id));
+    const reactions = new Map<number, Array<{ emoji: string; userId: number; userName: string }>>();
+    for (const reaction of reactionRows) {
+      const items = reactions.get(reaction.message_id) ?? [];
+      items.push({ emoji: reaction.emoji, userId: reaction.user_id, userName: reaction.user_name });
+      reactions.set(reaction.message_id, items);
+    }
+    return rows.map((row) => {
+      const summary = summaryByMessage.get(row.id);
+      return toMessageDto(row, byId.get(row.sender_id), summary ?? { deliveredCount: 0, readCount: 0, recipientCount: 0 }, reactions.get(row.id) ?? []);
+    });
   }
 
-  private async sender(userId: number) {
-    const [user] = await this.repository.findUsersByIds([userId]);
-    return user;
+  private async persistAttachment(conversationId: number, metadata: Record<string, unknown>) {
+    const raw = metadata.attachment;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return metadata;
+    const attachment = raw as Record<string, unknown>;
+    if (typeof attachment.dataUrl !== "string" || typeof attachment.name !== "string" || typeof attachment.type !== "string") return metadata;
+    if (!this.media) throw AppError.conflict("Message media storage is not configured.");
+    const stored = await this.media.store(conversationId, { dataUrl: attachment.dataUrl, name: attachment.name, type: attachment.type });
+    return {
+      ...metadata,
+      attachment: {
+        contentType: stored.contentType,
+        key: stored.key,
+        name: stored.name,
+        size: stored.size,
+        url: `/messaging/conversations/${conversationId}/media/${stored.key}`
+      }
+    };
   }
 
   private async requireActor() {

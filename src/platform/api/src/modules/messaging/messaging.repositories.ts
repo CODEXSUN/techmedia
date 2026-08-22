@@ -58,6 +58,8 @@ export type MessageRow = {
 };
 
 export type UserReferenceRow = { email: string; id: number; name: string };
+export type MessageReceiptSummary = { deliveredCount: number; messageId: number; readCount: number; recipientCount: number };
+export type MessageReactionRow = { emoji: string; message_id: number; user_id: number; user_name: string };
 
 export type NewConversationInput = {
   avatar: string | null;
@@ -101,6 +103,8 @@ export interface MessagingRepository {
   findLastMessage(conversationId: number): Promise<MessageRow | undefined>;
   findUsersByIds(ids: number[]): Promise<UserReferenceRow[]>;
   findUsersForMessaging(search: string, excludeUserId: number, limit: number): Promise<UserReferenceRow[]>;
+  listMessageReceiptSummaries(messageIds: number[]): Promise<MessageReceiptSummary[]>;
+  listMessageReactions(messageIds: number[]): Promise<MessageReactionRow[]>;
   listConversationsForUser(userId: number): Promise<ConversationRow[]>;
   listMembers(conversationId: number): Promise<ConversationMemberRow[]>;
   listMessages(
@@ -115,7 +119,12 @@ export interface MessagingRepository {
     limit: number
   ): Promise<MessageRow[]>;
   saveMessage(input: NewMessageInput): Promise<MessageRow>;
+  saveMessageReceipts(messageId: number, recipientIds: number[]): Promise<void>;
   setMessageStatus(id: number, status: MessageStatus): Promise<void>;
+  setMessageReaction(messageId: number, userId: number, emoji: string): Promise<void>;
+  removeMessageReaction(messageId: number, userId: number): Promise<void>;
+  markMessageDelivered(messageId: number, userId: number): Promise<void>;
+  markMessageRead(messageId: number, userId: number): Promise<void>;
 }
 
 export class KyselyMessagingRepository implements MessagingRepository {
@@ -253,6 +262,20 @@ export class KyselyMessagingRepository implements MessagingRepository {
       .execute();
   }
 
+  async listMessageReceiptSummaries(messageIds: number[]) {
+    if (!messageIds.length) return [];
+    const rows = await this.database.selectFrom("message_receipts").select(["message_id", "delivered_at", "read_at"]).where("message_id", "in", messageIds).execute();
+    return messageIds.map((messageId) => {
+      const receipts = rows.filter((row) => row.message_id === messageId);
+      return { deliveredCount: receipts.filter((row) => row.delivered_at !== null).length, messageId, readCount: receipts.filter((row) => row.read_at !== null).length, recipientCount: receipts.length };
+    });
+  }
+
+  async listMessageReactions(messageIds: number[]) {
+    if (!messageIds.length) return [];
+    return this.database.selectFrom("message_reactions as r").innerJoin("users as u", "u.id", "r.user_id").select(["r.emoji", "r.message_id", "r.user_id", "u.name as user_name"]).where("r.message_id", "in", messageIds).execute();
+  }
+
   async saveMessage(input: NewMessageInput) {
     const created = await this.database.transaction().execute(async (trx) => {
       const counter = await trx
@@ -305,6 +328,16 @@ export class KyselyMessagingRepository implements MessagingRepository {
       .execute();
   }
 
+  async saveMessageReceipts(messageId: number, recipientIds: number[]) {
+    if (!recipientIds.length) return;
+    await this.database.insertInto("message_receipts").ignore().values(recipientIds.map((user_id) => ({ message_id: messageId, user_id, delivered_at: null, read_at: null }))).execute();
+  }
+
+  async markMessageDelivered(messageId: number, userId: number) { await this.database.updateTable("message_receipts").set({ delivered_at: new Date() }).where("message_id", "=", messageId).where("user_id", "=", userId).where("delivered_at", "is", null).execute(); }
+  async markMessageRead(messageId: number, userId: number) { await this.database.updateTable("message_receipts").set({ delivered_at: new Date(), read_at: new Date() }).where("message_id", "=", messageId).where("user_id", "=", userId).execute(); }
+  async setMessageReaction(messageId: number, userId: number, emoji: string) { await this.database.insertInto("message_reactions").values({ message_id: messageId, user_id: userId, emoji }).onDuplicateKeyUpdate({ emoji, created_at: new Date() }).execute(); }
+  async removeMessageReaction(messageId: number, userId: number) { await this.database.deleteFrom("message_reactions").where("message_id", "=", messageId).where("user_id", "=", userId).execute(); }
+
   async findUsersByIds(ids: number[]) {
     if (!ids.length) return [];
     return this.database
@@ -354,6 +387,8 @@ export class InMemoryMessagingRepository implements MessagingRepository {
   private conversations: ConversationRow[] = [];
   private members: ConversationMemberRow[] = [];
   private messages: MessageRow[] = [];
+  private receipts: Array<{ delivered_at: Date | null; message_id: number; read_at: Date | null; user_id: number }> = [];
+  private reactions: MessageReactionRow[] = [];
   private users: UserReferenceRow[] = [];
   private nextConversationId = 1;
   private nextMemberId = 1;
@@ -498,6 +533,15 @@ export class InMemoryMessagingRepository implements MessagingRepository {
       .map((item) => ({ ...item }));
   }
 
+  async listMessageReceiptSummaries(messageIds: number[]) {
+    return messageIds.map((messageId) => {
+      const receipts = this.receipts.filter((row) => row.message_id === messageId);
+      return { deliveredCount: receipts.filter((row) => row.delivered_at !== null).length, messageId, readCount: receipts.filter((row) => row.read_at !== null).length, recipientCount: receipts.length };
+    });
+  }
+
+  async listMessageReactions(messageIds: number[]) { return this.reactions.filter((row) => messageIds.includes(row.message_id)).map((row) => ({ ...row })); }
+
   async saveMessage(input: NewMessageInput) {
     const saved = await this.serialize(async () => {
       const conversation = this.conversations.find((item) => item.id === input.conversation_id);
@@ -536,6 +580,12 @@ export class InMemoryMessagingRepository implements MessagingRepository {
     const row = this.messages.find((item) => item.id === id);
     if (row) row.status = status;
   }
+
+  async saveMessageReceipts(messageId: number, recipientIds: number[]) { for (const user_id of recipientIds) if (!this.receipts.some((row) => row.message_id === messageId && row.user_id === user_id)) this.receipts.push({ delivered_at: null, message_id: messageId, read_at: null, user_id }); }
+  async markMessageDelivered(messageId: number, userId: number) { const row = this.receipts.find((receipt) => receipt.message_id === messageId && receipt.user_id === userId); if (row && !row.delivered_at) row.delivered_at = new Date(); }
+  async markMessageRead(messageId: number, userId: number) { const row = this.receipts.find((receipt) => receipt.message_id === messageId && receipt.user_id === userId); if (row) { row.delivered_at ??= new Date(); row.read_at = new Date(); } }
+  async setMessageReaction(messageId: number, userId: number, emoji: string) { const user = this.users.find((candidate) => candidate.id === userId); const existing = this.reactions.find((reaction) => reaction.message_id === messageId && reaction.user_id === userId); if (existing) existing.emoji = emoji; else this.reactions.push({ emoji, message_id: messageId, user_id: userId, user_name: user?.name ?? `User ${userId}` }); }
+  async removeMessageReaction(messageId: number, userId: number) { this.reactions = this.reactions.filter((reaction) => reaction.message_id !== messageId || reaction.user_id !== userId); }
 
   async findUsersByIds(ids: number[]) {
     const wanted = new Set(ids);

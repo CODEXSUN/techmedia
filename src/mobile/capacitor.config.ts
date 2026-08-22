@@ -1,6 +1,8 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 import { KeyboardResize } from "@capacitor/keyboard";
 
+const localAndroidApi = /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(?::\d+)?(?:\/|$)/u.test(process.env.VITE_MOBILE_API_URL ?? "");
+
 const config: CapacitorConfig = {
   appId: "in.techmedia.mobile",
   appName: "TechMedia",
@@ -16,7 +18,8 @@ const config: CapacitorConfig = {
     },
     SystemBars: { insetsHandling: "disable" },
     StatusBar: { backgroundColor: "#f8fafc", style: "LIGHT" }
-  }
+  },
+  ...(localAndroidApi ? { server: { androidScheme: "http" } } : {})
 };
 
 export default config;

@@ -8,6 +8,7 @@ import { messageDtoSchema, messagingContext, messageTypeValues } from "./messagi
 import type { MessagingRepository } from "./messaging.repositories.js";
 import type { RealtimeBus } from "./realtime-bus.js";
 import { realtimeFrame } from "./realtime-gateway.js";
+import type { MessageMediaStorage } from "./message-media-storage.js";
 
 const memberRecord = z.object({
   conversationId: z.number().int().positive(),
@@ -75,11 +76,14 @@ const sendBody = z
   })
   .strict();
 const readBody = z.object({ messageId: z.number().int().positive() }).strict();
+const reactionBody = z.object({ emoji: z.string().trim().min(1).max(32).nullable() }).strict();
+const messageParams = z.object({ id: z.coerce.number().int().positive(), messageId: z.coerce.number().int().positive() });
 
 export function registerMessagingRoutes(
   app: FastifyInstance,
   repository: MessagingRepository,
-  bus: RealtimeBus
+  bus: RealtimeBus,
+  media: MessageMediaStorage
 ): void {
   registerContractRoute(app, {
     method: "GET",
@@ -94,8 +98,22 @@ export function registerMessagingRoutes(
     schemas: { body: readBody, params, response: z.object({ messageId: z.number().int().positive() }) },
     handler: async ({ body, params, request }) => {
       const service = new MessageService(messagingContext(request), repository);
-      await service.markRead(params.id, body.messageId);
+      const message = await service.markRead(params.id, body.messageId);
+      const actor = await messagingContext(request).actorUser();
+      const members = await repository.listMembers(params.id);
+      if (actor) bus.publishToConversation(members.map((member) => member.user_id), params.id, realtimeFrame("message.updated", { conversationId: params.id, message, userId: actor.id }));
       return { messageId: body.messageId };
+    }
+  });
+  registerContractRoute(app, {
+    method: "POST",
+    url: "/messaging/conversations/:id/messages/:messageId/reaction",
+    schemas: { body: reactionBody, params: messageParams, response: messageDtoSchema },
+    handler: async ({ body, params, request }) => {
+      const message = await new MessageService(messagingContext(request), repository).react(params.id, params.messageId, body.emoji);
+      const members = await repository.listMembers(params.id);
+      bus.publishToConversation(members.map((member) => member.user_id), params.id, realtimeFrame(body.emoji ? "reaction.created" : "reaction.deleted", { conversationId: params.id, message }));
+      return message;
     }
   });
   registerContractRoute(app, {
@@ -135,17 +153,18 @@ export function registerMessagingRoutes(
     url: "/messaging/conversations/:id/messages",
     schemas: { params, querystring: messagesQuery, response: z.array(messageDtoSchema) },
     handler: ({ params, query, request }) =>
-      new MessageService(messagingContext(request), repository).list(params.id, {
+      new MessageService(messagingContext(request), repository, media).list(params.id, {
         ...(query.beforeSequence !== undefined ? { beforeSequence: query.beforeSequence } : {}),
         limit: query.limit
       })
   });
   registerContractRoute(app, {
+    bodyLimit: 14 * 1024 * 1024,
     method: "POST",
     url: "/messaging/conversations/:id/messages",
     schemas: { body: sendBody, params, response: messageDtoSchema },
     handler: async ({ body, params, request }) => {
-      const message = await new MessageService(messagingContext(request), repository).send(
+      const message = await new MessageService(messagingContext(request), repository, media).send(
         params.id,
         body
       );
@@ -159,4 +178,22 @@ export function registerMessagingRoutes(
       return message;
     }
   });
+  app.get("/messaging/conversations/:id/media/:key", async (request, reply) => {
+    const parsed = z.object({ id: z.coerce.number().int().positive(), key: z.string().trim().min(1).max(60) }).safeParse(request.params);
+    if (!parsed.success) throw AppError.notFound("Attachment was not found.");
+    const actor = await messagingContext(request).actorUser();
+    if (!actor || !await repository.findConversationByMember(parsed.data.id, actor.id)) throw AppError.notFound("Attachment was not found.");
+    const bytes = await media.read(parsed.data.id, parsed.data.key);
+    if (!bytes) throw AppError.notFound("Attachment was not found.");
+    const message = (await new MessageService(messagingContext(request), repository, media).list(parsed.data.id, { limit: 100_000 })).find((item) => attachmentKey(item.metadata) === parsed.data.key);
+    if (!message) throw AppError.notFound("Attachment was not found.");
+    const query = request.query as { download?: string };
+    reply.header("content-disposition", `${query.download === "1" ? "attachment" : "inline"}; filename="${safeFileName(message.metadata.attachment)}"`);
+    reply.type(attachmentType(message.metadata.attachment));
+    return reply.send(bytes);
+  });
 }
+
+function attachmentKey(value: Record<string, unknown>) { const attachment = value.attachment; return attachment && typeof attachment === "object" && !Array.isArray(attachment) && typeof (attachment as Record<string, unknown>).key === "string" ? (attachment as Record<string, unknown>).key : ""; }
+function attachmentType(value: unknown) { return value && typeof value === "object" && !Array.isArray(value) && typeof (value as Record<string, unknown>).contentType === "string" ? (value as Record<string, unknown>).contentType as string : "application/octet-stream"; }
+function safeFileName(value: unknown) { return value && typeof value === "object" && !Array.isArray(value) && typeof (value as Record<string, unknown>).name === "string" ? String((value as Record<string, unknown>).name).replace(/"/gu, "_") : "attachment"; }

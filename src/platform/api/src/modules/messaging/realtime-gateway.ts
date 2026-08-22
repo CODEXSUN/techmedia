@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { AppError } from "@codexsun/framework/errors";
 import type { ConnectionManager, RealtimeConnection } from "./connection-manager.js";
 import { MessageService } from "./message.service.js";
+import type { MessageMediaStorage } from "./message-media-storage.js";
 import type { RealtimeBus } from "./realtime-bus.js";
 import type { MessagingRepository } from "./messaging.repositories.js";
 import type { MessagingActor, MessagingContext } from "./messaging.types.js";
@@ -18,6 +19,7 @@ export type RealtimeGatewayDependencies = {
   actorFromToken: (token: string) => Promise<MessagingActor | undefined>;
   bus: RealtimeBus;
   manager: ConnectionManager;
+  media?: MessageMediaStorage;
   repository: MessagingRepository;
 };
 
@@ -169,7 +171,7 @@ export class RealtimeGateway {
       }),
       authorize: async () => {}
     };
-    return new MessageService(context, this.deps.repository);
+    return new MessageService(context, this.deps.repository, this.deps.media);
   }
 
   private async memberIds(conversationId: number): Promise<number[]> {

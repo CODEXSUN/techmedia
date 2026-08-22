@@ -1,15 +1,19 @@
 # TechMedia Mobile
 
-TechMedia Mobile is the Capacitor host for the shared TechMedia React application. Mobile-only
-code stays in this workspace:
+TechMedia Mobile is a fresh Ionic React and Capacitor application. It owns its mobile-first
+screens, navigation, gestures, and Tailwind-based visual system. It consumes shared TechMedia
+authentication and API contracts, but it does not render the desktop web application.
+
+Mobile runtime code stays in this workspace:
 
 - `src/auth`: encrypted native session persistence.
 - `src/runtime`: Capacitor lifecycle, keyboard, status bar, splash, and Android back handling.
+- `src/app`: Ionic mobile application composition and feature shells.
 - `src/ui`: phone-only controls and safe-area presentation.
 - `android` and `ios`: generated native projects owned by this application.
 
-The feature modules, permissions, routes, and API contracts remain owned by `src/platform/web` and
-`src/platform/api`. Do not duplicate CRM, HR, Estimate, Quotation, Identity, or Honey modules here.
+The Fastify API remains the backend. API contracts and authorization rules remain shared; mobile UI
+modules are implemented here and do not duplicate backend ownership.
 
 ## Configuration
 

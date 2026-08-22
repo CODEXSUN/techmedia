@@ -116,6 +116,8 @@ export type MessageDto = {
   type: MessageType;
   updatedAt: string;
   uuid: string;
+  receipt: { deliveredCount: number; readCount: number; recipientCount: number };
+  reactions: Array<{ emoji: string; userId: number; userName: string }>;
 };
 
 /** Strongly typed envelope shared by every client and server realtime frame. */
@@ -213,4 +215,6 @@ export const messageDtoSchema = z.object({
   type: z.enum(messageTypeValues),
   updatedAt: z.iso.datetime(),
   uuid: z.string()
+  ,receipt: z.object({ deliveredCount: z.number().int().nonnegative(), readCount: z.number().int().nonnegative(), recipientCount: z.number().int().nonnegative() })
+  ,reactions: z.array(z.object({ emoji: z.string(), userId: z.number().int().positive(), userName: z.string() }))
 });

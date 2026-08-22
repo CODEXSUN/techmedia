@@ -8,13 +8,14 @@ import { NewConversationComposer } from "./messaging.composer";
 import { ThreadComposer } from "./messaging.thread-composer";
 import { ConversationList, conversationTitle, MessageBubble, ThreadHeader } from "./messaging.view";
 import { useMessagingConversationsQuery, useMessagesQuery } from "./messaging.hooks";
-import { createConversation, markConversationRead, sendMessage } from "./messaging.services";
+import { createConversation, markConversationRead, reactToMessage, sendMessage } from "./messaging.services";
 import type { Conversation, Message, MessageType } from "./messaging.types";
 
 export function MessagingWorkspace({ actorEmail }: { actorEmail: string }) {
   const conversations = useMessagingConversationsQuery();
   const [activeId, setActiveId] = useState<number | null>(null);
   const [composing, setComposing] = useState(false);
+  const [openingConversation, setOpeningConversation] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [search, setSearch] = useState("");
   const [messagesByConversation, setMessagesByConversation] = useState<Record<number, Message[]>>({});
@@ -29,8 +30,10 @@ export function MessagingWorkspace({ actorEmail }: { actorEmail: string }) {
   );
 
   useEffect(() => {
-    if (activeId === null && !composing && conversations.data?.[0]) setActiveId(conversations.data[0].id);
-  }, [activeId, composing, conversations.data]);
+    if (activeId === null && !composing && !openingConversation && conversations.data?.[0]) {
+      setActiveId(conversations.data[0].id);
+    }
+  }, [activeId, composing, conversations.data, openingConversation]);
 
   return (
     <WorkspacePage className="!w-full !max-w-none !space-y-0 !py-0" technicalName="page.messaging.inbox" title="">
@@ -39,11 +42,16 @@ export function MessagingWorkspace({ actorEmail }: { actorEmail: string }) {
           {composing ? (
             <NewConversationComposer
               onCancel={() => setComposing(false)}
-              onCreated={(id) => {
+              onCreated={async (id) => {
                 setComposing(false);
-                setActiveId(id);
+                setOpeningConversation(true);
                 setSidebarOpen(false);
-                void conversations.refetch();
+                try {
+                  const result = await conversations.refetch();
+                  if (result.data?.some((conversation) => conversation.id === id)) setActiveId(id);
+                } finally {
+                  setOpeningConversation(false);
+                }
               }}
             />
           ) : (
@@ -73,6 +81,7 @@ function Thread({ actorEmail, conversation, initialMessages, onBack, onMessagesC
   const [searchOpen, setSearchOpen] = useState(false);
   const [messageSearch, setMessageSearch] = useState("");
   const messagesRef = useRef(initialMessages);
+  const lastReadMessageRef = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<MessagingClient | null>(null);
   const history = useMessagesQuery(conversation.id);
@@ -84,51 +93,58 @@ function Thread({ actorEmail, conversation, initialMessages, onBack, onMessagesC
   useEffect(() => { setSearchOpen(false); setMessageSearch(""); }, [conversation.id]);
   useEffect(() => { messagesRef.current = initialMessages; bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [initialMessages]);
   useEffect(() => { if (history.data) onMessagesChange(conversation.id, mergeMessages(messagesRef.current, history.data)); }, [conversation.id, history.data, onMessagesChange]);
-  useEffect(() => { const last = initialMessages.at(-1); if (last && last.senderEmail !== actorEmail) void markConversationRead(conversation.id, last.id).then(onRead); }, [actorEmail, conversation.id, initialMessages, onRead]);
   useEffect(() => {
-    const client = new MessagingClient({ onMessageCreated: (message, id) => { if (id === conversation.id) onMessagesChange(conversation.id, mergeMessages(messagesRef.current, [message])); }, onStatusChange: setStatus, onSyncCompleted: ({ conversationId, messages }) => { if (conversationId === conversation.id) onMessagesChange(conversation.id, mergeMessages(messagesRef.current, messages)); } });
+    const last = initialMessages.at(-1);
+    if (!last || last.senderEmail === actorEmail) return;
+    const readKey = `${conversation.id}:${last.id}`;
+    if (lastReadMessageRef.current === readKey) return;
+    lastReadMessageRef.current = readKey;
+    void markConversationRead(conversation.id, last.id).then(onRead).catch(() => {
+      lastReadMessageRef.current = null;
+    });
+  }, [actorEmail, conversation.id, initialMessages, onRead]);
+  useEffect(() => {
+    const client = new MessagingClient({ onMessageChanged: (message, id) => { if (id === conversation.id) onMessagesChange(conversation.id, mergeMessages(messagesRef.current, [message])); }, onMessageCreated: (message, id) => { if (id === conversation.id) onMessagesChange(conversation.id, mergeMessages(messagesRef.current, [message])); }, onStatusChange: setStatus, onSyncCompleted: ({ conversationId, messages }) => { if (conversationId === conversation.id) onMessagesChange(conversation.id, mergeMessages(messagesRef.current, messages)); } });
     clientRef.current = client;
     client.subscribe(conversation.id);
     client.requestSync(conversation.id, messagesRef.current.at(-1)?.sequenceNumber ?? 0);
     return () => { clientRef.current = null; client.close(); };
   }, [conversation.id, onMessagesChange]);
-  const submit = async (content: string, type: MessageType, metadata: Record<string, unknown>) => {
+  const submit = async (content: string, type: MessageType, metadata: Record<string, unknown>, replyToMessageId?: number) => {
     const clientMessageId = crypto.randomUUID();
+    const deliveryMetadata = enrichMentionDelivery(conversation, metadata);
     if (clientRef.current?.isOpen) {
-      clientRef.current.sendMessage(conversation.id, clientMessageId, content, type, metadata);
-      await forwardToMentionedUsers(conversation, content, type, metadata);
+      clientRef.current.sendMessage(conversation.id, clientMessageId, content, type, deliveryMetadata, replyToMessageId);
+      await forwardToMentionedUsers(conversation, content, type, deliveryMetadata);
       onRead();
       return true;
     }
-    try { const message = await sendMessage(conversation.id, { clientMessageId, content, metadata, type }); onMessagesChange(conversation.id, mergeMessages(messagesRef.current, [message])); await forwardToMentionedUsers(conversation, content, type, metadata); onRead(); return true; }
+    try { const message = await sendMessage(conversation.id, { clientMessageId, content, metadata: deliveryMetadata, ...(replyToMessageId ? { replyToMessageId } : {}), type }); onMessagesChange(conversation.id, mergeMessages(messagesRef.current, [message])); await forwardToMentionedUsers(conversation, content, type, deliveryMetadata); onRead(); return true; }
     catch { return false; }
   };
-  return <><ThreadHeader actorEmail={actorEmail} conversation={conversation} onBack={onBack} onSearch={() => setSearchOpen(true)} status={status} />{searchOpen ? <ThreadSearch count={visibleMessages.length} onChange={setMessageSearch} onClose={() => { setSearchOpen(false); setMessageSearch(""); }} value={messageSearch} /> : null}<div aria-live="polite" className="flex-1 space-y-1 overflow-y-auto bg-muted/20 p-4 md:p-6">{history.isLoading && !initialMessages.length ? <p className="text-center text-sm text-muted-foreground">Loading messages…</p> : null}{messageSearch.trim() && !visibleMessages.length ? <p className="py-12 text-center text-sm text-muted-foreground">No matching messages</p> : null}{visibleMessages.map((message, index) => <Fragment key={message.id}>{startsNewDay(message, visibleMessages[index - 1]) ? <DateSeparator value={message.createdAt} /> : null}<MessageBubble message={message} mine={message.senderEmail === actorEmail} /></Fragment>)}<div ref={bottomRef} /></div><ThreadComposer onSend={submit} /></>;
+  return <><ThreadHeader actorEmail={actorEmail} conversation={conversation} onBack={onBack} onSearch={() => setSearchOpen(true)} status={status} />{searchOpen ? <ThreadSearch count={visibleMessages.length} onChange={setMessageSearch} onClose={() => { setSearchOpen(false); setMessageSearch(""); }} value={messageSearch} /> : null}<div aria-live="polite" className="flex-1 space-y-1 overflow-y-auto bg-muted/20 p-4 md:p-6">{history.isLoading && !initialMessages.length ? <p className="text-center text-sm text-muted-foreground">Loading messages…</p> : null}{messageSearch.trim() && !visibleMessages.length ? <p className="py-12 text-center text-sm text-muted-foreground">No matching messages</p> : null}{visibleMessages.map((message, index) => <Fragment key={message.id}>{startsNewDay(message, visibleMessages[index - 1]) ? <DateSeparator value={message.createdAt} /> : null}<MessageBubble message={message} mine={message.senderEmail === actorEmail} onReact={(emoji) => void reactToMessage(conversation.id, message.id, emoji).then((updated) => onMessagesChange(conversation.id, mergeMessages(messagesRef.current, [updated]))) } /></Fragment>)}<div ref={bottomRef} /></div><ThreadComposer onSend={submit} /></>;
 }
 
 async function forwardToMentionedUsers(conversation: Conversation, content: string, type: MessageType, metadata: Record<string, unknown>) {
   const mentionedIds = Array.isArray(metadata.mentions) ? metadata.mentions.filter((value): value is number => Number.isInteger(value) && value > 0) : [];
-  const mentionNames = Array.isArray(metadata.mentionNames) ? metadata.mentionNames.filter((value): value is string => typeof value === "string") : [];
   const directMemberIds = conversation.type === "DIRECT" ? new Set(conversation.members.map((member) => member.userId)) : new Set<number>();
   const recipients = [...new Set(mentionedIds)].filter((userId) => !directMemberIds.has(userId));
-  const forwardedContent = withoutMentionLabels(content, mentionNames) || "Mentioned you";
   await Promise.allSettled(recipients.map(async (userId) => {
     const directConversation = await createConversation({ memberIds: [userId], title: null, type: "DIRECT" });
     await sendMessage(directConversation.id, {
       clientMessageId: crypto.randomUUID(),
-      content: forwardedContent,
-      metadata: { ...metadata, mentionForwardedFromConversationId: conversation.id },
+      content,
+      metadata: { ...metadata, mentionForwardedFromConversationId: conversation.id, mentionDelivery: true },
       type
     });
   }));
 }
 
-function withoutMentionLabels(content: string, names: string[]) {
-  return names.reduce((value, name) => value.replace(new RegExp(`@${escapeRegExp(name)}\\s*`, "giu"), ""), content).trim();
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+function enrichMentionDelivery(conversation: Conversation, metadata: Record<string, unknown>) {
+  if (conversation.type !== "DIRECT") return metadata;
+  const names = Array.isArray(metadata.mentionNames) ? metadata.mentionNames.filter((value): value is string => typeof value === "string") : [];
+  if (!names.length) return metadata;
+  return { ...metadata, deliveryRecipients: [...new Set([...conversation.members.map((member) => member.userName), ...names])] };
 }
 
 function EmptyState() { return <div className="flex h-full min-h-[620px] flex-1 items-center justify-center bg-muted/10"><span className="grid size-16 place-items-center rounded-full bg-primary/10 text-primary"><MessageSquareText className="size-8" /></span></div>; }
