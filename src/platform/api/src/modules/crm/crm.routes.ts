@@ -6,6 +6,7 @@ import type { PlatformModuleDependencies } from "../../module-dependencies.js";
 import { CrmService } from "./crm.service.js";
 
 const path = "/crm/enquiries";
+const mobileJobsPath = "/mobile/crm/jobs";
 const priority = z.enum(["low", "normal", "high", "urgent"]);
 const status = z.enum([
   "new",
@@ -140,6 +141,20 @@ const query = z.object({
   toDate: z.iso.date().optional(),
   view: z.enum(["all", "assigned", "created", "open"])
 });
+const mobileJobsQuery = z.object({
+  status: z.enum(["active", "closed", "in-progress"])
+});
+const mobileCommentPayload = z.object({
+  comment: z.string().trim().min(1).max(10_000)
+});
+const mobileCallCapturePayload = z.object({
+  customerName: z.string().trim().max(220),
+  direction: z.enum(["incoming", "outgoing"]),
+  durationSeconds: z.number().int().nonnegative().max(86_400),
+  message: z.string().trim().min(1).max(10_000),
+  mobile: z.string().regex(/^\d{10}$/u, "Mobile must contain exactly 10 numeric digits."),
+  occurredAt: z.iso.datetime()
+});
 const customerReferenceQuery = z.object({
   search: z.string().trim().max(140).optional()
 });
@@ -198,6 +213,7 @@ export async function registerCrmRoutes(
   frappeLiveEnquiryGateway: PlatformModuleDependencies["frappeLiveEnquiryGateway"],
   notificationPublisher: PlatformModuleDependencies["notificationPublisher"]
 ) {
+  registerMobileJobRoutes(app, service);
   registerContractRoute(app, {
     method: "GET",
     url: path,
@@ -359,4 +375,47 @@ export async function registerCrmRoutes(
       notificationPublisher
     );
   }
+}
+
+function registerMobileJobRoutes(
+  app: FastifyInstance,
+  service: (request: Parameters<typeof identityContext>[0]) => Promise<CrmService>
+) {
+  registerContractRoute(app, {
+    method: "POST",
+    url: "/mobile/crm/call-enquiries",
+    schemas: { body: mobileCallCapturePayload, response: record },
+    handler: async ({ body, request }) => (await service(request)).captureMobileCall(body)
+  });
+  registerContractRoute(app, {
+    method: "GET",
+    url: mobileJobsPath,
+    schemas: { querystring: mobileJobsQuery, response: z.array(record) },
+    handler: async ({ query, request }) => (await service(request)).list({ status: query.status, view: "assigned" })
+  });
+  registerContractRoute(app, {
+    method: "GET",
+    url: `${mobileJobsPath}/summary`,
+    schemas: { response: overview },
+    handler: async ({ request }) => (await service(request)).overview()
+  });
+  registerContractRoute(app, {
+    method: "POST",
+    url: `${mobileJobsPath}/:id/comments`,
+    schemas: { body: mobileCommentPayload, params, response: record },
+    handler: async ({ body, params, request }) =>
+      (await service(request)).addMessage(params.id, { comment: body.comment, messageType: "comment" })
+  });
+  registerContractRoute(app, {
+    method: "POST",
+    url: `${mobileJobsPath}/:id/start`,
+    schemas: { params, response: record },
+    handler: async ({ params, request }) => (await service(request)).startJob(params.id)
+  });
+  registerContractRoute(app, {
+    method: "POST",
+    url: `${mobileJobsPath}/:id/jobs/:jobName/stop`,
+    schemas: { params: jobParams, response: record },
+    handler: async ({ params, request }) => (await service(request)).stopJob(params.id, params.jobName)
+  });
 }

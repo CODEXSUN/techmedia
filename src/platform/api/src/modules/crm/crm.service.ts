@@ -6,6 +6,7 @@ import type {
   CrmCustomerReference,
   CrmEnquiry,
   CrmEnquiryListFilters,
+  CrmMobileCallCapturePayload,
   CrmEnquiryMobileMatch,
   CrmEnquiryMessageCreatePayload,
   CrmEnquiryOverview,
@@ -178,6 +179,26 @@ export class CrmService {
     const mapped = await this.map(record);
     await this.notify(mapped, "assignment", "New call assigned");
     return mapped;
+  }
+
+  async captureMobileCall(input: CrmMobileCallCapturePayload) {
+    const callTime = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" }).format(new Date(input.occurredAt));
+    const direction = input.direction === "incoming" ? "Incoming" : "Outgoing";
+    const duration = formatCallDuration(input.durationSeconds);
+    const customer = input.customerName.trim();
+    return this.create({
+      assignedToUserId: null,
+      customer: "",
+      enquiryDate: input.occurredAt.slice(0, 10),
+      enquiryGroup: "Calls",
+      messages: [{ comment: `Call: ${direction} · ${callTime} · ${duration}\n\nCustomer request:\n${input.message.trim()}` }],
+      mobile: input.mobile,
+      priority: "normal",
+      schedules: [],
+      status: "new",
+      title: customer ? `${direction} call - ${customer}` : `${direction} call - ${input.mobile}`,
+      workspace: input.message.trim()
+    });
   }
 
   async update(name: string, input: CrmEnquirySavePayload) {
@@ -535,6 +556,12 @@ function toLivePayload(input: CrmEnquirySavePayload) {
     status: input.status,
     title: input.title.trim() || titleFromWorkspace(input.workspace)
   };
+}
+
+function formatCallDuration(durationSeconds: number) {
+  const minutes = Math.floor(durationSeconds / 60);
+  const seconds = durationSeconds % 60;
+  return minutes ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
 function employeeReference(employee: {

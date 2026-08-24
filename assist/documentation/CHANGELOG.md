@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.45
+Current version: 1.0.46
 
-Release tag: v-1.0.45
+Release tag: v-1.0.46
 
-Changelog label: v 1.0.45
+Changelog label: v 1.0.46
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -40,6 +40,22 @@ New entries must keep database-facing work and application code work separate.
 
 - Added File Manager files and storage connection workspaces.
 - Added mandatory File Manager environment setup and a persistent local-storage volume.
+
+## v-1.0.46
+
+### [v 1.0.46] 2026-08-22 7:19 pm - Mobile CRM gateway and delivery updates
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository and Android application version to 1.0.46.
+- Added the authenticated mobile CRM gateway so mobile calls TechMedia Node APIs, never Frappe directly.
+- Added the My Jobs mobile workspace with assigned-job filters, live activity, comments, and job start or stop actions.
+- Improved mobile message receipt synchronization and read-status presentation.
+- Simplified mobile workspace headers and reserved a stable system-status inset to prevent top-content overlap.
 
 ## v-1.0.45
 

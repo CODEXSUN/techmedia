@@ -102,7 +102,7 @@ export class MessageService {
     return message.sequence_number;
   }
 
-  async markRead(conversationId: number, messageId: number): Promise<MessageDto> {
+  async markRead(conversationId: number, messageId: number): Promise<{ message: MessageDto; updated: MessageDto[] }> {
     const actor = await this.requireActor();
     const member = await this.repository.findMember(conversationId, actor.id);
     if (!member) throw AppError.notFound("Conversation was not found.");
@@ -112,8 +112,13 @@ export class MessageService {
     if (!previous || previous.sequence_number < message.sequence_number) {
       await this.repository.markConversationRead(conversationId, actor.id, messageId);
     }
-    if (message.sender_id !== actor.id) await this.repository.markMessageRead(messageId, actor.id);
-    return this.withDetails([message]).then(([item]) => item!);
+    const updatedRows = await this.repository.markMessagesReadThrough(
+      conversationId,
+      actor.id,
+      message.sequence_number
+    );
+    const updated = await this.withDetails(updatedRows);
+    return { message: updated.find((item) => item.id === message.id)!, updated };
   }
 
   async react(conversationId: number, messageId: number, emoji: string | null): Promise<MessageDto> {

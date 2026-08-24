@@ -98,10 +98,18 @@ export function registerMessagingRoutes(
     schemas: { body: readBody, params, response: z.object({ messageId: z.number().int().positive() }) },
     handler: async ({ body, params, request }) => {
       const service = new MessageService(messagingContext(request), repository);
-      const message = await service.markRead(params.id, body.messageId);
+      const result = await service.markRead(params.id, body.messageId);
       const actor = await messagingContext(request).actorUser();
       const members = await repository.listMembers(params.id);
-      if (actor) bus.publishToConversation(members.map((member) => member.user_id), params.id, realtimeFrame("message.updated", { conversationId: params.id, message, userId: actor.id }));
+      if (actor) {
+        for (const message of result.updated) {
+          bus.publishToConversation(
+            members.map((member) => member.user_id),
+            params.id,
+            realtimeFrame("message.updated", { conversationId: params.id, message, userId: actor.id })
+          );
+        }
+      }
       return { messageId: body.messageId };
     }
   });

@@ -113,6 +113,11 @@ export interface MessagingRepository {
   ): Promise<MessageRow[]>;
   countUnreadMessages(conversationId: number, userId: number, lastReadMessageId: number | null): Promise<number>;
   markConversationRead(conversationId: number, userId: number, messageId: number): Promise<void>;
+  markMessagesReadThrough(
+    conversationId: number,
+    userId: number,
+    sequenceNumber: number
+  ): Promise<MessageRow[]>;
   messagesAfterSequence(
     conversationId: number,
     afterSequence: number,
@@ -228,6 +233,27 @@ export class KyselyMessagingRepository implements MessagingRepository {
 
   async markConversationRead(conversationId: number, userId: number, messageId: number) {
     await this.database.updateTable("conversation_members").set({ last_read_message_id: messageId }).where("conversation_id", "=", conversationId).where("user_id", "=", userId).execute();
+  }
+
+  async markMessagesReadThrough(conversationId: number, userId: number, sequenceNumber: number) {
+    const messages = await this.database
+      .selectFrom("messages")
+      .selectAll()
+      .where("conversation_id", "=", conversationId)
+      .where("deleted_at", "is", null)
+      .where("sender_id", "!=", userId)
+      .where("sequence_number", "<=", sequenceNumber)
+      .execute();
+    const messageIds = messages.map((message) => message.id);
+    if (messageIds.length) {
+      await this.database
+        .updateTable("message_receipts")
+        .set({ delivered_at: new Date(), read_at: new Date() })
+        .where("user_id", "=", userId)
+        .where("message_id", "in", messageIds)
+        .execute();
+    }
+    return messages;
   }
 
   async findMessageByClientId(conversationId: number, clientMessageId: string) {
@@ -502,6 +528,18 @@ export class InMemoryMessagingRepository implements MessagingRepository {
   async markConversationRead(conversationId: number, userId: number, messageId: number) {
     const member = this.members.find((item) => item.conversation_id === conversationId && item.user_id === userId);
     if (member) member.last_read_message_id = messageId;
+  }
+
+  async markMessagesReadThrough(conversationId: number, userId: number, sequenceNumber: number) {
+    const messages = this.messages.filter(
+      (message) =>
+        message.conversation_id === conversationId &&
+        message.deleted_at === null &&
+        message.sender_id !== userId &&
+        message.sequence_number <= sequenceNumber
+    );
+    for (const message of messages) await this.markMessageRead(message.id, userId);
+    return messages.map((message) => ({ ...message }));
   }
 
   async findMessageByClientId(conversationId: number, clientMessageId: string) {

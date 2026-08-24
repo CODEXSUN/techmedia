@@ -1,11 +1,13 @@
 import { IonApp, IonButton, IonContent, IonIcon, IonInput, IonSpinner } from "@ionic/react";
-import { callOutline, chatbubbleEllipsesOutline, gridOutline, homeOutline, notificationsOutline, personOutline } from "ionicons/icons";
+import { briefcaseOutline, callOutline, chatbubbleEllipsesOutline, homeOutline, notificationsOutline, personOutline } from "ionicons/icons";
 import { useState } from "react";
 import { login } from "../../../platform/web/src/shared/api/platform-api";
 import { getToken } from "../../../platform/web/src/shared/api/platform-api";
 import { MobileMessenger } from "../messaging/MobileMessenger";
+import { MobileCallCapture } from "../modules/calls/MobileCallCapture";
+import { MobileMyJobs } from "../modules/crm/MobileMyJobs";
 
-type MobileTab = "calls" | "chats" | "home";
+type MobileTab = "calls" | "chats" | "home" | "jobs";
 
 export function MobileApp({ authenticated }: { authenticated: boolean }) {
   const [signedIn, setSignedIn] = useState(authenticated);
@@ -30,13 +32,13 @@ function MobileLogin({ onSignedIn }: { onSignedIn: (email: string) => void }) {
 function MobileDesk({ actorEmail, onTabChange, tab }: { actorEmail: string; onTabChange: (tab: MobileTab) => void; tab: MobileTab }) {
   const [threadOpen, setThreadOpen] = useState(false);
   const openMessages = () => onTabChange("chats");
-  const content = tab === "home" ? <Home onOpenMessages={openMessages} /> : tab === "chats" ? <Chats actorEmail={actorEmail} onThreadChange={setThreadOpen} /> : <Calls />;
-  return <IonContent fullscreen className="techme-surface"><main className={threadOpen ? "techme-desk is-thread-open" : "techme-desk"}><header className="techme-header"><div className="techme-brand"><img alt="" src="/logo/logo.svg" /><span>Tech Media</span></div><div className="techme-header-actions"><IonIcon icon={notificationsOutline} /><span className="techme-online" /><IonIcon icon={gridOutline} /></div></header>{content}<nav className="techme-tabbar" aria-label="Main navigation"><Tab icon={homeOutline} label="Home" active={tab === "home"} onClick={() => { setThreadOpen(false); onTabChange("home"); }} /><Tab icon={callOutline} label="Calls" active={tab === "calls"} onClick={() => { setThreadOpen(false); onTabChange("calls"); }} /><Tab icon={chatbubbleEllipsesOutline} label="Messages" active={tab === "chats"} onClick={() => { setThreadOpen(false); onTabChange("chats"); }} /></nav></main></IonContent>;
+  const content = tab === "home" ? <Home onOpenMessages={openMessages} onOpenJobs={() => onTabChange("jobs")} /> : tab === "chats" ? <Chats actorEmail={actorEmail} onThreadChange={setThreadOpen} /> : tab === "jobs" ? <MobileMyJobs /> : <Calls />;
+  return <IonContent fullscreen className="techme-surface"><main className={threadOpen ? "techme-desk is-thread-open" : "techme-desk"}>{content}<nav className="techme-tabbar" aria-label="Main navigation"><Tab icon={homeOutline} label="Home" active={tab === "home"} onClick={() => { setThreadOpen(false); onTabChange("home"); }} /><Tab icon={callOutline} label="Calls" active={tab === "calls"} onClick={() => { setThreadOpen(false); onTabChange("calls"); }} /><Tab icon={briefcaseOutline} label="My Jobs" active={tab === "jobs"} onClick={() => { setThreadOpen(false); onTabChange("jobs"); }} /><Tab icon={chatbubbleEllipsesOutline} label="Messages" active={tab === "chats"} onClick={() => { setThreadOpen(false); onTabChange("chats"); }} /></nav></main></IonContent>;
 }
 
-function Home({ onOpenMessages }: { onOpenMessages: () => void }) { return <section className="techme-page"><p className="techme-eyebrow">TODAY</p><h1>Welcome back.</h1><p className="techme-subtitle">Your work dashboard</p><div className="techme-grid"><Feature icon={personOutline} title="CRM" detail="Manage enquiries and follow-ups" /><Feature icon={chatbubbleEllipsesOutline} title="Messages" detail="Keep customer conversations moving" onClick={onOpenMessages} /><Feature icon={notificationsOutline} title="Inbox" detail="Review the latest notifications" /></div></section>; }
+function Home({ onOpenJobs, onOpenMessages }: { onOpenJobs: () => void; onOpenMessages: () => void }) { return <section className="techme-page"><p className="techme-eyebrow">TODAY</p><h1>Welcome back.</h1><p className="techme-subtitle">Your work dashboard</p><div className="techme-grid"><Feature icon={personOutline} title="My Jobs" detail="Assigned Frappe enquiries and follow-ups" onClick={onOpenJobs} /><Feature icon={chatbubbleEllipsesOutline} title="Messages" detail="Keep customer conversations moving" onClick={onOpenMessages} /><Feature icon={notificationsOutline} title="Inbox" detail="Review the latest notifications" /></div></section>; }
 function Chats({ actorEmail, onThreadChange }: { actorEmail: string; onThreadChange: (value: boolean) => void }) { return <MobileMessenger actorEmail={actorEmail} onThreadChange={onThreadChange} />; }
-function Calls() { return <section className="techme-page"><p className="techme-eyebrow">CALLS</p><h1>Call desk</h1><p className="techme-subtitle">Recent activity and customer calls will appear here.</p><Feature icon={callOutline} title="No recent calls" detail="Start from CRM or a customer conversation" /></section>; }
+function Calls() { return <MobileCallCapture />; }
 function Feature({ detail, icon, onClick, title }: { detail: string; icon: string; onClick?: () => void; title: string }) { const content = <><span><IonIcon icon={icon} /></span><div><h2>{title}</h2><p>{detail}</p></div></>; return onClick ? <button aria-label={`Open ${title}`} className="techme-feature techme-feature-action" onClick={onClick} type="button">{content}</button> : <article className="techme-feature">{content}</article>; }
 function Tab({ active, icon, label, onClick }: { active: boolean; icon: string; label: string; onClick: () => void }) { return <button className={active ? "is-active" : ""} onClick={onClick} type="button"><IonIcon icon={icon} /><span>{label}</span></button>; }
 function emailFromToken() { try { const token = getToken(); const payload = token?.split(".")[1]; return payload ? JSON.parse(atob(payload.replace(/-/gu, "+").replace(/_/gu, "/"))).email ?? "" : ""; } catch { return ""; } }

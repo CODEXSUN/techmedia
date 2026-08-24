@@ -1,0 +1,45 @@
+/* Shadcn-compatible semantic tokens for the Capacitor surface. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --techme-purple: #6b2d91;
+  --techme-ink: #20172a;
+  --techme-muted: #737080;
+  --techme-surface: #f8f7fb;
+  --background: var(--techme-surface);
+  --foreground: var(--techme-ink);
+  --card: #ffffff;
+  --card-foreground: var(--techme-ink);
+  --primary: var(--techme-purple);
+  --primary-foreground: #ffffff;
+  --secondary: #f0e7f7;
+  --secondary-foreground: #4e176b;
+  --muted: #f4f1f6;
+  --muted-foreground: var(--techme-muted);
+  --accent: #f0e7f7;
+  --accent-foreground: #4e176b;
+  --border: #ded8e3;
+  --input: #ded8e3;
+  --ring: #8c55ae;
+  --radius: 0.875rem;
+}

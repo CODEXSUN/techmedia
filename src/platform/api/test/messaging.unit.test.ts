@@ -208,12 +208,16 @@ test("structured realtime message metadata persists for tasks and attachments", 
 test("recipient receipts and reactions persist with the message", async () => {
   const repository = seedRepository([alice, bob]);
   const conversation = await new ConversationService(context(alice), repository).create({ memberIds: [bob.id], type: "DIRECT" });
-  const sent = await new MessageService(context(alice), repository).send(conversation.id, { clientMessageId: "receipt-1", content: "Please review", type: "TEXT" });
+  const messages = new MessageService(context(alice), repository);
+  const first = await messages.send(conversation.id, { clientMessageId: "receipt-1", content: "Please review", type: "TEXT" });
+  const sent = await messages.send(conversation.id, { clientMessageId: "receipt-2", content: "Please approve", type: "TEXT" });
   assert.equal(sent.receipt.recipientCount, 1);
   assert.equal(sent.status, "SENT");
 
   const received = await new MessageService(context(bob), repository).markRead(conversation.id, sent.id);
-  assert.equal(received.status, "READ");
+  assert.equal(received.message.status, "READ");
+  assert.deepEqual(received.updated.map((message) => message.id), [first.id, sent.id]);
+  assert.ok(received.updated.every((message) => message.status === "READ"));
   const reacted = await new MessageService(context(bob), repository).react(conversation.id, sent.id, "👍");
   assert.deepEqual(reacted.reactions, [{ emoji: "👍", userId: bob.id, userName: bob.name }]);
 });

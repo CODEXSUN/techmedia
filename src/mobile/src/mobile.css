@@ -1,10 +1,10 @@
 @import "tailwindcss";
+@import "./mobile-theme.css";
 
-:root { --techme-purple: #6b2d91; --techme-ink: #20172a; --techme-muted: #737080; --techme-surface: #f8f7fb; }
 * { box-sizing: border-box; }
-body { margin: 0; }
-.techme-surface { --background: var(--techme-surface); color: var(--techme-ink); }
-.techme-login, .techme-desk { min-height: 100dvh; padding: max(env(safe-area-inset-top), 22px) 22px max(env(safe-area-inset-bottom), 20px); }
+body { background: var(--background); color: var(--foreground); margin: 0; }
+.techme-surface { --background: var(--techme-surface); color: var(--foreground); }
+.techme-login { min-height: 100dvh; padding: max(env(safe-area-inset-top), 22px) 22px max(env(safe-area-inset-bottom), 20px); }
 .techme-login { display: grid; align-content: center; gap: 40px; max-width: 460px; margin: auto; }
 .techme-brand { align-items: center; display: flex; gap: 10px; font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
 .techme-brand img { height: 34px; object-fit: contain; width: 34px; }
@@ -19,9 +19,9 @@ body { margin: 0; }
 .techme-login-card ion-button { --background: var(--techme-purple); --border-radius: 14px; --box-shadow: none; height: 50px; margin: 3px 0 0; text-transform: none; }
 .techme-error { color: #b42318 !important; font-size: 13px; margin: 0 !important; }
 .techme-secure { color: #47795d !important; font-size: 12px; margin: 0 !important; text-align: center; }
-.techme-desk { display: grid; grid-template-rows: auto 1fr auto; gap: 24px; }
+.techme-desk { display: grid; gap: 18px; grid-template-rows: minmax(0, 1fr) auto; min-height: 100dvh; padding: max(env(safe-area-inset-top), 42px) 20px max(env(safe-area-inset-bottom), 20px); }
 .techme-desk.is-thread-open { gap: 0; grid-template-rows: minmax(0, 1fr); height: 100%; min-height: 100%; padding: 0; }
-.techme-desk.is-thread-open .techme-header, .techme-desk.is-thread-open .techme-tabbar { display: none; }
+.techme-desk.is-thread-open .techme-tabbar { display: none; }
 .techme-header, .techme-header-actions, .techme-tabbar, .techme-feature { align-items: center; display: flex; }
 .techme-header { justify-content: space-between; }
 .techme-header-actions { gap: 16px; position: relative; }
@@ -64,7 +64,7 @@ body { margin: 0; }
 .techme-avatar { align-items: center; background: var(--techme-purple); border-radius: 50%; color: #fff; display: grid; font-size: 14px; font-weight: 700; height: 42px; place-items: center; width: 42px; }
 .techme-empty { color: var(--techme-muted); margin: 46px 24px; text-align: center; }
 .techme-thread { grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; margin: 0; min-height: 0; }
-.techme-thread-header { background: #fff; border-bottom: 1px solid #ebe6ef; gap: 8px; padding: max(env(safe-area-inset-top), 28px) 12px 12px; position: relative; }
+.techme-thread-header { background: #fff; border-bottom: 1px solid #ebe6ef; gap: 8px; padding: max(env(safe-area-inset-top), 42px) 12px 12px; position: relative; }
 .techme-thread-identity { display: grid; flex: 1; gap: 2px; min-width: 0; }
 .techme-thread-identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .techme-thread-header small { color: #198754; font-size: 12px; }
@@ -93,7 +93,8 @@ body { margin: 0; }
 .techme-message-meta { align-items: center; color: var(--techme-muted); display: flex; gap: 3px; justify-content: flex-end; margin-top: 4px; }
 .techme-message-meta time { color: inherit; font-size: 10px; }
 .techme-message-meta ion-icon { font-size: 14px; }
-.techme-message.mine .techme-message-meta ion-icon { color: #2879be; }
+.techme-message.mine .techme-message-meta ion-icon { color: var(--techme-muted); }
+.techme-message.mine .techme-message-meta.is-read ion-icon { color: #2879be; }
 .techme-composer { align-items: end; background: #f4f2f7; display: flex; gap: 8px; padding: 10px 12px max(env(safe-area-inset-bottom), 30px); }
 .techme-composer-shell { align-items: end; background: #fff; border: 1px solid #e8e2ed; border-radius: 28px; box-shadow: 0 4px 14px rgb(35 24 46 / 12%); display: flex; flex: 1; gap: 0; min-width: 0; padding: 4px 5px; }
 .techme-composer-shell textarea { background: transparent; border: 0; color: var(--techme-ink); flex: 1; font: inherit; line-height: 20px; max-height: 128px; min-height: 44px; outline: none; padding: 12px 4px; resize: none; }
@@ -135,7 +136,7 @@ body { margin: 0; }
 .techme-message-flags ion-icon { font-size: 13px; }
 .techme-reply-label { color: var(--techme-purple); display: block; font-size: 11px; font-weight: 700; margin-bottom: 4px; }
 .techme-delivery-label { color: var(--techme-purple); display: block; font-size: 11px; font-weight: 700; margin-bottom: 4px; }
-.techme-reaction { background: #fff; border: 1px solid #e2d8e9; border-radius: 999px; bottom: -13px; box-shadow: 0 2px 5px rgb(35 24 46 / 12%); font-size: 15px; padding: 1px 6px; position: absolute; right: 8px; }
+.techme-reaction { background: #fff; border: 1px solid #e2d8e9; border-radius: 999px; bottom: -13px; box-shadow: 0 2px 5px rgb(35 24 46 / 12%); font-size: 15px; left: 8px; padding: 1px 6px; position: absolute; }
 .techme-message-image, .techme-message-video { border-radius: 12px; display: block; margin-bottom: 8px; max-height: 260px; max-width: 100%; }
 .techme-message-file { align-items: center; background: #fff; border-radius: 10px; color: var(--techme-purple); display: flex; font-size: 13px; gap: 7px; margin-bottom: 7px; padding: 9px; text-decoration: none; }
 .techme-message-file ion-icon { font-size: 19px; }
@@ -161,3 +162,32 @@ body { margin: 0; }
 .techme-pdf-viewer footer { background: #fff; border-top: 1px solid #e9e3ed; padding: 10px 16px max(env(safe-area-inset-bottom), 16px); text-align: center; }
 .techme-pdf-viewer footer a, .techme-pdf-viewer footer button { background: transparent; border: 0; color: #1a8b58; font: inherit; font-size: 14px; font-weight: 700; text-decoration: none; }
 .techme-composer-error { bottom: calc(100% + 4px); color: #b42318; font-size: 12px; left: 12px; margin: 0; position: absolute; }
+.techme-jobs-page { display: grid; gap: 18px; min-height: 0; }
+.techme-page-heading h1 { font-size: 26px; letter-spacing: -.045em; margin: 0; }
+.techme-job-summary { display: grid; gap: 10px; grid-template-columns: repeat(3, 1fr); }
+.techme-job-summary button { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted-foreground); display: grid; font: inherit; gap: 5px; padding: 12px; text-align: left; }
+.techme-job-summary button.is-active { background: var(--secondary); border-color: #c9addc; color: var(--primary); }
+.techme-job-summary strong { color: var(--card-foreground); font-size: 22px; }
+.techme-job-summary span { font-size: 12px; font-weight: 700; }
+.techme-job-list { display: grid; gap: 12px; }
+.techme-job-card { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 2px); box-shadow: 0 1px 2px rgb(32 23 42 / 7%); color: var(--card-foreground); cursor: pointer; padding: 15px; position: relative; }
+.techme-job-card:active { background: color-mix(in srgb, var(--card) 92%, var(--accent)); box-shadow: 0 2px 5px rgb(32 23 42 / 10%); transform: scale(.995); }
+.techme-job-card-top, .techme-job-card-bottom { align-items: center; display: flex; gap: 8px; }
+.techme-job-card-top > i { background: var(--techme-purple); border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 2px rgb(107 45 145 / 24%), 0 0 7px rgb(107 45 145 / 38%); height: 12px; position: relative; width: 12px; }.techme-job-card-top > i::after { background: rgb(255 255 255 / 72%); border-radius: 50%; content: ""; height: 3px; inset: 0; margin: auto; position: absolute; width: 3px; }
+.techme-job-card-top > span { color: var(--primary); font-size: 14px; font-weight: 800; }.techme-job-card-top em { color: #a79cac; font-size: 15px; font-style: normal; }.techme-job-card-top small { color: var(--muted-foreground); font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.techme-job-card-top strong { flex: 1; font-size: 13px; overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.techme-job-card .techme-icon-button { height: 32px; width: 32px; }
+.techme-job-customer { color: color-mix(in srgb, var(--foreground) 76%, var(--muted-foreground)); font-size: 13px; font-weight: 700; margin: 13px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.techme-job-card h2 { font-size: 16px; font-weight: 500; margin: 6px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.techme-job-enquiry-detail { color: var(--techme-muted); font-size: 12px; line-height: 18px; margin: 2px 0 0; min-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.techme-job-card-bottom { justify-content: space-between; margin-top: 14px; }
+.techme-job-card-bottom time { color: var(--techme-muted); font-size: 12px; }
+.techme-job-status { align-items: center; background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 999px; color: #334155; display: inline-flex; font-size: 11px; font-weight: 700; gap: 3px; padding: 4px 8px; text-transform: capitalize; }.techme-job-status ion-icon { font-size: 12px; }.techme-job-status.is-new { background: #e2e8f0; border-color: #cbd5e1; color: #475569; }.techme-job-status.is-open, .techme-job-status.is-reopen { background: #2563eb; border-color: #2563eb; color: #fff; }.techme-job-status.is-escalation, .techme-job-status.is-lost { background: #dc2626; border-color: #dc2626; color: #fff; }.techme-job-status.is-hold-for-approval, .techme-job-status.is-hold-for-job-out, .techme-job-status.is-hold-for-spares, .techme-job-status.is-long-hold { background: #fbbf24; border-color: #fbbf24; color: #451a03; }.techme-job-status.is-won { background: #059669; border-color: #059669; color: #fff; }
+.techme-job-card.is-low .techme-job-card-top > i { background: #0ea5e9; box-shadow: 0 0 0 2px rgb(2 132 199 / 28%), 0 0 8px rgb(14 165 233 / 52%); }.techme-job-card.is-normal .techme-job-card-top > i { background: #14b8a6; box-shadow: 0 0 0 2px rgb(13 148 136 / 28%), 0 0 8px rgb(20 184 166 / 52%); }.techme-job-card.is-high .techme-job-card-top > i { background: #f59e0b; box-shadow: 0 0 0 2px rgb(217 119 6 / 28%), 0 0 8px rgb(245 158 11 / 52%); }.techme-job-card.is-urgent .techme-job-card-top > i { background: #ef4444; box-shadow: 0 0 0 2px rgb(220 38 38 / 28%), 0 0 8px rgb(239 68 68 / 52%); }
+.techme-job-menu { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 24px rgb(32 23 42 / 16%); display: grid; padding: 5px; position: absolute; right: 12px; top: 48px; width: 150px; z-index: 3; }
+.techme-job-menu a, .techme-job-menu button { align-items: center; background: transparent; border: 0; border-radius: 9px; color: var(--foreground); display: flex; font: inherit; font-size: 13px; gap: 9px; padding: 10px; text-align: left; text-decoration: none; }.techme-job-menu a:hover, .techme-job-menu button:hover { background: var(--accent); }
+.techme-job-state { align-items: center; color: var(--techme-muted); display: flex; gap: 10px; justify-content: center; min-height: 180px; text-align: center; }.techme-job-state.is-error { color: #b42318; }
+.techme-job-detail { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; height: 100%; min-height: 0; }.techme-job-detail-header { align-items: center; background: #fff; border-bottom: 1px solid #ebe5ef; display: flex; gap: 8px; padding: max(env(safe-area-inset-top), 42px) 12px 10px; }.techme-job-detail-header div { display: grid; gap: 2px; }.techme-job-detail-header small { color: var(--techme-muted); font-size: 11px; }
+.techme-job-detail > .techme-job-card { border-radius: 0; box-shadow: none; margin: 0; }.techme-job-timeline { display: grid; align-content: start; gap: 12px; min-height: 0; overflow-y: auto; padding: 18px 16px 34px; }.techme-job-timeline h2 { font-size: 15px; margin: 0; }.techme-job-timeline article { align-items: start; display: grid; gap: 10px; grid-template-columns: 30px minmax(0, 1fr); }.techme-job-timeline article > span { align-items: center; background: #f0e7f7; border-radius: 50%; color: var(--techme-purple); display: grid; height: 28px; place-items: center; width: 28px; }.techme-job-timeline article p { font-size: 13px; line-height: 1.4; margin: 0 0 3px; }.techme-job-timeline time { color: var(--techme-muted); font-size: 11px; }
+.techme-job-footer { background: #f8f7fb; padding: 10px 14px max(env(safe-area-inset-bottom), 20px); }.techme-job-add { background: var(--techme-purple); border: 0; border-radius: 15px; color: #fff; font: inherit; font-weight: 700; min-height: 48px; width: 100%; }.techme-job-actions { background: #fff; border: 1px solid #e6ddea; border-radius: 18px; box-shadow: 0 10px 26px rgb(32 23 42 / 14%); display: grid; gap: 8px; margin-bottom: 10px; padding: 12px; }.techme-job-action-heading { align-items: center; display: flex; justify-content: space-between; }.techme-job-action-heading button { background: transparent; border: 0; color: var(--techme-purple); font: inherit; }.techme-job-actions > button { align-items: center; background: #f7f3fa; border: 0; border-radius: 12px; color: var(--techme-ink); display: flex; font: inherit; gap: 9px; padding: 11px; text-align: left; }.techme-job-actions label { color: var(--techme-muted); display: grid; font-size: 12px; gap: 5px; }.techme-job-actions textarea { border: 1px solid #ded5e4; border-radius: 10px; font: inherit; min-height: 64px; padding: 9px; resize: vertical; }
+.techme-call-capture { gap: 16px; }.techme-call-import { --background: var(--primary); --border-radius: var(--radius); --box-shadow: none; margin: 4px 0 0; text-transform: none; }.techme-call-card { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 2px); box-shadow: 0 1px 2px rgb(32 23 42 / 7%); display: grid; gap: 14px; padding: 16px; }.techme-call-card > div { align-items: center; display: flex; gap: 10px; }.techme-call-card > div > ion-icon { background: var(--secondary); border-radius: 50%; color: var(--primary); font-size: 22px; padding: 10px; }.techme-call-card > div span { display: grid; gap: 3px; }.techme-call-card small { color: var(--muted-foreground); font-size: 12px; }.techme-call-card label { color: var(--foreground); display: grid; font-size: 13px; font-weight: 700; gap: 6px; }.techme-call-card input, .techme-call-card ion-textarea { border: 1px solid var(--input); border-radius: 10px; color: var(--foreground); font: inherit; padding: 10px; width: 100%; }.techme-call-card ion-textarea { --padding-bottom: 10px; --padding-end: 10px; --padding-start: 10px; --padding-top: 10px; min-height: 90px; }.techme-call-card ion-button { --background: var(--primary); --border-radius: var(--radius); --box-shadow: none; margin: 0; text-transform: none; }.techme-call-success { color: #087443; font-size: 13px; font-weight: 700; margin: 0; }
+.techme-call-history { background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) + 2px); overflow: hidden; }.techme-call-history button { align-items: center; background: transparent; border: 0; border-bottom: 1px solid var(--border); color: var(--foreground); display: flex; font: inherit; gap: 11px; padding: 13px; text-align: left; width: 100%; }.techme-call-history button:last-child { border-bottom: 0; }.techme-call-history button.is-selected { background: var(--secondary); }.techme-call-history ion-icon { color: var(--primary); font-size: 20px; }.techme-call-history span { display: grid; gap: 3px; min-width: 0; }.techme-call-history small { color: var(--muted-foreground); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

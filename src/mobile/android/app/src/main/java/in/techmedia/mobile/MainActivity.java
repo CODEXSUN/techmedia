@@ -7,6 +7,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(android.os.Bundle savedInstanceState) {
+        registerPlugin(CallHistoryPlugin.class);
         registerPlugin(MobileReleaseUpdaterPlugin.class);
         super.onCreate(savedInstanceState);
         if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {

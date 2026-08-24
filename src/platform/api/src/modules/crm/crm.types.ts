@@ -211,6 +211,15 @@ export type CrmEnquirySavePayload = {
   workspace: string;
 };
 
+export type CrmMobileCallCapturePayload = {
+  customerName: string;
+  direction: "incoming" | "outgoing";
+  durationSeconds: number;
+  message: string;
+  mobile: string;
+  occurredAt: string;
+};
+
 export type CrmEnquiryListFilters = {
   assignedToEmployee?: string;
   enquiryId?: string;
