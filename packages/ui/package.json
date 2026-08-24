@@ -1,6 +1,6 @@
 {
   "name": "@codexsun/ui",
-  "version": "1.0.46",
+  "version": "1.0.47",
   "private": true,
   "description": "TechMedia-owned design system and workspace primitives",
   "type": "module",
@@ -79,7 +79,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
     "embla-carousel-react": "^8.6.0",
-    "framer-motion": "^13.1.0",
+    "framer-motion": "^13.1.1",
     "input-otp": "^1.5.0",
     "lucide-react": "^1.33.0",
     "next-themes": "^0.4.6",

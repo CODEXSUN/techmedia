@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.46
+Current version: 1.0.47
 
-Release tag: v-1.0.46
+Release tag: v-1.0.47
 
-Changelog label: v 1.0.46
+Changelog label: v 1.0.47
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -31,15 +31,21 @@ New entries must keep database-facing work and application code work separate.
 - Added the account dropdown, Sign out action, hamburger menu, and bottom navigation icons.
 - Added mobile permission declarations for contacts, media, camera, microphone, and notifications.
 
-### Database Changes
+## v-1.0.47
 
-- Database update: Yes.
-- Added File Manager owner tables through package-managed startup migrations.
+### [v 1.0.47] 2026-08-24 8:38 am - Docs module and changelog renderer
 
-### App Codebase Changes
+#### Database Changes
 
-- Added File Manager files and storage connection workspaces.
-- Added mandatory File Manager environment setup and a persistent local-storage volume.
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped the repository and Android application version to 1.0.47.
+- Added an authenticated Docs module with an index, an MDX article renderer, and application navigation.
+- Added the first MDX guide for daily CRM enquiry work.
+- Added a Changelog page that reads `assist/documentation/CHANGELOG.md` directly.
+- Fixed Changelog loading so plain Markdown remains text while MDX guides compile as components.
 
 ## v-1.0.46
 
@@ -56,6 +62,8 @@ New entries must keep database-facing work and application code work separate.
 - Added the My Jobs mobile workspace with assigned-job filters, live activity, comments, and job start or stop actions.
 - Improved mobile message receipt synchronization and read-status presentation.
 - Simplified mobile workspace headers and reserved a stable system-status inset to prevent top-content overlap.
+- Deferred the Blog and File Manager package integrations; removed their runtime routes, desk entries,
+  environment requirements, and container storage volume from this release.
 
 ## v-1.0.45
 
@@ -64,7 +72,7 @@ New entries must keep database-facing work and application code work separate.
 #### Database Changes
 
 - Database update: Yes.
-- Added local message-media storage and isolated File Manager migration storage.
+- Added local message-media storage.
 
 #### App Codebase Changes
 

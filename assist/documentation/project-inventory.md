@@ -36,6 +36,12 @@ contains the current device's personal pet toggle.
 
 No parent-folder or sibling product repository is part of the TechMedia install, build, or runtime.
 
+## Web Documentation
+
+- `src/platform/web/src/modules/docs`: authenticated documentation index and article renderer.
+- `src/platform/web/src/modules/docs/content`: repository-owned MDX guides compiled during the web build.
+- `assist/documentation/CHANGELOG.md`: the single changelog source rendered directly in Docs.
+
 ## Generated Layout
 
 - `node_modules`: the only dependency installation directory.

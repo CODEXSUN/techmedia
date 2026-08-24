@@ -59,7 +59,6 @@ services:
     volumes:
       - ${TECHMEDIA_RUNTIME_ENV_FILE:-../.env}:/workspace/techmedia/.env:rw
       - codex-data:/home/node/.codex
-      - file-manager-storage:/storage/file-manager
     networks: [techmedia]
     healthcheck:
       test:
@@ -107,8 +106,6 @@ volumes:
     name: ${TECHMEDIA_CODEX_DATA_VOLUME:-techmedia-codex-data}
   mariadb-data:
     name: ${TECHMEDIA_MARIADB_DATA_VOLUME:-techmedia-mariadb-data}
-  file-manager-storage:
-    name: ${TECHMEDIA_FILE_MANAGER_STORAGE_VOLUME:-techmedia-file-manager-storage}
 
 networks:
   techmedia:

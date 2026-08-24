@@ -13,6 +13,7 @@ import type {
   CrmReport,
   CrmReportName,
   CrmEnquirySavePayload,
+  CrmEnquiryStatus,
   CrmEnquiryStatusFilter,
   CrmEnquiryView,
   CrmJobSavePayload,
@@ -583,15 +584,48 @@ function mobileMatch(
   actorEmployee: string
 ): CrmEnquiryMobileMatch {
   const assigned = record.assignedToEmployee ? byName.get(record.assignedToEmployee) : undefined;
+  const status = fromFrappeStatus(record.status);
+  const closure = closedDetails(record, status);
   return {
     assignedTo: assigned ? employeeReference(assigned) : null,
     canEdit: isFreshForActor(record, actorEmployee),
+    closedAt: closure?.createdAt ?? null,
+    closedBy: closure?.createdBy ?? null,
     createdAt: record.createdAt,
     frappeName: record.name,
     id: numericId(record.name),
-    status: fromFrappeStatus(record.status),
+    status,
     title: record.title || displayTitle(record)
   };
+}
+
+function closedDetails(record: LiveRecord, status: CrmEnquiryStatus) {
+  if (status !== "won" && status !== "lost") return null;
+  const target = status === "won" ? "won" : "lost";
+  const transition = record.activities.find((entry) => {
+    const details = entry.details.toLowerCase();
+    return (
+      entry.action === "changed" &&
+      details.includes("status from") &&
+      details.includes(`to ${target}`)
+    );
+  });
+  return {
+    createdAt: transition?.createdAt ?? record.modifiedAt,
+    createdBy: transition?.createdBy ?? readableFrappeUser(record.modifiedBy)
+  };
+}
+
+function readableFrappeUser(value: string | null) {
+  if (!value) return "Frappe";
+  return (
+    value
+      .split("@")[0]!
+      .split(/[._-]+/u)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ") || value
+  );
 }
 
 function isFreshForActor(record: LiveRecord, actorEmployee: string) {

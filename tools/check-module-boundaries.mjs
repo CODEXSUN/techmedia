@@ -4,7 +4,7 @@ import { extname, join, relative, resolve } from "node:path";
 const root = resolve(import.meta.dirname, "..");
 const apiModules = resolve(root, "src/platform/api/src/modules");
 const webModules = resolve(root, "src/platform/web/src/modules");
-const allowed = new Set([
+const sharedModules = new Set([
   "crm",
   "estimate",
   "frappe",
@@ -20,17 +20,23 @@ const allowed = new Set([
   "user",
   "user-role"
 ]);
+const webOnlyModules = new Set(["docs"]);
+const allowedApiModules = sharedModules;
+const allowedWebModules = new Set([...sharedModules, ...webOnlyModules]);
 const failures = [];
 
-for (const moduleRoot of [apiModules, webModules]) {
+for (const [moduleRoot, allowedModules] of [
+  [apiModules, allowedApiModules],
+  [webModules, allowedWebModules]
+]) {
   for (const entry of readdirSync(moduleRoot, { withFileTypes: true })) {
-    if (entry.isDirectory() && !allowed.has(entry.name)) {
+    if (entry.isDirectory() && !allowedModules.has(entry.name)) {
       failures.push(`unexpected module directory: ${relative(root, join(moduleRoot, entry.name))}`);
     }
   }
 }
 
-for (const name of allowed) {
+for (const name of sharedModules) {
   if (!existsSync(join(apiModules, name, "index.ts")))
     failures.push(`API ${name}: missing index.ts`);
   if (!existsSync(join(webModules, name, "index.ts")))
@@ -58,7 +64,7 @@ if (failures.length) {
   process.exit(1);
 }
 console.info(
-  "Module boundary check passed: Identity, Honey AI, internal notifications, and live-Frappe business modules only."
+  "Module boundary check passed: owned web Docs, Identity, Honey AI, internal notifications, and live-Frappe business modules only."
 );
 
 function sourceFiles(directory) {

@@ -4,10 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
   CircleGaugeIcon,
   BotIcon,
+  BookOpenIcon,
   CalendarDaysIcon,
   InboxIcon,
   MessageCircleIcon,
-  FolderIcon,
   MessagesSquareIcon,
   PlugZapIcon,
   PlusIcon,
@@ -27,12 +27,20 @@ import {
   showCrmDesktopNotification,
   useBrowserNotificationPermission,
   useCrmCallNotificationPreference,
+  useCrmEnquiriesQuery,
   useCrmOverviewQuery,
+  type CrmEnquiry,
   type CrmEnquiryOverview,
   type CrmInAppNotification
 } from "../../modules/crm";
 import { markNotificationRead, useNotificationInboxQuery } from "../../modules/notification";
 import { applicationEntryPath, canAccessAdministratorSettings } from "./app-shell-access";
+import {
+  countEnquiriesForFilter,
+  crmEnquiryListFilters,
+  enquiryFilterFromUrl,
+  type CrmEnquiryListFilter
+} from "../../modules/crm/crm.enquiry-filters";
 import { getHoneyAvailability, getHoneyPetVisibility, TemaMascot } from "../../modules/honey";
 import {
   currentTemaPetPlatform,
@@ -67,6 +75,9 @@ const CrmWorkspace = lazy(() =>
 );
 const CrmEnquiryUpsertPage = lazy(() =>
   import("../../modules/crm").then((module) => ({ default: module.CrmEnquiryUpsertPage }))
+);
+const CrmEnquiryDesk = lazy(() =>
+  import("../../modules/crm").then((module) => ({ default: module.CrmEnquiryDesk }))
 );
 const CrmReports = lazy(() =>
   import("../../modules/crm").then((module) => ({ default: module.CrmReports }))
@@ -104,26 +115,9 @@ const IshopWorkspace = lazy(() =>
 const MessagingWorkspace = lazy(() =>
   import("../../modules/messaging").then((module) => ({ default: module.MessagingWorkspace }))
 );
-const loadFileManager = () =>
-  import("@codexsun/file-manager/web").then((module) => {
-    module.configureFileManagerClient({
-      baseUrl: `${String(import.meta.env.VITE_PLATFORM_API_URL).replace(/\/$/u, "")}/file-manager`,
-      headers: () => {
-        const token = getToken();
-        return token ? { Authorization: `Bearer ${token}` } : {};
-      }
-    });
-    return module;
-  });
-const FileBrowserWorkspace = lazy(() =>
-  loadFileManager().then((module) => ({ default: module.FileBrowserWorkspace }))
+const DocsWorkspace = lazy(() =>
+  import("../../modules/docs").then((module) => ({ default: module.DocsWorkspace }))
 );
-const StorageConnectionsWorkspace = lazy(() =>
-  loadFileManager().then((module) => ({
-    default: module.StorageConnectionsWorkspace
-  }))
-);
-
 type Page =
   | "identity.users"
   | "identity.roles"
@@ -140,6 +134,7 @@ type Page =
   | "crm.all"
   | "crm.created"
   | "crm.created.new"
+  | "crm.enquiries"
   | "crm.open"
   | "crm.reports"
   | "estimate.list"
@@ -155,8 +150,9 @@ type Page =
   | "ishop.variants"
   | "ishop.images"
   | "messaging.inbox"
-  | "storage.files"
-  | "storage.connections";
+  | "docs.index"
+  | "docs.crm"
+  | "docs.changelog";
 
 type Claims = {
   email: string;
@@ -169,6 +165,7 @@ type Claims = {
 type AppNotification = CrmInAppNotification;
 
 function pagePath(page: Page) {
+  if (page === "docs.index") return "/app/docs";
   const path = `/app/${page.replaceAll(".", "/")}`;
   return page === "crm.created" ? `${path}?status=all` : path;
 }
@@ -244,6 +241,10 @@ export function AppDesk() {
   const crmOverviewQuery = useCrmOverviewQuery(
     page.startsWith("crm.") || page.startsWith("estimate.")
   );
+  const crmAllEnquiriesQuery = useCrmEnquiriesQuery(
+    { status: "all", view: "all" },
+    { enabled: canViewAllEnquiries, poll: page === "crm.enquiries" }
+  );
   const select = (next: Page) => {
     setMenuNavigationRevision((revision) => revision + 1);
     void navigate({ to: pagePath(next) });
@@ -264,27 +265,36 @@ export function AppDesk() {
     void navigate({ to: `/app/crm/all?${query}` });
   };
   const openNewEnquiry = () => void navigate({ to: "/app/crm/created/new" });
+  const openEnquiryDesk = (status: CrmEnquiryListFilter) => {
+    setMenuNavigationRevision((revision) => revision + 1);
+    void navigate({ to: `/app/crm/enquiries?status=${status}` });
+  };
   const setTemaPetVisible = (visible: boolean) => {
     saveTemaPetPreference(temaPetPlatform, visible);
     setTemaPetPreferred(visible);
   };
-  const menuItems = buildMenu(
-    page,
-    select,
-    superAdmin,
-    canUseCrm,
-    canCreateEnquiry,
-    canViewAllEnquiries,
-    canViewCrmReports,
-    canUseHr,
-    canViewAllHr,
-    canUseIshop,
-    temaEnabled,
-    temaPetVisible,
-    !temaEnabled || !temaPetAllowed,
-    setTemaPetVisible,
-    crmOverviewQuery.data?.stats
-  );
+  const menuItems = [
+    ...buildMenu(
+      page,
+      select,
+      superAdmin,
+      canUseCrm,
+      canCreateEnquiry,
+      canViewAllEnquiries,
+      canViewCrmReports,
+      canUseHr,
+      canViewAllHr,
+      canUseIshop,
+      temaEnabled,
+      temaPetVisible,
+      !temaEnabled || !temaPetAllowed,
+      setTemaPetVisible,
+      openEnquiryDesk,
+      crmAllEnquiriesQuery.data,
+      crmOverviewQuery.data?.stats
+    ),
+    docsMenu(page, select)
+  ];
 
   useEffect(() => {
     if (page !== requestedPage) {
@@ -381,6 +391,13 @@ export function AppDesk() {
               icon: MessagesSquareIcon,
               title: "Messaging",
               url: "/app/messaging/inbox"
+            },
+            {
+              active: page.startsWith("docs."),
+              description: "Application guides and release information.",
+              icon: BookOpenIcon,
+              title: "Docs",
+              url: "/app/docs"
             },
             ...(canUseCrm
               ? [
@@ -485,10 +502,6 @@ function renderPage(
   }) => void,
   onCreateEnquiry: () => void
 ) {
-  if (page === "storage.files") return <FileBrowserWorkspace />;
-  if (page === "storage.connections") {
-    return superAdmin ? <StorageConnectionsWorkspace /> : <UserProfileWorkspace />;
-  }
   if (page === "ai.connector")
     return superAdmin ? <AgentConnectorWorkspace /> : <UserProfileWorkspace />;
   if (page === "ai.skills")
@@ -531,6 +544,9 @@ function renderPage(
   if (page === "crm.overview") {
     return <CrmOverview userName={claims.name} />;
   }
+  if (page === "crm.enquiries") {
+    return <CrmEnquiryDesk actorEmail={claims.email} />;
+  }
   if (page === "crm.created.new") {
     return (
       <CrmEnquiryUpsertPage
@@ -565,6 +581,11 @@ function renderPage(
     );
   }
   if (page === "messaging.inbox") return <MessagingWorkspace actorEmail={claims.email} />;
+  if (page.startsWith("docs.")) {
+    return (
+      <DocsWorkspace page={page.slice("docs.".length) as import("../../modules/docs").DocsPage} />
+    );
+  }
   if (!canUseCrm) return <UserProfileWorkspace />;
   const view =
     page === "crm.all"
@@ -621,6 +642,8 @@ function buildMenu(
   temaPetVisible: boolean,
   temaPetToggleDisabled: boolean,
   onTemaPetVisibleChange: (visible: boolean) => void,
+  onOpenEnquiryDesk: (status: CrmEnquiryListFilter) => void,
+  crmEnquiries?: CrmEnquiry[],
   crmStats?: CrmEnquiryOverview["stats"]
 ): SidemenuItem[] {
   const item = (title: string, target: Page, badge?: number) => ({
@@ -643,17 +666,6 @@ function buildMenu(
     ],
     title: "Settings"
   };
-  const storageMenu: SidemenuItem = {
-    icon: FolderIcon,
-    isActive: page.startsWith("storage."),
-    items: [
-      item("Files", "storage.files"),
-      ...(superAdmin ? [item("Storage connections", "storage.connections")] : [])
-    ],
-    title: "Storage"
-  };
-  if (page.startsWith("storage."))
-    return [storageMenu, messagesMenu(page, item), notificationSettings];
   if (canUseIshop && page.startsWith("ishop.")) {
     return [
       {
@@ -671,7 +683,6 @@ function buildMenu(
         title: "LogicX iShop"
       },
       messagesMenu(page, item),
-      storageMenu,
       notificationSettings
     ];
   }
@@ -720,7 +731,6 @@ function buildMenu(
           ]
         : []),
       messagesMenu(page, item),
-      storageMenu,
       notificationSettings,
       ...(temaEnabled || superAdmin
         ? [
@@ -734,7 +744,8 @@ function buildMenu(
               onTemaPetVisibleChange
             )
           ]
-        : [])
+        : []),
+      ...(canViewAllEnquiries ? [enquiryDeskMenu(page, crmEnquiries ?? [], onOpenEnquiryDesk)] : [])
     ];
   }
   return [
@@ -752,7 +763,6 @@ function buildMenu(
         ]
       : []),
     messagesMenu(page, item),
-    storageMenu,
     {
       icon: ShieldCheckIcon,
       isActive: page.startsWith("identity."),
@@ -766,6 +776,25 @@ function buildMenu(
     },
     notificationSettings
   ];
+}
+
+function enquiryDeskMenu(
+  page: Page,
+  records: CrmEnquiry[],
+  onOpen: (filter: CrmEnquiryListFilter) => void
+): SidemenuItem {
+  const selectedFilter = page === "crm.enquiries" ? enquiryFilterFromUrl() : null;
+  return {
+    icon: InboxIcon,
+    isActive: page === "crm.enquiries",
+    items: crmEnquiryListFilters.map((filter) => ({
+      badge: countEnquiriesForFilter(records, filter.id),
+      isActive: selectedFilter === filter.id,
+      onSelect: () => onOpen(filter.id),
+      title: filter.label
+    })),
+    title: "Enquiries"
+  };
 }
 
 function accessiblePage(
@@ -787,6 +816,8 @@ function accessiblePage(
   if (page === "crm.reports" && !canViewCrmReports)
     return canUseCrm ? "crm.overview" : "identity.profile";
   if (page === "crm.all" && !canViewAllEnquiries)
+    return canUseCrm ? "crm.overview" : "identity.profile";
+  if (page === "crm.enquiries" && !canViewAllEnquiries)
     return canUseCrm ? "crm.overview" : "identity.profile";
   if (page === "crm.created.new" && !canCreateEnquiry)
     return canUseCrm ? "crm.created" : "identity.profile";
@@ -818,6 +849,31 @@ function messagesMenu(
     isActive: page === "messaging.inbox",
     items: [{ ...item("Inbox", "messaging.inbox"), icon: InboxIcon }],
     title: "Messages"
+  };
+}
+
+function docsMenu(page: Page, select: (page: Page) => void): SidemenuItem {
+  return {
+    icon: BookOpenIcon,
+    isActive: page.startsWith("docs."),
+    items: [
+      {
+        isActive: page === "docs.index",
+        onSelect: () => select("docs.index"),
+        title: "Overview"
+      },
+      {
+        isActive: page === "docs.crm",
+        onSelect: () => select("docs.crm"),
+        title: "Use CRM"
+      },
+      {
+        isActive: page === "docs.changelog",
+        onSelect: () => select("docs.changelog"),
+        title: "Changelog"
+      }
+    ],
+    title: "Docs"
   };
 }
 
@@ -875,7 +931,6 @@ function isAdministratorPage(page: Page) {
     page === "ai.connector" ||
     page === "ai.control" ||
     page === "ai.skills" ||
-    page === "storage.connections" ||
     (page.startsWith("settings.") && page !== "settings.notifications") ||
     (page.startsWith("identity.") && page !== "identity.profile")
   );
@@ -883,6 +938,7 @@ function isAdministratorPage(page: Page) {
 
 function pageFromPath(pathname: string, role: string | undefined): Page {
   const value = pathname.replace(/^\/app\/?/u, "").replaceAll("/", ".");
+  if (value === "docs") return "docs.index";
   const allowed: Page[] = [
     "identity.users",
     "identity.roles",
@@ -899,6 +955,7 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "crm.all",
     "crm.created",
     "crm.created.new",
+    "crm.enquiries",
     "crm.open",
     "crm.reports",
     "estimate.list",
@@ -914,8 +971,8 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "ishop.variants",
     "ishop.images",
     "messaging.inbox",
-    "storage.files",
-    "storage.connections"
+    "docs.crm",
+    "docs.changelog"
   ];
   if (allowed.includes(value as Page)) return value as Page;
   return applicationEntryPath(role)
@@ -929,6 +986,7 @@ function titleFor(page: Page) {
     "crm.all": "All Enquiries",
     "crm.created": "My Calls",
     "crm.created.new": "New enquiry",
+    "crm.enquiries": "Enquiries",
     "crm.open": "Open Enquiry",
     "crm.reports": "Enquiry reports",
     "hr.my": "My requests",
@@ -948,7 +1006,10 @@ function titleFor(page: Page) {
     "ishop.items": "Product Details",
     "ishop.variants": "Product Variants",
     "ishop.images": "Product Images",
-    "messaging.inbox": "Messaging"
+    "messaging.inbox": "Messaging",
+    "docs.index": "Docs",
+    "docs.crm": "Use CRM",
+    "docs.changelog": "Changelog"
   };
   if (labels[page]) return labels[page];
   return page

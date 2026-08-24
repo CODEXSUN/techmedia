@@ -176,7 +176,6 @@ prepare_deploy_environment() {
   set_default_if_empty "$DEPLOY_ENV" TECHMEDIA_BACKUP_RETENTION 10
   set_default_if_empty "$DEPLOY_ENV" TECHMEDIA_UPDATE_MIN_BACKUP_FREE_MB 1024
   set_default_if_empty "$DEPLOY_ENV" TECHMEDIA_UPDATE_MIN_DOCKER_FREE_MB 5120
-  set_default_if_empty "$DEPLOY_ENV" TECHMEDIA_FILE_MANAGER_STORAGE_VOLUME techmedia-file-manager-storage
   set_file_value "$DEPLOY_ENV" NODE_RUNTIME_VERSION "$node_version"
   set_file_value "$DEPLOY_ENV" NPM_RUNTIME_VERSION "$npm_version"
   chmod 600 "$DEPLOY_ENV" 2>/dev/null || true
@@ -200,7 +199,6 @@ configure_deploy_environment() {
 prepare_runtime_environment() {
   local infrastructure_mode="$1" database_host
   ensure_secret "$RUNTIME_ENV" JWT_SECRET
-  ensure_secret "$RUNTIME_ENV" FILE_MANAGER_ENCRYPTION_KEY
 
   set_file_value "$RUNTIME_ENV" NODE_ENV production
   set_file_value "$RUNTIME_ENV" AUTH_MODE jwt
@@ -217,13 +215,6 @@ prepare_runtime_environment() {
   set_file_value "$RUNTIME_ENV" DB_USER "$(file_value "$DEPLOY_ENV" DB_USER)"
   set_file_value "$RUNTIME_ENV" DB_PASSWORD "$(file_value "$DEPLOY_ENV" DB_PASSWORD)"
   set_file_value "$RUNTIME_ENV" DB_NAME "$(file_value "$DEPLOY_ENV" DB_NAME)"
-  set_file_value "$RUNTIME_ENV" FILE_MANAGER_DB_HOST "$database_host"
-  set_file_value "$RUNTIME_ENV" FILE_MANAGER_DB_PORT 3306
-  set_file_value "$RUNTIME_ENV" FILE_MANAGER_DB_USER "$(file_value "$DEPLOY_ENV" DB_USER)"
-  set_file_value "$RUNTIME_ENV" FILE_MANAGER_DB_PASSWORD "$(file_value "$DEPLOY_ENV" DB_PASSWORD)"
-  set_file_value "$RUNTIME_ENV" FILE_MANAGER_DB_NAME "$(file_value "$DEPLOY_ENV" DB_NAME)"
-  set_file_value "$RUNTIME_ENV" FILE_MANAGER_LOCAL_ROOT /storage/file-manager
-  set_default_if_empty "$RUNTIME_ENV" FILE_MANAGER_MAX_UPLOAD_BYTES 26214400
   set_file_value "$RUNTIME_ENV" PLATFORM_API_PORT \
     "$(file_value "$DEPLOY_ENV" TECHMEDIA_API_INTERNAL_PORT 7050)"
   set_file_value "$RUNTIME_ENV" PLATFORM_WEB_PORT \
@@ -260,14 +251,6 @@ validate_runtime_environment() {
     DB_USER \
     DB_PASSWORD \
     DB_NAME \
-    FILE_MANAGER_DB_HOST \
-    FILE_MANAGER_DB_PORT \
-    FILE_MANAGER_DB_USER \
-    FILE_MANAGER_DB_PASSWORD \
-    FILE_MANAGER_DB_NAME \
-    FILE_MANAGER_ENCRYPTION_KEY \
-    FILE_MANAGER_LOCAL_ROOT \
-    FILE_MANAGER_MAX_UPLOAD_BYTES \
     JWT_SECRET \
     INITIAL_ADMIN_EMAIL \
     INITIAL_ADMIN_PASSWORD \

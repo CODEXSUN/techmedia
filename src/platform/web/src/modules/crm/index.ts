@@ -9,8 +9,9 @@ export {
 } from "./crm.call-notifications";
 export { CrmNotificationSettings } from "./crm.notification-settings";
 export { CrmEnquiryUpsertPage } from "./crm.upsert-page";
+export { CrmEnquiryDesk } from "./crm.enquiry-desk";
 export { CrmWorkspace } from "./crm.workspace";
-export { useCrmOverviewQuery } from "./crm.hooks";
+export { useCrmEnquiriesQuery, useCrmOverviewQuery } from "./crm.hooks";
 export type {
   CrmEnquiry,
   CrmEnquiryOverview,

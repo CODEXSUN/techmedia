@@ -32,6 +32,8 @@ const expectedTables = [
   "ai_honey_threads",
   "conversation_members",
   "conversations",
+  "message_reactions",
+  "message_receipts",
   "messages",
   "notification_outbox",
   "notifications",
@@ -52,7 +54,6 @@ if (declaredTables.join(",") !== expectedTables.join(",")) {
 if (!database.includes("techMediaDatabaseName()")) {
   throw new Error(`${databaseFile}: single database selection is missing`);
 }
-
 console.info(
   "Database lifecycle verified: one database with Identity, notifications, actor-owned Honey tables, and messaging."
 );

@@ -1,6 +1,5 @@
 import { createApiApp, registerHealthRoute, registerRequestLogging } from "@codexsun/framework/api";
 import type { HealthCheck } from "@codexsun/framework/health";
-import type { FastifyRequest } from "fastify";
 import { registerModules } from "@codexsun/framework/modules";
 import { registerAuthRoutes } from "./auth/auth.routes.js";
 import {
@@ -27,12 +26,6 @@ import { userModule } from "./modules/user/index.js";
 import { honeyModule } from "./modules/honey/index.js";
 import { ishopModule } from "./modules/ishop/index.js";
 import { messagingModule } from "./modules/messaging/index.js";
-import {
-  closeFileManagerDatabase,
-  fileManagerApiModuleKeys,
-  registerFileManagerApi
-} from "./file-manager-host.js";
-import { identityContext } from "./auth/identity-context.js";
 
 const modules = [
   userModule,
@@ -60,7 +53,7 @@ export async function createApp() {
     cookieSecret: env.JWT_SECRET,
     corsOrigins: platformWebOrigins(),
     environment: env.NODE_ENV,
-    shutdownHooks: [closeFileManagerDatabase, closeTechMediaDatabase],
+    shutdownHooks: [closeTechMediaDatabase],
     tenantContext: false
   });
   const healthChecks: HealthCheck[] = [
@@ -69,7 +62,7 @@ export async function createApp() {
       check: () => ({
         details: {
           database: env.DB_NAME,
-          modules: [...modules.map((module) => module.key), ...fileManagerApiModuleKeys],
+          modules: modules.map((module) => module.key),
           runtime: "single-client"
         },
         status: "ok"
@@ -80,14 +73,6 @@ export async function createApp() {
   registerRequestLogging(app);
   registerHealthRoute(app, healthChecks);
   await registerAuthRoutes(app);
-  await registerFileManagerApi(app, {
-    resolveContext: async (request: FastifyRequest) => {
-      const identity = identityContext(request);
-      const actor = await identity.actorUser();
-      if (!actor) throw new Error("File Manager authentication is required.");
-      return { actorId: actor.uuid, host: "techmedia", tenantId: identity.scopeId };
-    }
-  });
   await registerModules(
     modules,
     {

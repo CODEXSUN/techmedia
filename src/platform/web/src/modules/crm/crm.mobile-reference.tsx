@@ -125,8 +125,8 @@ function LatestEnquiryCard({
       <div className="grid gap-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Latest enquiry - #{latest.id}
+            <p className="text-sm font-medium text-foreground">
+              #{latest.id} ({formatRelativeTime(latest.createdAt)})
             </p>
             <h2 className="mt-1 line-clamp-2 text-base font-semibold leading-snug text-foreground">
               {latest.title}
@@ -158,6 +158,11 @@ function LatestEnquiryCard({
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="size-1.5 rounded-full bg-primary" />
           {statusLabel(latest.status)}
+          {latest.closedAt && latest.closedBy ? (
+            <span className="ml-auto text-right text-foreground">
+              Closed by {latest.closedBy} ({formatRelativeTime(latest.closedAt)})
+            </span>
+          ) : null}
         </div>
         <dl className="grid grid-cols-2 gap-3 border-t border-border/70 pt-3 text-sm">
           <LatestDetail
@@ -197,4 +202,24 @@ function formatDate(value: string) {
   return Number.isNaN(date.getTime())
     ? value
     : new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function formatRelativeTime(value: string) {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "unknown time";
+
+  const seconds = Math.round((Date.now() - timestamp) / 1_000);
+  const absoluteSeconds = Math.abs(seconds);
+  const units: Array<[number, Intl.RelativeTimeFormatUnit]> = [
+    [86_400, "day"],
+    [3_600, "hour"],
+    [60, "minute"]
+  ];
+  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "always" });
+  for (const [secondsPerUnit, unit] of units) {
+    if (absoluteSeconds >= secondsPerUnit) {
+      return formatter.format(Math.round(-seconds / secondsPerUnit), unit);
+    }
+  }
+  return seconds < 0 ? "in a moment" : "just now";
 }

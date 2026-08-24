@@ -168,6 +168,8 @@ const mobileMatchQuery = z.object({
 const mobileMatch = z.object({
   assignedTo: userReference.nullable(),
   canEdit: z.boolean(),
+  closedAt: z.iso.datetime().nullable(),
+  closedBy: z.string().nullable(),
   createdAt: z.iso.datetime(),
   frappeName: z.string().min(1),
   id: z.number().int().positive(),

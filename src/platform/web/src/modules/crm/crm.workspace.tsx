@@ -18,6 +18,7 @@ import { WorkspacePage } from "@codexsun/ui/workspace/page";
 import { WorkspacePagination } from "@codexsun/ui/workspace/pagination";
 import { buildShowingLabel } from "@codexsun/ui/workspace/utils";
 import { CrmForm } from "./crm.form";
+import { matchesEnquiryFilter, type CrmEnquiryListFilter } from "./crm.enquiry-filters";
 import { useCrmEnquiriesQuery, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
 import { CrmList } from "./crm.list";
 import { crmEnquiryStatusOptions } from "./crm.options";
@@ -30,7 +31,6 @@ import type {
   CrmEnquiryMobileMatch,
   CrmEnquiryPriority,
   CrmEnquirySavePayload,
-  CrmEnquiryStatus,
   CrmEnquiryStatusFilter,
   CrmEnquiryView
 } from "./crm.types";
@@ -45,8 +45,6 @@ type EnquirySort = {
   column: CrmEnquiryColumnId;
   direction: "asc" | "desc";
 };
-
-type CrmEnquiryListFilter = CrmEnquiryStatusFilter | "unassigned";
 
 const viewDetails: Record<CrmEnquiryView, { description: string; title: string }> = {
   all: { description: "Every live Frappe enquiry across the CRM.", title: "All Enquiries" },
@@ -159,7 +157,11 @@ export function CrmWorkspace({
   const users = useCrmUsersQuery();
   const mutations = useCrmEnquiryMutations();
   const details = viewDetails[view];
-  const pageDescription = reportScopeDescription(details.description, reportFilters, users.data ?? []);
+  const pageDescription = reportScopeDescription(
+    details.description,
+    reportFilters,
+    users.data ?? []
+  );
   const initialLoading = query.data === undefined && query.isFetching;
   const records = query.data ?? [];
   const statusFilterOptions = buildStatusFilterOptions(
@@ -199,9 +201,10 @@ export function CrmWorkspace({
     const route = recordRouteFromUrl();
     if (!route || (route.target === "edit" && !canUpdate)) return;
     let active = true;
-    void (view === "assigned"
-      ? receiveCrmEnquiryAssignment(route.frappeName)
-      : getCrmEnquiry(route.frappeName)
+    void (
+      view === "assigned"
+        ? receiveCrmEnquiryAssignment(route.frappeName)
+        : getCrmEnquiry(route.frappeName)
     )
       .then((record) => {
         if (!active) return;
@@ -558,34 +561,6 @@ function buildStatusFilterOptions(
     const count = records?.filter((record) => matchesEnquiryFilter(record, option.id)).length;
     return count === undefined ? option : { ...option, count };
   });
-}
-
-function matchesEnquiryFilter(record: CrmEnquiry, filter: CrmEnquiryListFilter) {
-  return filter === "unassigned" ? !record.assignedTo : matchesStatusFilter(record.status, filter);
-}
-
-function matchesStatusFilter(status: CrmEnquiryStatus, filter: CrmEnquiryStatusFilter) {
-  if (filter === "all") return true;
-  if (filter === "active") return !isClosedStatus(status);
-  if (filter === "closed") return isClosedStatus(status);
-  if (filter === "hold") return isHoldStatus(status);
-  if (filter === "in-progress") return isInProgressStatus(status);
-  if (filter === "other") return status === "escalation" || status === "reopen";
-  return status === filter;
-}
-
-function isClosedStatus(status: CrmEnquiryStatus) {
-  return status === "won" || status === "lost";
-}
-
-function isHoldStatus(status: CrmEnquiryStatus) {
-  return ["hold-for-approval", "hold-for-spares", "hold-for-job-out", "long-hold"].includes(
-    status
-  );
-}
-
-function isInProgressStatus(status: CrmEnquiryStatus) {
-  return isHoldStatus(status) || status === "escalation";
 }
 
 function recordRouteFromUrl(): { frappeName: string; target: "edit" | "view" } | null {

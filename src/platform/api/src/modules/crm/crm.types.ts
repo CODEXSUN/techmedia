@@ -235,6 +235,8 @@ export type CrmEnquiryListFilters = {
 export type CrmEnquiryMobileMatch = {
   assignedTo: CrmUserReference | null;
   canEdit: boolean;
+  closedAt: string | null;
+  closedBy: string | null;
   createdAt: string;
   frappeName: string;
   id: number;

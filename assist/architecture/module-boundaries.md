@@ -68,6 +68,10 @@ Frontend modules own their workspaces, forms, lists, services, hooks, schemas, a
 desk composes Identity, Settings, CRM navigation, and the recipient notification inbox; CRM enquiry detail consumes the public
 Estimate and Quotation tab components.
 
+Docs owns the authenticated documentation index, MDX article rendering, and documentation
+navigation. Authored guides stay in the Docs module. The Changelog page reads
+`assist/documentation/CHANGELOG.md` directly and does not keep a second release log.
+
 The messaging frontend owns the contact picker, conversation list, message thread, composer, and
 WebSocket lifecycle. Its messaging contact contract exposes only active Identity user references;
 Identity remains the source of truth and administration data is not exposed.
