@@ -717,6 +717,10 @@ function buildMenu(
         ],
         title: "CRM"
       },
+      ...(canViewAllEnquiries
+        ? [enquiryDeskMenu(page, crmEnquiries ?? [], onOpenEnquiryDesk)]
+        : []),
+      messagesMenu(page, item),
       ...(canUseHr
         ? [
             {
@@ -730,7 +734,6 @@ function buildMenu(
             }
           ]
         : []),
-      messagesMenu(page, item),
       notificationSettings,
       ...(temaEnabled || superAdmin
         ? [
@@ -744,8 +747,7 @@ function buildMenu(
               onTemaPetVisibleChange
             )
           ]
-        : []),
-      ...(canViewAllEnquiries ? [enquiryDeskMenu(page, crmEnquiries ?? [], onOpenEnquiryDesk)] : [])
+        : [])
     ];
   }
   return [

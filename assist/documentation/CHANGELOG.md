@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.47
+Current version: 1.0.48
 
-Release tag: v-1.0.47
+Release tag: v-1.0.48
 
-Changelog label: v 1.0.47
+Changelog label: v 1.0.48
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -30,6 +30,20 @@ New entries must keep database-facing work and application code work separate.
 - Added native message, calls, and home navigation with system Back support.
 - Added the account dropdown, Sign out action, hamburger menu, and bottom navigation icons.
 - Added mobile permission declarations for contacts, media, camera, microphone, and notifications.
+
+## v-1.0.48
+
+### [v 1.0.48] 2026-08-25 6:27 pm - CRM navigation order
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.48.
+- Kept CRM first in the application menu and moved Enquiries to the second position.
+- Moved Messages to the third position and kept the remaining menu sections in their existing order.
 
 ## v-1.0.47
 
