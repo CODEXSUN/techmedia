@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api/techmedia_api.dart';
 import 'dashboard_list_page.dart';
 
 const _detailSurfaceTone = Color(0xFFFCF9FD);
 
 class JobDetailPage extends StatefulWidget {
-  const JobDetailPage({required this.enquiry, super.key});
+  const JobDetailPage({
+    required this.api,
+    required this.session,
+    required this.enquiry,
+    required this.initialJob,
+    super.key,
+  });
 
+  final TechMediaApi api;
+  final UserSession session;
   final DashboardListItem enquiry;
+  final CrmJob initialJob;
 
   @override
   State<JobDetailPage> createState() => _JobDetailPageState();
@@ -17,12 +27,16 @@ class _JobDetailPageState extends State<JobDetailPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
   final _replyController = TextEditingController();
-  final List<_JobComment> _comments = List.of(_seedComments);
+  late CrmJob _job;
+  var _isLoading = false;
+  var _isSending = false;
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    _job = widget.initialJob;
+    _refresh();
   }
 
   @override
@@ -39,14 +53,32 @@ class _JobDetailPageState extends State<JobDetailPage>
       body: Column(
         children: [
           _CompactJobDetail(enquiry: widget.enquiry),
-          _DetailTabs(controller: _tabs, commentCount: _comments.length),
+          _DetailTabs(
+            controller: _tabs,
+            commentCount: _job.comments.length,
+            jobCount: _job.jobs.length,
+            activityCount: _job.activities.length,
+          ),
+          if (_isLoading) const LinearProgressIndicator(minHeight: 2),
           Expanded(
             child: TabBarView(
               controller: _tabs,
               children: [
-                _CommentsList(comments: _comments),
-                _JobsTab(enquiry: widget.enquiry),
-                const _ActivityTab(),
+                _CommentsList(
+                  comments: _job.comments
+                      .map(
+                        (comment) =>
+                            _JobComment.fromCrm(comment, widget.session),
+                      )
+                      .toList(),
+                ),
+                _JobsTab(
+                  jobs: _job.jobs,
+                  pending: _isSending,
+                  onStart: _startJob,
+                  onStop: _stopJob,
+                ),
+                _ActivityTab(activities: _job.activities),
               ],
             ),
           ),
@@ -54,28 +86,77 @@ class _JobDetailPageState extends State<JobDetailPage>
       ),
       bottomNavigationBar: _ReplyComposer(
         controller: _replyController,
-        onSend: _addComment,
+        onSend: _isSending ? null : _addComment,
       ),
     );
   }
 
-  void _addComment() {
+  Future<void> _refresh() async {
+    setState(() => _isLoading = true);
+    try {
+      final job = await widget.api.job(
+        widget.session.accessToken,
+        widget.initialJob.sourceId,
+      );
+      if (mounted) setState(() => _job = job);
+    } on TechMediaApiException catch (error) {
+      if (mounted) _showError(error.message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _addComment() async {
     final message = _replyController.text.trim();
     if (message.isEmpty) return;
-    setState(() {
-      _comments.insert(
-        0,
-        _JobComment(
-          author: 'Vijay Anand',
-          body: message,
-          time: 'Just now',
-          initials: 'VA',
-          isCurrentUser: true,
-        ),
+    setState(() => _isSending = true);
+    try {
+      final job = await widget.api.addJobComment(
+        accessToken: widget.session.accessToken,
+        id: widget.initialJob.sourceId,
+        comment: message,
       );
-    });
-    _replyController.clear();
-    FocusScope.of(context).unfocus();
+      if (!mounted) return;
+      setState(() => _job = job);
+      _replyController.clear();
+      FocusScope.of(context).unfocus();
+    } on TechMediaApiException catch (error) {
+      if (mounted) _showError(error.message);
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _startJob() => _runJobAction(
+    () => widget.api.startJob(
+      accessToken: widget.session.accessToken,
+      id: widget.initialJob.sourceId,
+    ),
+  );
+
+  Future<void> _stopJob(CrmJobExecution execution) => _runJobAction(
+    () => widget.api.stopJob(
+      accessToken: widget.session.accessToken,
+      id: widget.initialJob.sourceId,
+      jobName: execution.name,
+    ),
+  );
+
+  Future<void> _runJobAction(Future<CrmJob> Function() action) async {
+    setState(() => _isSending = true);
+    try {
+      final job = await action();
+      if (mounted) setState(() => _job = job);
+    } on TechMediaApiException catch (error) {
+      if (mounted) _showError(error.message);
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -208,10 +289,17 @@ class _DetailStatusBadge extends StatelessWidget {
 }
 
 class _DetailTabs extends StatelessWidget {
-  const _DetailTabs({required this.controller, required this.commentCount});
+  const _DetailTabs({
+    required this.controller,
+    required this.commentCount,
+    required this.jobCount,
+    required this.activityCount,
+  });
 
   final TabController controller;
   final int commentCount;
+  final int jobCount;
+  final int activityCount;
 
   @override
   Widget build(BuildContext context) {
@@ -235,11 +323,11 @@ class _DetailTabs extends StatelessWidget {
             label: 'Comments',
             count: commentCount,
           ),
-          const _DetailTab(icon: Icons.work_outline, label: 'Jobs', count: 1),
-          const _DetailTab(
+          _DetailTab(icon: Icons.work_outline, label: 'Jobs', count: jobCount),
+          _DetailTab(
             icon: Icons.bolt_outlined,
             label: 'Activity',
-            count: 3,
+            count: activityCount,
           ),
         ],
       ),
@@ -363,57 +451,99 @@ class _CommentTile extends StatelessWidget {
 }
 
 class _JobsTab extends StatelessWidget {
-  const _JobsTab({required this.enquiry});
+  const _JobsTab({
+    required this.jobs,
+    required this.pending,
+    required this.onStart,
+    required this.onStop,
+  });
 
-  final DashboardListItem enquiry;
+  final List<CrmJobExecution> jobs;
+  final bool pending;
+  final VoidCallback onStart;
+  final ValueChanged<CrmJobExecution> onStop;
 
   @override
   Widget build(BuildContext context) {
+    final running = jobs.where((job) => job.isRunning).firstOrNull;
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: 1,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
+      itemCount: jobs.length + 1,
       separatorBuilder: (context, index) =>
           const Divider(height: 1, indent: 48, color: Color(0xFFE5DFE7)),
-      itemBuilder: (context, index) => _InfoRow(
-        icon: Icons.assignment_turned_in_outlined,
-        title: 'Follow-up job',
-        detail: enquiry.lastAction,
-      ),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: pending
+                  ? null
+                  : running == null
+                  ? onStart
+                  : () => onStop(running),
+              icon: Icon(running == null ? Icons.play_arrow : Icons.stop),
+              label: Text(running == null ? 'Start job' : 'Stop job'),
+            ),
+          );
+        }
+        final job = jobs[index - 1];
+        return _InfoRow(
+          icon: job.isRunning
+              ? Icons.timer_outlined
+              : Icons.assignment_turned_in_outlined,
+          title: '${job.name} · ${job.status}',
+          detail:
+              '${job.employee} · ${_jobTime(job.startTime)}–${_jobTime(job.stopTime)} · ${job.hours.toStringAsFixed(2)} hr · ₹${job.totalCost.toStringAsFixed(2)}',
+        );
+      },
     );
   }
 }
 
 class _ActivityTab extends StatelessWidget {
-  const _ActivityTab();
+  const _ActivityTab({required this.activities});
+
+  final List<CrmActivity> activities;
 
   @override
   Widget build(BuildContext context) {
-    const activities = [
-      _InfoRow(
-        icon: Icons.edit_note_outlined,
-        title: 'Enquiry updated',
-        detail: 'Customer details updated today',
-      ),
-      _InfoRow(
-        icon: Icons.call_outlined,
-        title: 'Customer follow-up',
-        detail: 'Awaiting confirmation',
-      ),
-      _InfoRow(
-        icon: Icons.person_outline,
-        title: 'Assigned to you',
-        detail: 'Vijay Anand',
-      ),
-    ];
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: activities.length,
       separatorBuilder: (context, index) =>
           const Divider(height: 1, indent: 48, color: Color(0xFFE5DFE7)),
-      itemBuilder: (context, index) => activities[index],
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+        return _InfoRow(
+          icon: _activityIcon(activity.action),
+          title: _activityTitle(activity.action),
+          detail:
+              '${activity.details} · ${_relativeCommentTime(activity.createdAt)}',
+        );
+      },
     );
   }
 }
+
+String _jobTime(String? value) {
+  if (value == null || value.isEmpty) return 'Running';
+  return value.length >= 8 ? value.substring(0, 8) : value;
+}
+
+IconData _activityIcon(String action) => switch (action) {
+  'added' => Icons.add_circle_outline,
+  'removed' => Icons.remove_circle_outline,
+  'viewed' => Icons.visibility_outlined,
+  _ => Icons.edit_note_outlined,
+};
+
+String _activityTitle(String action) => switch (action) {
+  'added' => 'Added',
+  'changed' => 'Changed',
+  'removed' => 'Removed',
+  'viewed' => 'Viewed',
+  _ => 'Edited',
+};
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
@@ -462,7 +592,7 @@ class _ReplyComposer extends StatelessWidget {
   const _ReplyComposer({required this.controller, required this.onSend});
 
   final TextEditingController controller;
-  final VoidCallback onSend;
+  final VoidCallback? onSend;
 
   @override
   Widget build(BuildContext context) {
@@ -523,27 +653,42 @@ class _JobComment {
   final String time;
   final String initials;
   final bool isCurrentUser;
+
+  factory _JobComment.fromCrm(CrmComment comment, UserSession session) {
+    final isCurrentUser = comment.createdByUserId == session.profile.email;
+    final author = isCurrentUser
+        ? session.profile.name
+        : _displayUser(comment.createdByUserId);
+    return _JobComment(
+      author: author,
+      body: comment.comment,
+      time: _relativeCommentTime(comment.createdAt),
+      initials: _initials(author),
+      isCurrentUser: isCurrentUser,
+    );
+  }
 }
 
-const _seedComments = [
-  _JobComment(
-    author: 'Vijay Anand',
-    body: 'Call not picked. I will update on WhatsApp.',
-    time: '2 hours ago',
-    initials: 'VA',
-    isCurrentUser: true,
-  ),
-  _JobComment(
-    author: 'Ratheesh P',
-    body: 'Customer is out of station and will call back Monday.',
-    time: '3 hours ago',
-    initials: 'RP',
-  ),
-  _JobComment(
-    author: 'Vijay Anand',
-    body: 'Need suggestion for area coverage and net price.',
-    time: '4 hours ago',
-    initials: 'VA',
-    isCurrentUser: true,
-  ),
-];
+String _displayUser(String value) {
+  final localPart = value.split('@').first.replaceAll(RegExp(r'[._-]+'), ' ');
+  return localPart
+      .split(' ')
+      .where((part) => part.isNotEmpty)
+      .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+      .join(' ');
+}
+
+String _initials(String value) => value
+    .split(' ')
+    .where((part) => part.isNotEmpty)
+    .take(2)
+    .map((part) => part[0].toUpperCase())
+    .join();
+
+String _relativeCommentTime(DateTime value) {
+  final difference = DateTime.now().difference(value.toLocal());
+  if (difference.inDays > 0) return '${difference.inDays} days ago';
+  if (difference.inHours > 0) return '${difference.inHours} hours ago';
+  if (difference.inMinutes > 0) return '${difference.inMinutes} min ago';
+  return 'Just now';
+}

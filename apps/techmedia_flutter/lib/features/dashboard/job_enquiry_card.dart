@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../../core/api/techmedia_api.dart';
 import 'dashboard_list_page.dart';
 import 'job_detail_page.dart';
 
 class JobEnquiryCard extends StatelessWidget {
-  const JobEnquiryCard({required this.enquiry, super.key});
+  const JobEnquiryCard({
+    required this.api,
+    required this.session,
+    required this.enquiry,
+    required this.job,
+    super.key,
+  });
 
+  final TechMediaApi api;
+  final UserSession session;
   final DashboardListItem enquiry;
+  final CrmJob job;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +65,14 @@ class JobEnquiryCard extends StatelessWidget {
 
   void _openDetail(BuildContext context) {
     Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (context) => JobDetailPage(enquiry: enquiry)),
+      MaterialPageRoute(
+        builder: (context) => JobDetailPage(
+          api: api,
+          session: session,
+          enquiry: enquiry,
+          initialJob: job,
+        ),
+      ),
     );
   }
 }

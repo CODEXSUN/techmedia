@@ -60,7 +60,12 @@ class _LiveJobsList extends StatelessWidget {
                 section: section,
                 subtitle: 'Live enquiries assigned to your account.',
               );
-            return JobEnquiryCard(enquiry: items[index - 1]);
+            return JobEnquiryCard(
+              api: api,
+              session: session,
+              enquiry: items[index - 1],
+              job: snapshot.data![index - 1],
+            );
           },
         );
       },

@@ -21,7 +21,7 @@ class MessageNotificationButton extends StatelessWidget {
     onPressed: onPressed,
     icon: Badge(
       isLabelVisible: unreadCount > 0,
-      label: Text('$unreadCount'),
+      label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
       child: const CircleAvatar(
         radius: 24,
         backgroundColor: _palePurple,
@@ -105,21 +105,26 @@ class _MessagesPageState extends State<MessagesPage> {
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) => _ConversationTile(
               conversation: conversations[index],
-              onTap: () => Navigator.of(context).push<void>(
-                MaterialPageRoute(
-                  builder: (context) => _ConversationThread(
-                    api: widget.api,
-                    session: widget.session,
-                    conversation: conversations[index],
-                  ),
-                ),
-              ),
+              onTap: () => _openConversation(conversations[index]),
             ),
           ),
         );
       },
     ),
   );
+
+  Future<void> _openConversation(MessagingConversation conversation) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) => _ConversationThread(
+          api: widget.api,
+          session: widget.session,
+          conversation: conversation,
+        ),
+      ),
+    );
+    await _reload();
+  }
 }
 
 class _ConversationTile extends StatelessWidget {
@@ -187,10 +192,7 @@ class _ConversationThreadState extends State<_ConversationThread> {
   @override
   void initState() {
     super.initState();
-    _messages = widget.api.messages(
-      widget.session.accessToken,
-      widget.conversation.id,
-    );
+    _messages = _loadMessages();
   }
 
   @override
@@ -199,12 +201,22 @@ class _ConversationThreadState extends State<_ConversationThread> {
     super.dispose();
   }
 
-  void _refresh() => setState(() {
-    _messages = widget.api.messages(
+  Future<List<MessagingMessage>> _loadMessages() async {
+    final messages = await widget.api.messages(
       widget.session.accessToken,
       widget.conversation.id,
     );
-  });
+    if (messages.isNotEmpty) {
+      await widget.api.markConversationRead(
+        accessToken: widget.session.accessToken,
+        conversationId: widget.conversation.id,
+        messageId: messages.last.id,
+      );
+    }
+    return messages;
+  }
+
+  void _refresh() => setState(() => _messages = _loadMessages());
 
   Future<void> _send() async {
     final content = _composer.text.trim();

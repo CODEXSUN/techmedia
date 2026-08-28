@@ -13,7 +13,6 @@ import type {
   CrmReport,
   CrmReportName,
   CrmEnquirySavePayload,
-  CrmEnquiryStatus,
   CrmEnquiryStatusFilter,
   CrmEnquiryView,
   CrmJobSavePayload,
@@ -281,7 +280,7 @@ export class CrmService {
       input.messageType,
       input.messageType === "reply" ? "New reply" : "New comment"
     );
-    return mapped;
+    return { ...mapped, jobs: await this.gateway.jobs(name) };
   }
 
   async suspendMessage(name: string, messageId: string) {

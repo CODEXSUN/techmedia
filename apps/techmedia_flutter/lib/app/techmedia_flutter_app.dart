@@ -17,12 +17,10 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp> {
   final _api = TechMediaApi(AppConfig.apiUrl);
   final _updates = AppUpdateService();
   UserSession? _session;
-  var _isStarting = AppConfig.canAutoLoginForDevelopment;
 
   @override
   void initState() {
     super.initState();
-    _startDevelopmentSession();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
   }
 
@@ -62,17 +60,6 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp> {
     }
   }
 
-  Future<void> _startDevelopmentSession() async {
-    if (!AppConfig.canAutoLoginForDevelopment) return;
-    try {
-      _session = await _api.developmentSignIn();
-    } on TechMediaApiException {
-      // The regular sign-in screen remains available when local auto-login is off.
-    } finally {
-      if (mounted) setState(() => _isStarting = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -83,9 +70,7 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp> {
         scaffoldBackgroundColor: const Color(0xFFF9F7FC),
         useMaterial3: true,
       ),
-      home: _isStarting
-          ? const _StartingPage()
-          : _session == null
+      home: _session == null
           ? LoginPage(
               api: _api,
               onSignedIn: (session) => setState(() => _session = session),
@@ -129,14 +114,5 @@ class _AppUpdateDialog extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _StartingPage extends StatelessWidget {
-  const _StartingPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

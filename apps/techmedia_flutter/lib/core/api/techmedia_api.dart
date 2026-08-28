@@ -23,12 +23,6 @@ class TechMediaApi {
     return UserSession.fromJson(data);
   }
 
-  Future<UserSession> developmentSignIn() async {
-    return UserSession.fromJson(
-      await _request('/auth/development/login', method: 'POST'),
-    );
-  }
-
   Future<UserProfile> session(String accessToken) async {
     return UserProfile.fromJson(
       await _request('/auth/session', accessToken: accessToken),
@@ -45,6 +39,60 @@ class TechMediaApi {
       throw const TechMediaApiException('Unexpected jobs response.');
     }
     return data.whereType<Map<String, dynamic>>().map(CrmJob.fromJson).toList();
+  }
+
+  Future<List<CrmJob>> assignedJobDetails(String accessToken) async {
+    final jobs = await assignedJobs(accessToken);
+    return Future.wait(jobs.map((item) => job(accessToken, item.sourceId)));
+  }
+
+  Future<CrmJob> job(String accessToken, String id) async {
+    final data = await _request(
+      '/crm/enquiries/${Uri.encodeComponent(id)}',
+      accessToken: accessToken,
+    );
+    return CrmJob.fromJson(data as Map<String, dynamic>);
+  }
+
+  Future<CrmJob> addJobComment({
+    required String accessToken,
+    required String id,
+    required String comment,
+  }) async {
+    final data = await _request(
+      '/mobile/crm/jobs/${Uri.encodeComponent(id)}/comments',
+      accessToken: accessToken,
+      method: 'POST',
+      body: {'comment': comment},
+    );
+    return CrmJob.fromJson(data as Map<String, dynamic>);
+  }
+
+  Future<CrmJob> startJob({
+    required String accessToken,
+    required String id,
+  }) async {
+    final data = await _request(
+      '/mobile/crm/jobs/${Uri.encodeComponent(id)}/start',
+      accessToken: accessToken,
+      method: 'POST',
+      body: const {},
+    );
+    return CrmJob.fromJson(data as Map<String, dynamic>);
+  }
+
+  Future<CrmJob> stopJob({
+    required String accessToken,
+    required String id,
+    required String jobName,
+  }) async {
+    final data = await _request(
+      '/mobile/crm/jobs/${Uri.encodeComponent(id)}/jobs/${Uri.encodeComponent(jobName)}/stop',
+      accessToken: accessToken,
+      method: 'POST',
+      body: const {},
+    );
+    return CrmJob.fromJson(data as Map<String, dynamic>);
   }
 
   Future<List<MessagingConversation>> conversations(String accessToken) async {
@@ -96,6 +144,19 @@ class TechMediaApi {
           'type': 'TEXT',
         },
       ) as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> markConversationRead({
+    required String accessToken,
+    required int conversationId,
+    required int messageId,
+  }) async {
+    await _request(
+      '/messaging/conversations/$conversationId/read',
+      accessToken: accessToken,
+      method: 'POST',
+      body: {'messageId': messageId},
     );
   }
 
@@ -185,6 +246,7 @@ class TechMediaApiException implements Exception {
 class CrmJob {
   const CrmJob({
     required this.id,
+    required this.sourceId,
     required this.number,
     required this.title,
     required this.customer,
@@ -195,9 +257,13 @@ class CrmJob {
     required this.lastAction,
     required this.status,
     required this.priority,
+    required this.comments,
+    required this.jobs,
+    required this.activities,
   });
 
   final int id;
+  final String sourceId;
   final String number;
   final String title;
   final String customer;
@@ -208,6 +274,9 @@ class CrmJob {
   final String lastAction;
   final String status;
   final String priority;
+  final List<CrmComment> comments;
+  final List<CrmJobExecution> jobs;
+  final List<CrmActivity> activities;
 
   factory CrmJob.fromJson(Map<String, dynamic> json) {
     final comments = (json['messages'] as List? ?? [])
@@ -220,6 +289,7 @@ class CrmJob {
     final sourceId = json['frappeName'] as String? ?? json['id'].toString();
     return CrmJob(
       id: json['id'] as int,
+      sourceId: sourceId,
       number: sourceId.replaceAll(RegExp(r'[^0-9]'), ''),
       title: json['title'] as String? ?? 'Untitled enquiry',
       customer: customerName.isNotEmpty
@@ -240,8 +310,158 @@ class CrmJob {
           : comments.last['comment'] as String? ?? 'No recent activity',
       status: json['status'] as String? ?? 'open',
       priority: json['priority'] as String? ?? 'normal',
+      comments: comments.map(CrmComment.fromJson).toList(),
+      jobs: (json['jobs'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(CrmJobExecution.fromJson)
+          .toList(),
+      activities: (json['activities'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(CrmActivity.fromJson)
+          .toList(),
     );
   }
+}
+
+class CrmJobExecution {
+  const CrmJobExecution({
+    required this.name,
+    required this.employee,
+    required this.createdAt,
+    required this.date,
+    required this.startTime,
+    required this.stopTime,
+    required this.hours,
+    required this.employeeCostPerHour,
+    required this.totalCost,
+    required this.status,
+  });
+
+  final String name;
+  final String employee;
+  final DateTime createdAt;
+  final String? date;
+  final String startTime;
+  final String? stopTime;
+  final double hours;
+  final double employeeCostPerHour;
+  final double totalCost;
+  final String status;
+
+  bool get isRunning => status == 'Running';
+
+  factory CrmJobExecution.fromJson(
+    Map<String, dynamic> json,
+  ) => CrmJobExecution(
+    name: json['name'] as String? ?? '',
+    employee: json['employee'] as String? ?? '',
+    createdAt:
+        DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+    date: json['date'] as String?,
+    startTime: json['startTime'] as String? ?? '',
+    stopTime: json['stopTime'] as String?,
+    hours: (json['hours'] as num? ?? 0).toDouble(),
+    employeeCostPerHour: (json['employeeCostPerHour'] as num? ?? 0).toDouble(),
+    totalCost: (json['totalCost'] as num? ?? 0).toDouble(),
+    status: json['status'] as String? ?? 'Running',
+  );
+}
+
+class CrmActivity {
+  const CrmActivity({
+    required this.id,
+    required this.action,
+    required this.details,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String action;
+  final String details;
+  final DateTime createdAt;
+
+  factory CrmActivity.fromJson(Map<String, dynamic> json) => CrmActivity(
+    id: json['uuid']?.toString() ?? json['id']?.toString() ?? '',
+    action: json['action'] as String? ?? 'updated',
+    details: _plainTextComment(json['details'] as String? ?? ''),
+    createdAt:
+        DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+  );
+}
+
+class CrmComment {
+  const CrmComment({
+    required this.id,
+    required this.comment,
+    required this.createdAt,
+    required this.createdByUserId,
+  });
+
+  final String id;
+  final String comment;
+  final DateTime createdAt;
+  final String createdByUserId;
+
+  factory CrmComment.fromJson(Map<String, dynamic> json) => CrmComment(
+    id: json['id']?.toString() ?? '',
+    comment: _plainTextComment(json['comment'] as String? ?? ''),
+    createdAt:
+        DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+    createdByUserId: json['createdByUserId'] as String? ?? 'Tech Media',
+  );
+}
+
+String _plainTextComment(String value) {
+  var text = value
+      .replaceAll(
+        RegExp(
+          r'<(?:script|style)\b[^>]*>.*?</(?:script|style)>',
+          caseSensitive: false,
+          dotAll: true,
+        ),
+        '',
+      )
+      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'</(?:div|li|p)>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'<li\b[^>]*>', caseSensitive: false), '• ')
+      .replaceAll(RegExp(r'<[^>]+>'), '');
+
+  text = text.replaceAllMapped(RegExp(r'&#(?:x([0-9a-fA-F]+)|(\d+));'), (
+    match,
+  ) {
+    final hexadecimal = match.group(1);
+    final codePoint = int.tryParse(
+      hexadecimal ?? match.group(2)!,
+      radix: hexadecimal == null ? 10 : 16,
+    );
+    if (codePoint == null ||
+        codePoint < 0 ||
+        codePoint > 0x10FFFF ||
+        (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
+      return '';
+    }
+    return String.fromCharCode(codePoint);
+  });
+
+  const entities = {
+    '&nbsp;': ' ',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&apos;': "'",
+    '&lt;': '<',
+    '&gt;': '>',
+    '&amp;': '&',
+  };
+  for (final entry in entities.entries) {
+    text = text.replaceAll(entry.key, entry.value);
+  }
+
+  return text
+      .split('\n')
+      .map((line) => line.replaceAll(RegExp(r'[ \t]+'), ' ').trim())
+      .where((line) => line.isNotEmpty)
+      .join('\n')
+      .trim();
 }
 
 class MessagingConversation {

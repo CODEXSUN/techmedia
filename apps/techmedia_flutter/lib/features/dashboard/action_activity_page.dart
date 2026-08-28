@@ -22,7 +22,7 @@ class _ActionActivityPageState extends State<ActionActivityPage> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<CrmJob>>(
-      future: widget.api.assignedJobs(widget.session.accessToken),
+      future: widget.api.assignedJobDetails(widget.session.accessToken),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Center(child: Text('Could not load live actions.'));
@@ -30,10 +30,14 @@ class _ActionActivityPageState extends State<ActionActivityPage> {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final actions = snapshot.data!
-            .where((job) => _period.includes(job.createdAt))
-            .map(_LiveAction.fromJob)
-            .toList();
+        final actions =
+            snapshot.data!
+                .expand(_LiveAction.fromJob)
+                .where((action) => _period.includes(action.createdAt))
+                .toList()
+              ..sort(
+                (left, right) => right.createdAt.compareTo(left.createdAt),
+              );
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
           itemCount: actions.length + 2,
@@ -255,15 +259,32 @@ class _LiveAction {
     required this.title,
     required this.detail,
     required this.time,
+    required this.createdAt,
   });
   final String title;
   final String detail;
   final String time;
-  factory _LiveAction.fromJob(CrmJob job) => _LiveAction(
-    title: 'Review enquiry',
-    detail: '${job.title} · ${job.lastAction}',
-    time: _relativeTime(job.createdAt),
-  );
+  final DateTime createdAt;
+
+  static Iterable<_LiveAction> fromJob(CrmJob job) sync* {
+    for (final activity in job.activities) {
+      yield _LiveAction(
+        title: '${activity.action} · #${job.number}',
+        detail: '${job.title} · ${activity.details}',
+        time: _relativeTime(activity.createdAt),
+        createdAt: activity.createdAt,
+      );
+    }
+    for (final execution in job.jobs) {
+      yield _LiveAction(
+        title: '${execution.status} job · #${job.number}',
+        detail:
+            '${job.title} · ${execution.employee} · ${execution.hours.toStringAsFixed(2)} hr',
+        time: _relativeTime(execution.createdAt),
+        createdAt: execution.createdAt,
+      );
+    }
+  }
 }
 
 String _relativeTime(DateTime value) {

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/techmedia_api.dart';
+import '../../core/messaging/live_message_notifications.dart';
 import 'dashboard_home.dart';
 import 'dashboard_list_page.dart';
 import 'coming_soon_page.dart';
@@ -15,11 +18,13 @@ class DashboardPage extends StatefulWidget {
     required this.api,
     required this.session,
     required this.onSignOut,
+    this.enableLiveNotifications = true,
   });
 
   final TechMediaApi api;
   final UserSession session;
   final VoidCallback onSignOut;
+  final bool enableLiveNotifications;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -27,6 +32,27 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   var _selectedIndex = 0;
+  late final LiveMessageNotifications _messageNotifications;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageNotifications = LiveMessageNotifications(
+      api: widget.api,
+      session: widget.session,
+    )..addListener(_updateMessageBadge);
+    if (widget.enableLiveNotifications) {
+      unawaited(_messageNotifications.start());
+    }
+  }
+
+  @override
+  void dispose() {
+    _messageNotifications
+      ..removeListener(_updateMessageBadge)
+      ..dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +72,7 @@ class _DashboardPageState extends State<DashboardPage> {
             padding: const EdgeInsets.only(right: 12),
             child: MessageNotificationButton(
               key: const Key('message-notification-button'),
-              unreadCount: 3,
+              unreadCount: _messageNotifications.unreadCount,
               onPressed: _openMessages,
             ),
           ),
@@ -94,13 +120,18 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _selectDestination(int index) => setState(() => _selectedIndex = index);
 
-  void _openMessages() {
-    Navigator.of(context).push<void>(
+  Future<void> _openMessages() async {
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (context) =>
             MessagesPage(api: widget.api, session: widget.session),
       ),
     );
+    await _messageNotifications.refresh();
+  }
+
+  void _updateMessageBadge() {
+    if (mounted) setState(() {});
   }
 
   void _showMenu() {
