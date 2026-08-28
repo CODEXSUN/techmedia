@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.49
+Current version: 1.0.50
 
-Release tag: v-1.0.49
+Release tag: v-1.0.50
 
-Changelog label: v 1.0.49
+Changelog label: v 1.0.50
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -30,6 +30,26 @@ New entries must keep database-facing work and application code work separate.
 - Added native message, calls, and home navigation with system Back support.
 - Added the account dropdown, Sign out action, hamburger menu, and bottom navigation icons.
 - Added mobile permission declarations for contacts, media, camera, microphone, and notifications.
+
+## v-1.0.50
+
+### [v 1.0.50] 2026-08-28 3:51 pm - Flutter CRM and live Messenger
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.50.
+- Aligned the Flutter Android application version with the repository at 1.0.50, build 50.
+- Fixed mobile enquiry comments to use live Frappe records instead of sample content.
+- Added mobile comment posting and plain-text display for Frappe rich-text messages.
+- Added live Frappe job execution details, job start and stop actions, and enquiry activities.
+- Connected Frappe activities and job executions to the mobile Actions screen.
+- Removed the Flutter local API override and fixed the API origin to `app.techmedia.in`.
+- Replaced the sample Messenger badge with authenticated unread totals and live WebSocket updates.
+- Added Messenger read updates, reconnect behavior, and production WebSocket deployment instructions.
 
 ## v-1.0.49
 

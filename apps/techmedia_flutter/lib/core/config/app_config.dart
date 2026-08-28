@@ -3,7 +3,7 @@ class AppConfig {
 
   static const appVersion = String.fromEnvironment(
     'TECHMEDIA_APP_VERSION',
-    defaultValue: '1.0.49',
+    defaultValue: '1.0.50',
   );
 
   static const apiUrl = 'https://app.techmedia.in/api/platform';
