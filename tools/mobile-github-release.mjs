@@ -9,31 +9,27 @@ import { platform } from "node:os";
 const root = resolve(import.meta.dirname, "..");
 const args = new Set(process.argv.slice(2));
 const dryRun = args.has("--dry-run");
-const publish = args.has("--publish");
 const mandatory = args.has("--mandatory");
 const version = readVersion();
 const versionCode = readVersionCode();
-const tag = `v-${version}`;
-const apkName = `TechMedia-${version}-release.apk`;
-const releaseDirectory = join(root, "dist", "mobile", "github-release");
+const apkName = `TechMedia-${version}.apk`;
+const releaseDirectory = join(root, "storage", "mobile", "release");
 const apkPath = join(releaseDirectory, apkName);
 const manifestPath = join(releaseDirectory, "latest.json");
 const notesPath = join(releaseDirectory, "release-notes.md");
 
-if (![...args].every((arg) => ["--dry-run", "--publish", "--mandatory"].includes(arg))) {
-  fail("Usage: npm run mobile:release -- [--dry-run] [--publish] [--mandatory]");
+if (![...args].every((arg) => ["--dry-run", "--mandatory"].includes(arg))) {
+  fail("Usage: npm run mobile:release -- [--dry-run] [--mandatory]");
 }
-if (dryRun && publish) fail("Use either --dry-run or --publish, not both.");
+if (!process.env.VITE_MOBILE_API_URL?.trim()) {
+  fail("VITE_MOBILE_API_URL is required to prepare a mobile release.");
+}
 
 if (!dryRun) buildRelease();
 prepareReleaseFiles();
 printSummary();
-if (publish) publishRelease();
 
 function buildRelease() {
-  if (!process.env.VITE_MOBILE_API_URL?.trim()) {
-    fail("VITE_MOBILE_API_URL is required to build a mobile release.");
-  }
   if (platform() === "win32") run("cmd.exe", ["/d", "/s", "/c", "npm.cmd run mobile:apk:release"]);
   else run("npm", ["run", "mobile:apk:release"]);
 }
@@ -60,7 +56,7 @@ function prepareReleaseFiles() {
   writeFileSync(apkPath, apk);
 
   const manifest = {
-    apkUrl: `https://github.com/CODEXSUN/techmedia/releases/download/${tag}/${apkName}`,
+    apkUrl: `${process.env.VITE_MOBILE_API_URL.replace(/\/$/u, "")}/mobile/release/${apkName}`,
     mandatory,
     sha256: createHash("sha256").update(apk).digest("hex"),
     versionCode,
@@ -91,37 +87,6 @@ function assertApkVersion() {
   }
 }
 
-function publishRelease() {
-  requireCleanPushedSource();
-  run("gh", ["auth", "status"]);
-  if (gitQuiet(["ls-remote", "--exit-code", "--tags", "origin", `refs/tags/${tag}`])) {
-    fail(`Tag ${tag} already exists on origin.`);
-  }
-  run("git", ["tag", "-a", tag, "-m", `TechMedia mobile ${tag}`]);
-  run("git", ["push", "origin", tag]);
-  run("gh", [
-    "release",
-    "create",
-    tag,
-    apkPath,
-    manifestPath,
-    "--title",
-    `TechMedia ${version}`,
-    "--notes-file",
-    notesPath
-  ]);
-}
-
-function requireCleanPushedSource() {
-  if (gitQuiet(["status", "--porcelain"])) fail("Commit and push the source before publishing a mobile release.");
-  const upstream = gitQuiet(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]);
-  if (!upstream) fail("The current branch has no upstream branch.");
-  const [behind, ahead] = gitQuiet(["rev-list", "--left-right", "--count", `${upstream}...HEAD`])
-    .split(/\s+/u)
-    .map(Number);
-  if (behind || ahead) fail("Push and synchronize the current branch before publishing a mobile release.");
-}
-
 function readVersion() {
   const value = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
   if (typeof value !== "string" || !/^\d+\.\d+\.\d+$/u.test(value)) fail("Invalid package version.");
@@ -145,22 +110,14 @@ function releaseNotes() {
 }
 
 function printSummary() {
-  console.log(`Mobile GitHub release ${tag}`);
+  console.log(`Mobile storage release ${version}`);
   console.log(`APK: ${apkPath}`);
   console.log(`Manifest: ${manifestPath}`);
-  console.log(`Mode: ${dryRun ? "dry run" : publish ? "publish" : "prepared"}`);
+  console.log(`Mode: ${dryRun ? "dry run" : "prepared"}`);
 }
 
 function run(command, commandArgs) {
   execFileSync(command, commandArgs, { cwd: root, stdio: "inherit" });
-}
-
-function gitQuiet(commandArgs) {
-  try {
-    return execFileSync("git", commandArgs, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-  } catch {
-    return "";
-  }
 }
 
 function fail(message) {

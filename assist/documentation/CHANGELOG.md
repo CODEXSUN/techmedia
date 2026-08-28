@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.50
+Current version: 1.0.51
 
-Release tag: v-1.0.50
+Release tag: v-1.0.51
 
-Changelog label: v 1.0.50
+Changelog label: v 1.0.51
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -30,6 +30,27 @@ New entries must keep database-facing work and application code work separate.
 - Added native message, calls, and home navigation with system Back support.
 - Added the account dropdown, Sign out action, hamburger menu, and bottom navigation icons.
 - Added mobile permission declarations for contacts, media, camera, microphone, and notifications.
+
+## v-1.0.51
+
+### [v 1.0.51] 2026-08-28 4:40 pm - CRM comment time and mobile updates
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.51.
+- Changed CRM comment timestamps to a live relative-time format with the exact local time on hover.
+- Reloaded Frappe enquiry messages with their child creation and owner metadata after each write.
+- Moved Android update checks behind a valid TechMedia login.
+- Added an update banner and a manual update check to the mobile side menu.
+- Changed the Android updater to use the TechMedia portal release manifest and APK storage.
+- Kept SHA-256 verification, Android install-source approval, and the system package installer flow.
+- Added the application version to the bottom of the mobile splash loader.
+- Aligned the Ionic Android application with version 1.0.51 and build code 10051.
+- Changed the Ionic release tool to prepare files under `storage/mobile/release`.
 
 ## v-1.0.50
 

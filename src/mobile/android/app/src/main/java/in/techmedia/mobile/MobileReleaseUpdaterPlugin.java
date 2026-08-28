@@ -1,6 +1,7 @@
 package in.techmedia.mobile;
 
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -20,6 +21,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.util.Locale;
@@ -114,10 +116,21 @@ public class MobileReleaseUpdaterPlugin extends Plugin {
     }
 
     private boolean validRelease(String apkUrl, String sha256) {
-        return apkUrl != null
-            && apkUrl.startsWith("https://github.com/CODEXSUN/techmedia/releases/download/")
-            && sha256 != null
-            && sha256.matches("(?i)^[a-f0-9]{64}$");
+        if (apkUrl == null || sha256 == null || !sha256.matches("(?i)^[a-f0-9]{64}$")) return false;
+        try {
+            URI release = URI.create(apkUrl);
+            boolean productionRelease = "https".equals(release.getScheme())
+                && "app.techmedia.in".equalsIgnoreCase(release.getHost())
+                && release.getPath().startsWith("/api/platform/mobile/release/");
+            boolean localDebugRelease = (getContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0
+                && "http".equals(release.getScheme())
+                && "10.0.2.2".equals(release.getHost())
+                && (release.getPath().startsWith("/api/platform/mobile/release/")
+                    || release.getPath().startsWith("/mobile/release/"));
+            return productionRelease || localDebugRelease;
+        } catch (IllegalArgumentException error) {
+            return false;
+        }
     }
 
     private String sha256(File file) throws Exception {

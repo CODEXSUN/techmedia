@@ -280,7 +280,7 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         }
       );
       if (!response.data?.name) throw AppError.conflict("Frappe did not return the new enquiry.");
-      return hydrate(target, response.data.name, response.data);
+      return hydrate(target, response.data.name);
     },
 
     async countComments(input) {
@@ -320,7 +320,7 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       const options = await loadEnquiryOptions(target);
       const status = resolveStatusName(input.status, options);
       const enquiryName = requiredName(name);
-      const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
+      await frappeRequest<{ data?: FrappeEnquiryDocument }>(
         target,
         `/api/resource/Enquiry/${encodeURIComponent(enquiryName)}`,
         {
@@ -328,13 +328,13 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
           method: "PUT"
         }
       );
-      return hydrate(target, enquiryName, response.data);
+      return hydrate(target, enquiryName);
     },
 
     async updateMessages(name, messages, status) {
       const target = await connection();
       const enquiryName = requiredName(name);
-      const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
+      await frappeRequest<{ data?: FrappeEnquiryDocument }>(
         target,
         `/api/resource/Enquiry/${encodeURIComponent(enquiryName)}`,
         {
@@ -350,7 +350,7 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
           method: "PUT"
         }
       );
-      return hydrate(target, enquiryName, response.data);
+      return hydrate(target, enquiryName);
     },
 
     async delete(name) {
@@ -490,11 +490,79 @@ async function hydrate(
         ).data;
   if (!document) throw AppError.notFound("Enquiry was not found in Frappe.");
   const query = new URLSearchParams({ doctype: "Enquiry", name: requiredName(name) });
-  const timeline = await frappeRequest<FrappeDocInfoResponse>(
-    connection,
-    `/api/method/frappe.desk.form.load.get_docinfo?${query}`
-  );
-  return toEnquiry(document, options, timeline.docinfo);
+  const [timeline, messageMetadata] = await Promise.all([
+    frappeRequest<FrappeDocInfoResponse>(
+      connection,
+      `/api/method/frappe.desk.form.load.get_docinfo?${query}`
+    ),
+    loadMessageMetadata(connection, requiredName(name))
+  ]);
+  return toEnquiry(withMessageMetadata(document, messageMetadata), options, timeline.docinfo);
+}
+
+async function loadMessageMetadata(
+  connection: FrappeConnectionCredentials,
+  enquiryName: string
+) {
+  try {
+    return await requestMessageMetadata(connection, enquiryName, [
+      "name",
+      "owner",
+      "creation",
+      "posted_at",
+      "posted_by"
+    ]);
+  } catch {
+    return requestMessageMetadata(connection, enquiryName, ["name", "owner", "creation"]);
+  }
+}
+
+async function requestMessageMetadata(
+  connection: FrappeConnectionCredentials,
+  enquiryName: string,
+  fields: string[]
+) {
+  const response = await frappeRequest<{
+    data?: FrappeEnquiryMessageMetadata[];
+    message?: FrappeEnquiryMessageMetadata[];
+  }>(connection, "/api/v2/method/frappe.client.get_list", {
+    body: JSON.stringify({
+      doctype: "Enquiry Message",
+      fields,
+      filters: [
+        ["parent", "=", enquiryName],
+        ["parenttype", "=", "Enquiry"],
+        ["parentfield", "=", "enquiry_messages"]
+      ],
+      limit_page_length: 500,
+      order_by: "idx asc",
+      parent: "Enquiry"
+    }),
+    method: "POST"
+  });
+  return response.data ?? response.message ?? [];
+}
+
+function withMessageMetadata(
+  document: FrappeEnquiryDocument,
+  metadata: FrappeEnquiryMessageMetadata[]
+): FrappeEnquiryDocument {
+  const byName = new Map(metadata.map((entry) => [entry.name, entry]));
+  return {
+    ...document,
+    enquiry_messages: (document.enquiry_messages ?? []).map((message) => {
+      const systemFields = message.name ? byName.get(message.name) : undefined;
+      return {
+        ...message,
+        ...(systemFields?.posted_at || systemFields?.creation
+          ? { creation: systemFields.posted_at || systemFields.creation }
+          : {}),
+        ...(systemFields?.posted_by || systemFields?.owner
+          ? { owner: systemFields.posted_by || systemFields.owner }
+          : {})
+      };
+    })
+  };
 }
 
 function toPayload(
@@ -933,6 +1001,14 @@ type FrappeEnquiryDocument = {
   status_details?: string;
   title?: string;
   user_employee?: string;
+};
+
+type FrappeEnquiryMessageMetadata = {
+  creation?: string;
+  name: string;
+  owner?: string;
+  posted_at?: string;
+  posted_by?: string;
 };
 
 type FrappeJobExecutionDocument = {

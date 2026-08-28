@@ -13,15 +13,15 @@
     <div id="root">
       <div class="mobile-boot-loader" role="status" aria-label="Loading TechMedia">
         <img src="/logo/logo.svg" alt="" />
+        <span id="mobile-boot-version">Version</span>
       </div>
     </div>
-    <div id="mobile-update"></div>
     <script type="module" src="./src/main.tsx"></script>
     <style>
       .mobile-boot-loader {
         align-items: center;
         background: #f8fafc;
-        display: flex;
+        display: grid;
         inset: 0;
         justify-content: center;
         position: fixed;
@@ -31,6 +31,13 @@
         animation: mobile-boot-pulse 1.2s ease-in-out infinite;
         height: 72px;
         width: 72px;
+      }
+
+      .mobile-boot-loader span {
+        bottom: max(env(safe-area-inset-bottom), 24px);
+        color: #77717e;
+        font: 12px system-ui, sans-serif;
+        position: fixed;
       }
 
       @keyframes mobile-boot-pulse {

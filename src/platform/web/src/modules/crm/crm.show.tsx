@@ -705,9 +705,7 @@ function CommentsTab({
                         <p className="whitespace-nowrap text-xs text-muted-foreground/75">
                           <span className="font-medium text-foreground/70">{author.name}</span>
                           <span aria-hidden="true"> - </span>
-                          <time dateTime={message.createdAt}>
-                            {formatDateTime(message.createdAt)}
-                          </time>
+                          <RelativeTime value={message.createdAt} />
                         </p>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1394,11 +1392,24 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function formatRelativeTime(value: string) {
+function RelativeTime({ value }: { value: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return (
+    <time dateTime={value} title={formatDateTime(value)}>
+      {formatRelativeTime(value, now)}
+    </time>
+  );
+}
+
+function formatRelativeTime(value: string, now = Date.now()) {
   const timestamp = new Date(value).getTime();
   if (!Number.isFinite(timestamp)) return "Unknown time";
 
-  const seconds = Math.round((Date.now() - timestamp) / 1_000);
+  const seconds = Math.round((now - timestamp) / 1_000);
   const future = seconds < 0;
   const absoluteSeconds = Math.abs(seconds);
   const units: Array<[number, Intl.RelativeTimeFormatUnit]> = [

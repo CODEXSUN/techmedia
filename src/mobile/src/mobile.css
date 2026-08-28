@@ -20,7 +20,26 @@ body { background: var(--background); color: var(--foreground); margin: 0; }
 .techme-error { color: #b42318 !important; font-size: 13px; margin: 0 !important; }
 .techme-secure { color: #47795d !important; font-size: 12px; margin: 0 !important; text-align: center; }
 .techme-desk { display: grid; gap: 18px; grid-template-rows: minmax(0, 1fr) auto; min-height: 100dvh; padding: max(env(safe-area-inset-top), 42px) 20px max(env(safe-area-inset-bottom), 20px); }
+.techme-workspace { display: grid; min-height: 0; position: relative; }
+.techme-side-menu-trigger { align-items: center; background: #fff; border: 1px solid #e9e4ed; border-radius: 50%; color: var(--techme-ink); display: grid; height: 42px; place-items: center; position: absolute; right: 0; top: -4px; width: 42px; z-index: 4; }
+.techme-side-menu-trigger ion-icon { font-size: 23px; }
+.techme-update-banner { align-items: center; background: #eee3f5; border: 1px solid #d8c2e7; border-radius: 16px; color: var(--techme-ink); display: grid; font: inherit; gap: 10px; grid-template-columns: 34px minmax(0, 1fr); margin: 52px 0 14px; padding: 11px 13px; text-align: left; width: 100%; }
+.techme-update-banner ion-icon { color: var(--techme-purple); font-size: 25px; }
+.techme-update-banner span, .techme-side-menu span { display: grid; gap: 2px; }
+.techme-update-banner strong, .techme-side-menu strong { font-size: 13px; }
+.techme-update-banner small, .techme-side-menu small { color: var(--techme-muted); font-size: 11px; }
+.techme-side-menu-layer { inset: 0; position: fixed; z-index: 20; }
+.techme-side-menu-backdrop { background: rgb(20 14 24 / 34%); border: 0; inset: 0; position: absolute; width: 100%; }
+.techme-side-menu { background: #fff; box-shadow: 8px 0 30px rgb(35 24 46 / 18%); display: grid; gap: 6px; inset: 0 auto 0 0; padding: max(env(safe-area-inset-top), 28px) 14px max(env(safe-area-inset-bottom), 20px); position: absolute; width: min(84vw, 320px); }
+.techme-side-menu header { align-items: center; border-bottom: 1px solid #ece7ef; display: grid; gap: 11px; grid-template-columns: 42px minmax(0, 1fr); margin-bottom: 8px; padding: 4px 8px 16px; }
+.techme-side-menu header img { height: 42px; width: 42px; }
+.techme-side-menu header div { display: grid; gap: 3px; }
+.techme-side-menu > button { align-items: center; background: transparent; border: 0; border-radius: 13px; color: var(--techme-ink); display: grid; font: inherit; gap: 11px; grid-template-columns: 34px minmax(0, 1fr); padding: 11px 9px; text-align: left; }
+.techme-side-menu > button:active { background: #f2ebf7; }
+.techme-side-menu > button:disabled { opacity: .65; }
+.techme-side-menu > button ion-icon { color: var(--techme-purple); font-size: 22px; }
 .techme-desk.is-thread-open { gap: 0; grid-template-rows: minmax(0, 1fr); height: 100%; min-height: 100%; padding: 0; }
+.techme-desk.is-thread-open .techme-workspace { height: 100%; }
 .techme-desk.is-thread-open .techme-tabbar { display: none; }
 .techme-header, .techme-header-actions, .techme-tabbar, .techme-feature { align-items: center; display: flex; }
 .techme-header { justify-content: space-between; }
