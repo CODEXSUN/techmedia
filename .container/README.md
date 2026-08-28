@@ -58,12 +58,11 @@ PLATFORM_API_PORT=7050
 PLATFORM_API_URL=https://app.techmedia.in/api/platform
 PLATFORM_WEB_PORT=7060
 PLATFORM_WEB_ORIGIN=https://app.techmedia.in
-PLATFORM_WEB_ORIGINS=https://app.techmedia.in,capacitor://localhost,https://localhost
+PLATFORM_WEB_ORIGINS=https://app.techmedia.in
 VITE_PLATFORM_API_URL=/api/platform
-VITE_MOBILE_API_URL=https://app.techmedia.in/api/platform
 ```
 
-Add only the mobile origins that the released clients use. Do not use `*` for authenticated requests.
+Do not add native WebView origins. Flutter calls the API through its HTTP client.
 
 Also configure the database, Frappe, token, email, and storage values from `.container/.env.example`. Keep all secrets out of Git.
 
@@ -95,26 +94,20 @@ The API reads `MOBILE_RELEASE_STORAGE_ROOT`. Docker Compose sets it to the mount
 
 ## Publish a Flutter Android update
 
-1. Update `apps/techmedia_flutter/pubspec.yaml` with a higher version and build number.
-2. Build the APK from the repository root.
+1. Bump the repository version. This also updates the Flutter version and build number.
+2. Build the APK and prepare the portal release files from the repository root.
 
    ```powershell
-   C:\Users\sunda\development\flutter\bin\flutter.bat build apk --release --dart-define=TECHMEDIA_APP_VERSION=<version>
+   npm.cmd run mobile:release
    ```
 
-3. Prepare the local portal release files.
-
-   ```powershell
-   npm.cmd run flutter:release:portal -- --base-url=https://app.techmedia.in/api/platform
-   ```
-
-4. Copy `storage/mobile/release` into the API container release path after the API deployment.
-5. Check `https://app.techmedia.in/api/platform/mobile/release/latest.json`.
-6. Start an older Android app version and confirm that it shows the update approval dialog.
+3. Copy `storage/mobile/release` into the API container release path after the API deployment.
+4. Check `https://app.techmedia.in/api/platform/mobile/release/latest.json`.
+5. Start an older Android app version and confirm that it shows the update approval dialog after login.
 
 ## Update behavior
 
-The app checks `latest.json` at startup. It downloads the APK only after the user selects Update.
+The app checks `latest.json` after login. It downloads the APK only after the user selects Update.
 It verifies the SHA-256 value before it starts Android's package installer.
 
 Android always requires user approval to install an update. The app cannot silently install an APK.

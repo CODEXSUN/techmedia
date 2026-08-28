@@ -1,15 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:techmedia_flutter/app/techmedia_flutter_app.dart';
 import 'package:techmedia_flutter/core/api/techmedia_api.dart';
+import 'package:techmedia_flutter/core/auth/secure_session_store.dart';
 import 'package:techmedia_flutter/core/update/app_update_service.dart';
+import 'package:techmedia_flutter/features/auth/login_page.dart';
 import 'package:techmedia_flutter/features/dashboard/dashboard_list_page.dart';
 import 'package:techmedia_flutter/features/dashboard/dashboard_page.dart';
 import 'package:techmedia_flutter/features/dashboard/job_detail_page.dart';
 import 'package:techmedia_flutter/features/dashboard/messages_sample_page.dart';
 
 void main() {
+  test('resets the session after ten inactive days', () {
+    final store = SecureSessionStore();
+    final current = StoredSession(
+      accessToken: 'token',
+      email: 'user@techmedia.in',
+      lastActivityAt: DateTime.now().toUtc().subtract(const Duration(days: 9)),
+      biometricEnabled: false,
+    );
+    final expired = StoredSession(
+      accessToken: 'token',
+      email: 'user@techmedia.in',
+      lastActivityAt: DateTime.now().toUtc().subtract(const Duration(days: 11)),
+      biometricEnabled: false,
+    );
+
+    expect(store.isActive(current), isTrue);
+    expect(store.isActive(expired), isFalse);
+  });
+
   test('compares app update versions safely', () {
     expect(isNewerVersion('1.0.2', '1.0.1'), isTrue);
     expect(isNewerVersion('1.0.1', '1.0.1'), isFalse);
@@ -64,7 +84,14 @@ void main() {
   testWidgets('shows the TechMedia sign-in screen', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const TechMediaFlutterApp());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LoginPage(
+          api: TechMediaApi('https://app.techmedia.in/api/platform'),
+          onSignedIn: (_) {},
+        ),
+      ),
+    );
 
     expect(find.text('Welcome'), findsOneWidget);
     expect(find.text('Sign in'), findsOneWidget);

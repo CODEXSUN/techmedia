@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.51
+Current version: 1.0.53
 
-Release tag: v-1.0.51
+Release tag: v-1.0.53
 
-Changelog label: v 1.0.51
+Changelog label: v 1.0.53
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -15,7 +15,9 @@ New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
 
-### TechMe Native Mobile 0.2.0
+## v-1.0.53
+
+### [v 1.0.53] 2026-08-28 6:17 pm - Flutter secure local unlock
 
 #### Database Changes
 
@@ -23,13 +25,36 @@ New entries must keep database-facing work and application code work separate.
 
 #### App Codebase Changes
 
-- Added the Kotlin native TechMe Android application at version 0.2.0.
-- Added encrypted token storage and production session validation.
-- Added the shared messaging REST flow and authenticated WebSocket sync.
-- Added a debug-only emulator endpoint for the local API at `10.0.2.2:7050`.
-- Added native message, calls, and home navigation with system Back support.
-- Added the account dropdown, Sign out action, hamburger menu, and bottom navigation icons.
-- Added mobile permission declarations for contacts, media, camera, microphone, and notifications.
+- Bumped repository version to 1.0.53.
+- Added encrypted Android storage for minimal Flutter session data.
+- Added PIN setup after the first full login.
+- Added PIN and optional biometric unlock for a valid API session.
+- Kept the PIN until the user resets it or signs out.
+- Required a full email and password login after 10 inactive days.
+- Made the web API session endpoint the authority for token validity.
+- Validated the stored access token after local unlock and application resume.
+- Added password confirmation and PIN reset to the mobile account menu.
+- Kept account passwords out of local storage.
+- Aligned the Flutter application with version 1.0.53 and build number 53.
+
+## v-1.0.52
+
+### [v 1.0.52] 2026-08-28 5:11 pm - Flutter-only mobile release
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.52.
+- Confirmed that Flutter is the only TechMedia mobile client and release workflow.
+- Removed the remaining Ionic, Capacitor, and Kotlin Multiplatform files and package references.
+- Removed obsolete mobile build tools and workspace commands.
+- Updated the Flutter runtime version labels and Android build number to 52.
+- Added root Flutter commands for development, APK builds, and portal releases.
+- Added automatic `techmedia-v<version>.apk` output for Flutter release builds.
+- Verified the Node, React, API, and Flutter build boundaries after the cleanup.
 
 ## v-1.0.51
 
@@ -44,13 +69,13 @@ New entries must keep database-facing work and application code work separate.
 - Bumped repository version to 1.0.51.
 - Changed CRM comment timestamps to a live relative-time format with the exact local time on hover.
 - Reloaded Frappe enquiry messages with their child creation and owner metadata after each write.
-- Moved Android update checks behind a valid TechMedia login.
-- Added an update banner and a manual update check to the mobile side menu.
-- Changed the Android updater to use the TechMedia portal release manifest and APK storage.
-- Kept SHA-256 verification, Android install-source approval, and the system package installer flow.
-- Added the application version to the bottom of the mobile splash loader.
-- Aligned the Ionic Android application with version 1.0.51 and build code 10051.
-- Changed the Ionic release tool to prepare files under `storage/mobile/release`.
+- Kept Flutter as the only TechMedia mobile application.
+- Removed the Ionic, Capacitor, and Kotlin Multiplatform mobile clients.
+- Removed obsolete Ionic, Capacitor, and Kotlin mobile build commands and dependencies.
+- Added root Flutter commands for development, Android APK builds, and portal releases.
+- Aligned the Flutter application with version 1.0.51 and build number 51.
+- Moved the Flutter release check after login and added a manual check to the account menu.
+- Kept the Flutter portal updater, SHA-256 verification, and Android system installer flow.
 
 ## v-1.0.50
 

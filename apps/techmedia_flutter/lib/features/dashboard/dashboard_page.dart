@@ -18,12 +18,16 @@ class DashboardPage extends StatefulWidget {
     required this.api,
     required this.session,
     required this.onSignOut,
+    this.onResetPin,
+    this.onCheckForUpdate,
     this.enableLiveNotifications = true,
   });
 
   final TechMediaApi api;
   final UserSession session;
   final VoidCallback onSignOut;
+  final Future<void> Function()? onResetPin;
+  final Future<void> Function()? onCheckForUpdate;
   final bool enableLiveNotifications;
 
   @override
@@ -153,6 +157,34 @@ class _DashboardPageState extends State<DashboardPage> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.pin_outlined),
+                title: const Text('Reset PIN'),
+                subtitle: const Text(
+                  'Confirm your password and set a new PIN.',
+                ),
+                onTap: widget.onResetPin == null
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        widget.onResetPin!();
+                      },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.system_update_alt_rounded),
+                title: const Text('Check for updates'),
+                subtitle: const Text(
+                  "Version ${String.fromEnvironment('TECHMEDIA_APP_VERSION', defaultValue: '1.0.53')}",
+                ),
+                onTap: widget.onCheckForUpdate == null
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        widget.onCheckForUpdate!();
+                      },
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.logout),

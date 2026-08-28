@@ -4,11 +4,8 @@
 
 - `src/platform/api`: Fastify API and composition root.
 - `src/platform/web`: React application with one login and one desk.
-- `src/mobile`: Ionic React and Capacitor mobile-first client. It owns mobile UI composition and
-  uses shared TechMedia authentication and API contracts through native runtime adapters.
-- `apps/techmedia_flutter`: separate Flutter client scaffold. It communicates only through the
-  TechMedia HTTP and WebSocket API contracts and does not share Ionic UI code.
-- `KMP-Mobile`: preserved Kotlin Multiplatform TechMe client for future native-only shared logic.
+- `apps/techmedia_flutter`: the only mobile client. It owns the Flutter Android application and
+  communicates through the TechMedia HTTP and WebSocket API contracts.
 
 ## API Modules
 
@@ -50,6 +47,6 @@ No parent-folder or sibling product repository is part of the TechMedia install,
 - `dist/packages/framework`: compiled Framework runtime.
 - `dist/platform/api`: compiled API runtime.
 - `dist/platform/web`: production web bundle.
-- `dist/mobile/web`: Capacitor web bundle copied into the native Android and iOS projects.
+- `apps/techmedia_flutter/build`: generated Flutter application output.
 
 Workspace-local `node_modules`, `dist`, and `dist-types` directories are prohibited.

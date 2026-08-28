@@ -1,6 +1,6 @@
 # Flutter Android App Updates
 
-The Flutter Android app checks this public API endpoint at startup:
+The Flutter Android app checks this public API endpoint after a user signs in:
 
 `/api/platform/mobile/release/latest.json`
 

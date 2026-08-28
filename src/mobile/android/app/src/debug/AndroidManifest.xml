@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The emulator reaches the host development API through HTTP at 10.0.2.2. -->
-    <application android:usesCleartextTraffic="true" />
-</manifest>

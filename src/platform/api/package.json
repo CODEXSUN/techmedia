@@ -1,6 +1,6 @@
 {
   "name": "@techmedia/platform-api",
-  "version": "1.0.51",
+  "version": "1.0.53",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@codexsun/framework": "1.0.51",
+    "@codexsun/framework": "1.0.53",
     "@fastify/websocket": "^11.3.0",
     "@fastify/multipart": "^10.1.1",
     "@aws-sdk/client-s3": "^3.864.0",

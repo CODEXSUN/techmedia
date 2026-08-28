@@ -5,19 +5,23 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private val updateChannel = "in.techmedia.techmedia_flutter/app-update"
+    private val secureSessionChannel = "in.techmedia.techmedia_flutter/secure-session"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, updateChannel)
             .setMethodCallHandler(::handleUpdateCall)
+        val secureSession = SecureSessionManager(this)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, secureSessionChannel)
+            .setMethodCallHandler(secureSession::handle)
     }
 
     private fun handleUpdateCall(call: MethodCall, result: MethodChannel.Result) {

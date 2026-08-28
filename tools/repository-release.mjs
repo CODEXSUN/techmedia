@@ -80,6 +80,7 @@ function bumpVersion(titleOverride) {
 
   for (const file of packageFiles()) updatePackage(file, currentVersion, nextVersion);
   updateLockfile(currentVersion, nextVersion);
+  updateFlutterVersion(nextVersion);
   updateDeploymentReleaseContract(nextVersion);
   updateChangelog(nextVersion, title, databaseUpdate);
 
@@ -117,6 +118,13 @@ function checkVersions() {
     `## v-${expected}`
   ]) {
     if (!changelog.includes(expectedLine)) failures.push(`Changelog is missing: ${expectedLine}`);
+  }
+
+  const flutterVersion = readFlutterVersion();
+  if (flutterVersion.version !== expected || flutterVersion.build !== releaseBuild(expected)) {
+    failures.push(
+      `apps/techmedia_flutter/pubspec.yaml is ${flutterVersion.version}+${flutterVersion.build}; expected ${expected}+${releaseBuild(expected)}.`
+    );
   }
 
   if (failures.length) {
@@ -294,6 +302,29 @@ function updateDeploymentReleaseContract(nextVersion) {
     source = source.replace(pattern, `${key}=${nextVersion}`);
   }
   writeFileSync(file, source, "utf8");
+}
+
+function updateFlutterVersion(nextVersion) {
+  const file = join(root, "apps", "techmedia_flutter", "pubspec.yaml");
+  if (!existsSync(file)) return;
+  const source = readFileSync(file, "utf8");
+  const updated = source.replace(
+    /^version:\s*\d+\.\d+\.\d+\+\d+\s*$/mu,
+    `version: ${nextVersion}+${releaseBuild(nextVersion)}`
+  );
+  if (updated === source) throw new Error("Flutter pubspec version is missing.");
+  writeFileSync(file, updated, "utf8");
+}
+
+function readFlutterVersion() {
+  const file = join(root, "apps", "techmedia_flutter", "pubspec.yaml");
+  const match = /^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$/mu.exec(readFileSync(file, "utf8"));
+  if (!match?.[1] || !match[2]) throw new Error("Flutter pubspec version is invalid.");
+  return { build: Number(match[2]), version: match[1] };
+}
+
+function releaseBuild(version) {
+  return Number(version.split(".")[2]);
 }
 
 function updateChangelog(nextVersion, title, databaseUpdate) {

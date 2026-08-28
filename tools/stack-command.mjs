@@ -20,7 +20,6 @@ for (const packageName of packages) {
 
 runNpm(["run", command, "--workspace", "@techmedia/platform-api"]);
 runNpm(["run", command, "--workspace", "@techmedia/platform-web"]);
-runNpm(["run", command, "--workspace", "@techmedia/mobile"]);
 
 function runNpm(args) {
   const executable = process.env.npm_execpath ? process.execPath : "npm";

@@ -4,10 +4,16 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/api/techmedia_api.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.api, required this.onSignedIn});
+  const LoginPage({
+    super.key,
+    required this.api,
+    required this.onSignedIn,
+    this.initialEmail = '',
+  });
 
   final TechMediaApi api;
   final ValueChanged<UserSession> onSignedIn;
+  final String initialEmail;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -22,6 +28,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
+    _email.text = widget.initialEmail;
   }
 
   @override
