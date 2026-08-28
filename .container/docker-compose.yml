@@ -51,6 +51,7 @@ services:
       TZ: ${TZ:-Asia/Kolkata}
       PLATFORM_API_PORT: ${TECHMEDIA_API_INTERNAL_PORT:-7050}
       TECHMEDIA_ENV_FILE_PATH: /workspace/techmedia/.env
+      MOBILE_RELEASE_STORAGE_ROOT: /workspace/techmedia/storage/mobile/release
     depends_on:
       mariadb:
         condition: service_healthy
@@ -59,6 +60,7 @@ services:
     volumes:
       - ${TECHMEDIA_RUNTIME_ENV_FILE:-../.env}:/workspace/techmedia/.env:rw
       - codex-data:/home/node/.codex
+      - mobile-releases:/workspace/techmedia/storage/mobile/release
     networks: [techmedia]
     healthcheck:
       test:
@@ -106,6 +108,8 @@ volumes:
     name: ${TECHMEDIA_CODEX_DATA_VOLUME:-techmedia-codex-data}
   mariadb-data:
     name: ${TECHMEDIA_MARIADB_DATA_VOLUME:-techmedia-mariadb-data}
+  mobile-releases:
+    name: ${TECHMEDIA_MOBILE_RELEASES_VOLUME:-techmedia-mobile-releases}
 
 networks:
   techmedia:

@@ -9,6 +9,7 @@ import type {
   CrmEnquiryMobileMatch,
   CrmEnquiryNoteCreatePayload,
   CrmEnquiryOverview,
+  CrmEnquiryOptions,
   CrmEnquiryPriority,
   CrmReport,
   CrmReportName,
@@ -48,6 +49,10 @@ export function listCrmEnquiries(input: {
 
 export function getCrmEnquiryOverview() {
   return apiGet<CrmEnquiryOverview>(`${path}/overview`);
+}
+
+export function getCrmEnquiryOptions() {
+  return apiGet<CrmEnquiryOptions>(`${path}/options`);
 }
 
 export function getCrmReport(

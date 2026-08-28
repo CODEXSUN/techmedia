@@ -21,7 +21,7 @@ import { CrmForm } from "./crm.form";
 import { matchesEnquiryFilter, type CrmEnquiryListFilter } from "./crm.enquiry-filters";
 import { useCrmEnquiriesQuery, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
 import { CrmList } from "./crm.list";
-import { crmEnquiryStatusOptions } from "./crm.options";
+import { useCrmOptionLists } from "./crm.options";
 import { CrmShow } from "./crm.show";
 import { getCrmEnquiry, receiveCrmEnquiryAssignment } from "./crm.services";
 import type {
@@ -155,6 +155,7 @@ export function CrmWorkspace({
   });
   const statusCountsQuery = useCrmEnquiriesQuery({ ...enquiryScope, status: "all" });
   const users = useCrmUsersQuery();
+  const crmOptions = useCrmOptionLists();
   const mutations = useCrmEnquiryMutations();
   const details = viewDetails[view];
   const pageDescription = reportScopeDescription(
@@ -166,7 +167,8 @@ export function CrmWorkspace({
   const records = query.data ?? [];
   const statusFilterOptions = buildStatusFilterOptions(
     view === "all" || view === "created",
-    statusCountsQuery.data
+    statusCountsQuery.data,
+    crmOptions.statuses
   );
   const sortedRecords = [...records].sort((left, right) => compareEnquiries(left, right, sort));
   const totalPages = Math.max(1, Math.ceil(sortedRecords.length / rowsPerPage));
@@ -544,7 +546,8 @@ function reportScopeDescription(
 
 function buildStatusFilterOptions(
   showUnassigned: boolean,
-  records: CrmEnquiry[] | undefined
+  records: CrmEnquiry[] | undefined,
+  statusOptions: Array<{ label: string; value: string }>
 ): WorkspaceFilterOption[] {
   const options: Array<{ id: CrmEnquiryListFilter; label: string }> = [
     { id: "all", label: "All calls" },
@@ -554,7 +557,7 @@ function buildStatusFilterOptions(
     { id: "other", label: "Other" },
     { id: "in-progress", label: "In progress (holds and escalation)" },
     { id: "closed", label: "Closed (won, lost)" },
-    ...crmEnquiryStatusOptions.map(({ label, value }) => ({ id: value, label }))
+    ...statusOptions.map(({ label, value }) => ({ id: value, label }))
   ];
 
   return options.map((option) => {

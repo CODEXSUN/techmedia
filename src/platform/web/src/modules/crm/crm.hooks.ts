@@ -10,6 +10,7 @@ import {
   createCrmEnquiry,
   forceDeleteCrmEnquiry,
   getCrmEnquiryOverview,
+  getCrmEnquiryOptions,
   getCrmReport,
   listCrmCustomerReferences,
   listCrmEnquiries,
@@ -41,6 +42,15 @@ export function useCrmOverviewQuery(enabled = true) {
   });
 }
 
+export function useCrmOptionsQuery(enabled = true) {
+  return useQuery({
+    enabled,
+    queryFn: getCrmEnquiryOptions,
+    queryKey: [...crmEnquiryQueryKey, "options"],
+    staleTime: 60_000
+  });
+}
+
 export function useCrmReportQuery(
   name: CrmReportName,
   filters: { assignedToEmployee?: string; fromDate?: string; group?: string; toDate?: string }
@@ -51,17 +61,20 @@ export function useCrmReportQuery(
   });
 }
 
-export function useCrmEnquiriesQuery(input: {
-  assignedToEmployee?: string;
-  enquiryId?: string;
-  enquiryGroup?: string;
-  fromDate?: string;
-  priority?: CrmEnquiryPriority;
-  search?: string;
-  status?: CrmEnquiryStatusFilter;
-  toDate?: string;
-  view: CrmEnquiryView;
-}, options: { enabled?: boolean; poll?: boolean; refetchInterval?: number } = {}) {
+export function useCrmEnquiriesQuery(
+  input: {
+    assignedToEmployee?: string;
+    enquiryId?: string;
+    enquiryGroup?: string;
+    fromDate?: string;
+    priority?: CrmEnquiryPriority;
+    search?: string;
+    status?: CrmEnquiryStatusFilter;
+    toDate?: string;
+    view: CrmEnquiryView;
+  },
+  options: { enabled?: boolean; poll?: boolean; refetchInterval?: number } = {}
+) {
   return useQuery({
     enabled: options.enabled ?? true,
     refetchInterval: options.poll ? (options.refetchInterval ?? 60_000) : false,

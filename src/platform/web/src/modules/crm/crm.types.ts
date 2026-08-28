@@ -1,15 +1,6 @@
 export type CrmEnquiryPriority = "low" | "normal" | "high" | "urgent";
-export type CrmEnquiryStatus =
-  | "escalation"
-  | "hold-for-approval"
-  | "hold-for-job-out"
-  | "hold-for-spares"
-  | "long-hold"
-  | "lost"
-  | "new"
-  | "open"
-  | "reopen"
-  | "won";
+export type CrmEnquiryStatus = string;
+export type CrmEnquiryStatusGroup = "closed" | "hold" | "new" | "pending";
 export type CrmEnquiryStatusFilter =
   CrmEnquiryStatus | "active" | "all" | "closed" | "hold" | "in-progress" | "other";
 export type CrmEnquiryLifecycleStatus = "active" | "suspended";
@@ -39,6 +30,15 @@ export type CrmCustomerReference = {
   name: string;
 };
 
+export type CrmEnquiryOptions = {
+  groups: Array<{ label: string; value: string }>;
+  statuses: Array<{
+    group: CrmEnquiryStatusGroup;
+    label: string;
+    value: string;
+  }>;
+};
+
 export type CrmEnquirySchedule = { id: string; scheduledOn: string };
 export type CrmEnquiryMessage = {
   canSuspend: boolean;
@@ -52,6 +52,7 @@ export type CrmEnquiryMessage = {
 };
 export type CrmJobExecution = {
   createdAt: string;
+  date: string | null;
   employee: string;
   employeeCostPerHour: number;
   enquiry: string;
@@ -145,6 +146,8 @@ export type CrmEnquiry = {
   priority: CrmEnquiryPriority;
   schedules: CrmEnquirySchedule[];
   status: CrmEnquiryStatus;
+  statusGroup: CrmEnquiryStatusGroup;
+  statusDetails: string;
   tasks: CrmEnquiryTask[];
   title: string;
   updatedAt: string;
@@ -163,6 +166,7 @@ export type CrmEnquirySavePayload = {
   priority: CrmEnquiryPriority;
   schedules: Array<{ scheduledOn: string }>;
   status: CrmEnquiryStatus;
+  statusDetails?: string | undefined;
   title: string;
   workspace: string;
 };
@@ -176,6 +180,7 @@ export type CrmEnquiryMobileMatch = {
   frappeName: string;
   id: number;
   status: CrmEnquiryStatus;
+  statusGroup: CrmEnquiryStatusGroup;
   title: string;
 };
 
@@ -233,7 +238,11 @@ export type CrmEnquiryOverviewGroup = {
   inProgress: number;
   oldestActiveDays: number;
   priorityCounts: Array<{ count: number; priority: CrmEnquiryPriority }>;
-  statusCounts: Array<{ count: number; status: CrmEnquiryStatus }>;
+  statusCounts: Array<{
+    count: number;
+    status: CrmEnquiryStatus;
+    statusGroup: CrmEnquiryStatusGroup;
+  }>;
   total: number;
 };
 

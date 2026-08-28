@@ -22,6 +22,7 @@ const envSchema = z.object({
   TECHMEDIA_ENV_FILE_PATH: z.string().default(""),
   TECHMEDIA_INTEGRATION_ENCRYPTION_KEY: z.string().default(""),
   MESSAGE_MEDIA_STORAGE_ROOT: z.string().min(1).default("./storage/messaging"),
+  MOBILE_RELEASE_STORAGE_ROOT: z.string().min(1).default("./storage/mobile/release"),
   MESSAGE_MEDIA_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024),
   DEV_AUTO_LOGIN: z.enum(["0", "1"]).default("0"),
   INITIAL_ADMIN_EMAIL: z.string().default(""),

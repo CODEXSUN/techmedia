@@ -28,6 +28,7 @@ import {
   useBrowserNotificationPermission,
   useCrmCallNotificationPreference,
   useCrmEnquiriesQuery,
+  useCrmOptionsQuery,
   useCrmOverviewQuery,
   type CrmEnquiry,
   type CrmEnquiryOverview,
@@ -37,7 +38,7 @@ import { markNotificationRead, useNotificationInboxQuery } from "../../modules/n
 import { applicationEntryPath, canAccessAdministratorSettings } from "./app-shell-access";
 import {
   countEnquiriesForFilter,
-  crmEnquiryListFilters,
+  buildCrmEnquiryListFilters,
   enquiryFilterFromUrl,
   type CrmEnquiryListFilter
 } from "../../modules/crm/crm.enquiry-filters";
@@ -245,6 +246,7 @@ export function AppDesk() {
     { status: "all", view: "all" },
     { enabled: canViewAllEnquiries, poll: page === "crm.enquiries" }
   );
+  const crmOptionsQuery = useCrmOptionsQuery(canViewAllEnquiries);
   const select = (next: Page) => {
     setMenuNavigationRevision((revision) => revision + 1);
     void navigate({ to: pagePath(next) });
@@ -291,7 +293,8 @@ export function AppDesk() {
       setTemaPetVisible,
       openEnquiryDesk,
       crmAllEnquiriesQuery.data,
-      crmOverviewQuery.data?.stats
+      crmOverviewQuery.data?.stats,
+      crmOptionsQuery.data?.statuses
     ),
     docsMenu(page, select)
   ];
@@ -644,7 +647,8 @@ function buildMenu(
   onTemaPetVisibleChange: (visible: boolean) => void,
   onOpenEnquiryDesk: (status: CrmEnquiryListFilter) => void,
   crmEnquiries?: CrmEnquiry[],
-  crmStats?: CrmEnquiryOverview["stats"]
+  crmStats?: CrmEnquiryOverview["stats"],
+  crmStatusOptions?: Array<{ label: string; value: string }>
 ): SidemenuItem[] {
   const item = (title: string, target: Page, badge?: number) => ({
     ...(badge !== undefined ? { badge } : {}),
@@ -718,7 +722,7 @@ function buildMenu(
         title: "CRM"
       },
       ...(canViewAllEnquiries
-        ? [enquiryDeskMenu(page, crmEnquiries ?? [], onOpenEnquiryDesk)]
+        ? [enquiryDeskMenu(page, crmEnquiries ?? [], onOpenEnquiryDesk, crmStatusOptions)]
         : []),
       messagesMenu(page, item),
       ...(canUseHr
@@ -783,13 +787,14 @@ function buildMenu(
 function enquiryDeskMenu(
   page: Page,
   records: CrmEnquiry[],
-  onOpen: (filter: CrmEnquiryListFilter) => void
+  onOpen: (filter: CrmEnquiryListFilter) => void,
+  statusOptions?: Array<{ label: string; value: string }>
 ): SidemenuItem {
   const selectedFilter = page === "crm.enquiries" ? enquiryFilterFromUrl() : null;
   return {
     icon: InboxIcon,
     isActive: page === "crm.enquiries",
-    items: crmEnquiryListFilters.map((filter) => ({
+    items: buildCrmEnquiryListFilters(statusOptions).map((filter) => ({
       badge: countEnquiriesForFilter(records, filter.id),
       isActive: selectedFilter === filter.id,
       onSelect: () => onOpen(filter.id),

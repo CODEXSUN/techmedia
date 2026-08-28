@@ -1,6 +1,6 @@
 {
   "name": "techmedia",
-  "version": "1.0.48",
+  "version": "1.0.49",
   "private": true,
   "packageManager": "npm@12.0.2",
   "description": "techmedia orchestrator",
@@ -25,6 +25,7 @@
     "mobile:apk:release": "npm run mobile:sync && npm run apk:release --workspace @techmedia/mobile",
     "mobile:bundle:release": "npm run mobile:sync && npm run bundle:release --workspace @techmedia/mobile",
     "mobile:release": "node tools/mobile-github-release.mjs",
+    "flutter:release:portal": "node tools/publish-flutter-mobile-release.mjs",
     "mobile:run:android": "npm run run:android --workspace @techmedia/mobile",
     "mobile:ios": "npm run open:ios --workspace @techmedia/mobile",
     "kmp:emulator": "node tools/kmp-mobile-android.mjs emulator",

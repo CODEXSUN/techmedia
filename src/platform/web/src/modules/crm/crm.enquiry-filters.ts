@@ -1,18 +1,24 @@
 import { crmEnquiryStatusOptions } from "./crm.options";
-import type { CrmEnquiry, CrmEnquiryStatus, CrmEnquiryStatusFilter } from "./crm.types";
+import type { CrmEnquiry, CrmEnquiryStatusFilter } from "./crm.types";
 
 export type CrmEnquiryListFilter = CrmEnquiryStatusFilter | "unassigned";
 
-export const crmEnquiryListFilters: Array<{ id: CrmEnquiryListFilter; label: string }> = [
-  { id: "all", label: "All calls" },
-  { id: "unassigned", label: "Unassigned" },
-  { id: "active", label: "Active (except won and lost)" },
-  { id: "hold", label: "Hold" },
-  { id: "other", label: "Other" },
-  { id: "in-progress", label: "In progress (holds and escalation)" },
-  { id: "closed", label: "Closed (won, lost)" },
-  ...crmEnquiryStatusOptions.map(({ label, value }) => ({ id: value, label }))
-];
+export function buildCrmEnquiryListFilters(
+  statuses: Array<{ label: string; value: string }> = crmEnquiryStatusOptions
+): Array<{ id: CrmEnquiryListFilter; label: string }> {
+  return [
+    { id: "all", label: "All calls" },
+    { id: "unassigned", label: "Unassigned" },
+    { id: "active", label: "Active" },
+    { id: "hold", label: "Hold" },
+    { id: "other", label: "New group" },
+    { id: "in-progress", label: "In progress" },
+    { id: "closed", label: "Closed" },
+    ...statuses.map(({ label, value }) => ({ id: value, label }))
+  ];
+}
+
+export const crmEnquiryListFilters = buildCrmEnquiryListFilters();
 
 export function enquiryFilterFromUrl(): CrmEnquiryListFilter {
   if (typeof window === "undefined") return "all";
@@ -23,27 +29,20 @@ export function enquiryFilterFromUrl(): CrmEnquiryListFilter {
 }
 
 export function matchesEnquiryFilter(record: CrmEnquiry, filter: CrmEnquiryListFilter) {
-  return filter === "unassigned" ? !record.assignedTo : matchesStatusFilter(record.status, filter);
+  return filter === "unassigned" ? !record.assignedTo : matchesStatusFilter(record, filter);
 }
 
 export function countEnquiriesForFilter(records: CrmEnquiry[], filter: CrmEnquiryListFilter) {
   return records.filter((record) => matchesEnquiryFilter(record, filter)).length;
 }
 
-function matchesStatusFilter(status: CrmEnquiryStatus, filter: CrmEnquiryStatusFilter) {
+function matchesStatusFilter(record: CrmEnquiry, filter: CrmEnquiryStatusFilter) {
   if (filter === "all") return true;
-  if (filter === "active") return !isClosedStatus(status);
-  if (filter === "closed") return isClosedStatus(status);
-  if (filter === "hold") return isHoldStatus(status);
-  if (filter === "in-progress") return isHoldStatus(status) || status === "escalation";
-  if (filter === "other") return status === "escalation" || status === "reopen";
-  return status === filter;
-}
-
-function isClosedStatus(status: CrmEnquiryStatus) {
-  return status === "won" || status === "lost";
-}
-
-function isHoldStatus(status: CrmEnquiryStatus) {
-  return ["hold-for-approval", "hold-for-spares", "hold-for-job-out", "long-hold"].includes(status);
+  if (filter === "active") return record.statusGroup !== "closed";
+  if (filter === "closed") return record.statusGroup === "closed";
+  if (filter === "hold") return record.statusGroup === "hold";
+  if (filter === "in-progress")
+    return record.statusGroup === "hold" || record.statusGroup === "pending";
+  if (filter === "other") return record.statusGroup === "new";
+  return record.status === filter;
 }

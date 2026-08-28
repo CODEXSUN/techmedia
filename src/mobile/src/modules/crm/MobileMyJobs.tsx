@@ -141,7 +141,7 @@ function ActionSheet({ comment, onClose, onCommentChange, onLocate, onSaveCommen
 
 function SummaryCard({ active, count, label, onClick }: { active: boolean; count: number; label: string; onClick: () => void }) { return <button className={active ? "is-active" : ""} onClick={onClick} type="button"><span>{label}</span><strong>{count}</strong></button>; }
 function State({ label, tone }: { label: string; tone?: "error" }) { return <div className={`techme-job-state ${tone === "error" ? "is-error" : ""}`}>{label.includes("Loading") ? <IonSpinner name="crescent" /> : null}<span>{label}</span></div>; }
-function closedCount(overview: CrmEnquiryOverview | null) { return overview?.stats.myJob.statusCounts.filter(({ status }) => status === "won" || status === "lost").reduce((sum, item) => sum + item.count, 0) ?? 0; }
+function closedCount(overview: CrmEnquiryOverview | null) { return overview?.stats.myJob.statusCounts.filter(({ statusGroup }) => statusGroup === "closed").reduce((sum, item) => sum + item.count, 0) ?? 0; }
 function plainText(value: string) { return value.replace(/<[^>]*>/gu, " ").replace(/\s+/gu, " ").trim(); }
 function relativeTime(value: string) { const days = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000)); return days === 0 ? "Today" : `${days} day${days === 1 ? "" : "s"} ago`; }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat("en-IN", { day: "numeric", hour: "numeric", minute: "2-digit", month: "short", timeZone: "Asia/Kolkata" }).format(new Date(value)); }

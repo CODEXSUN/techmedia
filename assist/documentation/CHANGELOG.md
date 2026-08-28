@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.48
+Current version: 1.0.49
 
-Release tag: v-1.0.48
+Release tag: v-1.0.49
 
-Changelog label: v 1.0.48
+Changelog label: v 1.0.49
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -30,6 +30,26 @@ New entries must keep database-facing work and application code work separate.
 - Added native message, calls, and home navigation with system Back support.
 - Added the account dropdown, Sign out action, hamburger menu, and bottom navigation icons.
 - Added mobile permission declarations for contacts, media, camera, microphone, and notifications.
+
+## v-1.0.49
+
+### [v 1.0.49] 2026-08-28 9:43 am - Flutter mobile portal updates
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.49.
+- Aligned the Flutter Android application version with the repository at 1.0.49, build 49.
+- Added a portal-managed Flutter Android update manifest and APK endpoint.
+- Added startup version checks, SHA-256 verification, and the Android system installer approval flow.
+- Added `storage/mobile/release` as the runtime location for the latest Flutter APK and `latest.json`.
+- Added a persistent `techmedia-mobile-releases` container volume for portal release files.
+- Added `npm.cmd run flutter:release:portal -- --base-url=https://app.techmedia.in/api/platform`.
+- Added API route tests for the release manifest and APK download endpoints.
+- Production release endpoints require an API deployment before `app.techmedia.in` can serve the update.
 
 ## v-1.0.48
 

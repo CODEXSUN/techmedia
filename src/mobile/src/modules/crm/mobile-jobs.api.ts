@@ -1,7 +1,15 @@
 import { apiGet, apiPost } from "../../../../platform/web/src/shared/api/platform-api";
-import type { CrmEnquiry, CrmEnquiryOverview } from "../../../../platform/web/src/modules/crm/crm.types";
+import type {
+  CrmEnquiry,
+  CrmEnquiryOptions,
+  CrmEnquiryOverview
+} from "../../../../platform/web/src/modules/crm/crm.types";
 
 const jobsPath = "/mobile/crm/jobs";
+
+export function getMobileCrmOptions() {
+  return apiGet<CrmEnquiryOptions>("/mobile/crm/options");
+}
 
 export function getMobileJobSummary() {
   return apiGet<CrmEnquiryOverview>(`${jobsPath}/summary`);

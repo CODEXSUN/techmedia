@@ -26,6 +26,7 @@ import { userModule } from "./modules/user/index.js";
 import { honeyModule } from "./modules/honey/index.js";
 import { ishopModule } from "./modules/ishop/index.js";
 import { messagingModule } from "./modules/messaging/index.js";
+import { registerMobileReleaseRoutes } from "./mobile-release/mobile-release.routes.js";
 
 const modules = [
   userModule,
@@ -72,6 +73,7 @@ export async function createApp() {
 
   registerRequestLogging(app);
   registerHealthRoute(app, healthChecks);
+  registerMobileReleaseRoutes(app, env.MOBILE_RELEASE_STORAGE_ROOT);
   await registerAuthRoutes(app);
   await registerModules(
     modules,

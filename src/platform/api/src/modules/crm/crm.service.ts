@@ -74,7 +74,7 @@ export class CrmService {
       view: filters.view
     });
     const filtered = records
-      .filter((record) => matchesStatus(record.status, filters.status))
+      .filter((record) => matchesStatus(record, filters.status))
       .filter(
         (record) =>
           !filters.assignedToEmployee ||
@@ -91,6 +91,19 @@ export class CrmService {
       this.context.actorUserId
     );
     return this.mapMany(filtered, unreadAssignmentResourceIds);
+  }
+
+  async options() {
+    await this.requireAnyView();
+    const options = await this.gateway.options();
+    return {
+      groups: options.groups.map(({ name }) => ({ label: name, value: name })),
+      statuses: options.statuses.map(({ group, name }) => ({
+        group: group.toLowerCase() as "closed" | "hold" | "new" | "pending",
+        label: name,
+        value: statusKey(name)
+      }))
+    };
   }
 
   async get(name: string) {
@@ -117,7 +130,10 @@ export class CrmService {
       await this.audit("assignment-opened", record);
       return { ...(await this.map(record)), jobs: await this.gateway.jobs(name) };
     } catch (error) {
-      await this.notifications.restoreUnreadAssignments(this.context.actorUserId, claimedNotificationIds);
+      await this.notifications.restoreUnreadAssignments(
+        this.context.actorUserId,
+        claimedNotificationIds
+      );
       throw error;
     }
   }
@@ -183,16 +199,25 @@ export class CrmService {
   }
 
   async captureMobileCall(input: CrmMobileCallCapturePayload) {
-    const callTime = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" }).format(new Date(input.occurredAt));
+    const callTime = new Intl.DateTimeFormat("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Kolkata"
+    }).format(new Date(input.occurredAt));
     const direction = input.direction === "incoming" ? "Incoming" : "Outgoing";
     const duration = formatCallDuration(input.durationSeconds);
     const customer = input.customerName.trim();
+    const options = await this.gateway.options();
     return this.create({
       assignedToUserId: null,
       customer: "",
       enquiryDate: input.occurredAt.slice(0, 10),
-      enquiryGroup: "Calls",
-      messages: [{ comment: `Call: ${direction} · ${callTime} · ${duration}\n\nCustomer request:\n${input.message.trim()}` }],
+      enquiryGroup: options.groups.some(({ name }) => name === "Calls") ? "Calls" : "",
+      messages: [
+        {
+          comment: `Call: ${direction} · ${callTime} · ${duration}\n\nCustomer request:\n${input.message.trim()}`
+        }
+      ],
       mobile: input.mobile,
       priority: "normal",
       schedules: [],
@@ -430,10 +455,10 @@ export class CrmService {
       mobile: record.mobile,
       notes: [],
       priority: record.priority,
-      schedules: record.enquiryDate
-        ? [{ id: `${record.name}-due`, scheduledOn: record.enquiryDate }]
-        : [],
+      schedules: record.dueDate ? [{ id: `${record.name}-due`, scheduledOn: record.dueDate }] : [],
       status: fromFrappeStatus(record.status),
+      statusGroup: record.statusGroup.toLowerCase() as CrmEnquiry["statusGroup"],
+      statusDetails: record.statusDetails,
       tasks: [],
       title: record.title || displayTitle(record),
       updatedAt: record.modifiedAt,
@@ -450,7 +475,7 @@ export class CrmService {
         (await this.context.can(viewPermissions.assigned))) ||
       (record.userEmployee === employee && (await this.context.can(viewPermissions.created))) ||
       (!record.assignedToEmployee &&
-        !isClosed(record.status) &&
+        record.statusGroup !== "Closed" &&
         (await this.context.can(viewPermissions.open)));
     if (allowed || (await this.canUseMobileHistory())) return;
     throw AppError.forbidden("You do not have access to this enquiry.");
@@ -546,6 +571,7 @@ function toLivePayload(input: CrmEnquirySavePayload) {
   return {
     assignedToEmployee: input.assignedToUserId,
     customer: input.customer.trim(),
+    dueDate: input.schedules[0]?.scheduledOn ?? null,
     enquiryDate: input.enquiryDate,
     enquiryGroup: input.enquiryGroup.trim(),
     enquiryMessage: input.workspace.trim() || input.title.trim(),
@@ -555,6 +581,7 @@ function toLivePayload(input: CrmEnquirySavePayload) {
     mobile: input.mobile.trim(),
     priority: input.priority,
     status: input.status,
+    statusDetails: input.statusDetails?.trim() ?? "",
     title: input.title.trim() || titleFromWorkspace(input.workspace)
   };
 }
@@ -585,7 +612,7 @@ function mobileMatch(
 ): CrmEnquiryMobileMatch {
   const assigned = record.assignedToEmployee ? byName.get(record.assignedToEmployee) : undefined;
   const status = fromFrappeStatus(record.status);
-  const closure = closedDetails(record, status);
+  const closure = closedDetails(record);
   return {
     assignedTo: assigned ? employeeReference(assigned) : null,
     canEdit: isFreshForActor(record, actorEmployee),
@@ -595,13 +622,14 @@ function mobileMatch(
     frappeName: record.name,
     id: numericId(record.name),
     status,
+    statusGroup: record.statusGroup.toLowerCase() as CrmEnquiry["statusGroup"],
     title: record.title || displayTitle(record)
   };
 }
 
-function closedDetails(record: LiveRecord, status: CrmEnquiryStatus) {
-  if (status !== "won" && status !== "lost") return null;
-  const target = status === "won" ? "won" : "lost";
+function closedDetails(record: LiveRecord) {
+  if (record.statusGroup !== "Closed") return null;
+  const target = record.status.toLowerCase();
   const transition = record.activities.find((entry) => {
     const details = entry.details.toLowerCase();
     return (
@@ -681,11 +709,7 @@ function matchesEnquirySearch(record: LiveRecord, search?: string) {
   return terms.every((term) => searchable.includes(term));
 }
 
-function matchesEnquiryDate(
-  enquiryDate: string | null,
-  fromDate?: string,
-  toDate?: string
-) {
+function matchesEnquiryDate(enquiryDate: string | null, fromDate?: string, toDate?: string) {
   if (!fromDate && !toDate) return true;
   if (!enquiryDate) return false;
   return (!fromDate || enquiryDate >= fromDate) && (!toDate || enquiryDate <= toDate);
@@ -700,17 +724,16 @@ function numericId(name: string) {
 }
 
 function fromFrappeStatus(value: string): CrmEnquiry["status"] {
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "new") return "new";
-  if (normalized === "won") return "won";
-  if (normalized === "lost") return "lost";
-  if (normalized === "re-open" || normalized === "reopen") return "reopen";
-  if (normalized === "hold for approval") return "hold-for-approval";
-  if (normalized === "hold for spares") return "hold-for-spares";
-  if (normalized === "hold for job-out") return "hold-for-job-out";
-  if (normalized === "long hold") return "long-hold";
-  if (normalized === "escalation") return "escalation";
-  return "open";
+  return statusKey(value);
+}
+
+function statusKey(value: string) {
+  const key = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-|-$/gu, "");
+  return key === "re-open" ? "reopen" : key;
 }
 
 function statusLabel(value: CrmEnquiry["status"]) {
@@ -726,23 +749,16 @@ function shortText(value: string, limit: number) {
   return plain.length > limit ? `${plain.slice(0, limit - 3).trimEnd()}...` : plain;
 }
 
-function isClosed(status: string) {
-  return ["won", "lost"].includes(status.trim().toLowerCase());
-}
-
-function isInProgress(status: string) {
-  return [
-    "hold for approval",
-    "hold for spares",
-    "hold for job-out",
-    "long hold",
-    "escalation"
-  ].includes(status.trim().toLowerCase());
+function isInProgress(record: LiveRecord) {
+  return record.statusGroup === "Hold" || record.statusGroup === "Pending";
 }
 
 function overviewGroup(records: LiveRecord[], actorEmail: string) {
   const priorityCounts = new Map<CrmEnquiry["priority"], number>();
-  const statusCounts = new Map<CrmEnquiry["status"], number>();
+  const statusCounts = new Map<
+    CrmEnquiry["status"],
+    { count: number; statusGroup: CrmEnquiry["statusGroup"] }
+  >();
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 86_400_000;
   const thirtyDaysAgo = now - 30 * 86_400_000;
@@ -760,15 +776,19 @@ function overviewGroup(records: LiveRecord[], actorEmail: string) {
     const createdAt = Date.parse(record.createdAt);
     const modifiedAt = Date.parse(record.modifiedAt);
     priorityCounts.set(record.priority, (priorityCounts.get(record.priority) ?? 0) + 1);
-    statusCounts.set(status, (statusCounts.get(status) ?? 0) + 1);
+    const statusCount = statusCounts.get(status);
+    statusCounts.set(status, {
+      count: (statusCount?.count ?? 0) + 1,
+      statusGroup: record.statusGroup.toLowerCase() as CrmEnquiry["statusGroup"]
+    });
     if (createdAt >= sevenDaysAgo) createdLast7Days += 1;
     if (createdAt >= thirtyDaysAgo) createdLast30Days += 1;
     if (modifiedAt >= sevenDaysAgo) updatedLast7Days += 1;
     if (modifiedAt >= thirtyDaysAgo) updatedLast30Days += 1;
     if (record.modifiedBy === actorEmail && modifiedAt >= sevenDaysAgo) reactionsLast7Days += 1;
     if (record.modifiedBy === actorEmail && modifiedAt >= thirtyDaysAgo) reactionsLast30Days += 1;
-    if (isInProgress(record.status)) inProgress += 1;
-    if (!isClosed(record.status)) {
+    if (isInProgress(record)) inProgress += 1;
+    if (record.statusGroup !== "Closed") {
       oldestActiveDays = Math.max(oldestActiveDays, elapsedDays(record.createdAt));
     }
   }
@@ -788,7 +808,7 @@ function overviewGroup(records: LiveRecord[], actorEmail: string) {
       .map(([priority, count]) => ({ count, priority }))
       .sort((left, right) => priorityRank(left.priority) - priorityRank(right.priority)),
     statusCounts: [...statusCounts]
-      .map(([status, count]) => ({ count, status }))
+      .map(([status, { count, statusGroup }]) => ({ count, status, statusGroup }))
       .sort((left, right) => right.count - left.count || left.status.localeCompare(right.status)),
     total: records.length
   };
@@ -812,15 +832,12 @@ function elapsedDays(timestamp: string) {
   return Math.max(0, Math.floor((Date.now() - createdAt) / 86_400_000));
 }
 
-function matchesStatus(status: string, filter?: CrmEnquiryStatusFilter) {
-  if (!filter || filter === "active") return !isClosed(status);
+function matchesStatus(record: LiveRecord, filter?: CrmEnquiryStatusFilter) {
+  if (!filter || filter === "active") return record.statusGroup !== "Closed";
   if (filter === "all") return true;
-  if (filter === "closed") return isClosed(status);
-  if (filter === "hold")
-    return (
-      status.trim().toLowerCase().startsWith("hold") || status.trim().toLowerCase() === "long hold"
-    );
-  if (filter === "in-progress") return isInProgress(status);
-  if (filter === "other") return ["escalation", "re-open"].includes(status.trim().toLowerCase());
-  return fromFrappeStatus(status) === filter;
+  if (filter === "closed") return record.statusGroup === "Closed";
+  if (filter === "hold") return record.statusGroup === "Hold";
+  if (filter === "in-progress") return isInProgress(record);
+  if (filter === "other") return record.statusGroup === "New";
+  return fromFrappeStatus(record.status) === filter;
 }

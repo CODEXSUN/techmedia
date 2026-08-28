@@ -6,6 +6,7 @@ import type {
   FrappeLiveEnquiry,
   FrappeLiveEnquiryActivity,
   FrappeLiveEnquiryGatewayFactory,
+  FrappeLiveEnquiryOptions,
   FrappeLiveEnquirySavePayload,
   FrappeLiveJobExecutionSavePayload
 } from "./frappe.types.js";
@@ -14,6 +15,7 @@ const enquiryFields = [
   "name",
   "mobile",
   "customer",
+  "due_date",
   "enquiry_details",
   "group",
   "user_employee",
@@ -21,8 +23,10 @@ const enquiryFields = [
   "assigned_to_employee",
   "priority",
   "status",
+  "status_details",
   "title",
   "creation",
+  "date",
   "modified",
   "modified_by"
 ];
@@ -132,6 +136,33 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       });
   }
 
+  async function loadEnquiryOptions(
+    suppliedTarget?: FrappeConnectionCredentials
+  ): Promise<FrappeLiveEnquiryOptions> {
+    const target = suppliedTarget ?? (await connection());
+    const [groups, statuses] = await Promise.all([
+      frappeRequest<{ data?: FrappeEnquiryGroupDocument[] }>(
+        target,
+        referenceListUrl("Enquiry Group", ["name", "group_name"])
+      ),
+      frappeRequest<{ data?: FrappeEnquiryStatusDocument[] }>(
+        target,
+        referenceListUrl("Enquiry Status", ["name", "status_name", "status_group"])
+      )
+    ]);
+    return {
+      groups: (groups.data ?? []).flatMap((document) => {
+        const name = document.group_name?.trim() || document.name?.trim();
+        return name ? [{ name }] : [];
+      }),
+      statuses: (statuses.data ?? []).flatMap((document) => {
+        const name = document.status_name?.trim() || document.name?.trim();
+        const group = enquiryStatusGroup(document.status_group);
+        return name ? [{ group, name }] : [];
+      })
+    };
+  }
+
   return {
     async customers(search) {
       return loadCustomers(search);
@@ -143,12 +174,16 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
 
     async list(input) {
       const target = await connection();
+      const options = await loadEnquiryOptions(target);
       const filters: unknown[] = [];
       if (input.view === "assigned") filters.push(["assigned_to_employee", "=", input.employee]);
       if (input.view === "created") filters.push(["user_employee", "=", input.employee]);
       if (input.view === "open") {
         filters.push(["assigned_to_employee", "is", "not set"]);
-        filters.push(["status", "not in", ["Won", "Lost"]]);
+        const closedStatuses = options.statuses
+          .filter(({ group }) => group === "Closed")
+          .map(({ name }) => name);
+        if (closedStatuses.length) filters.push(["status", "not in", closedStatuses]);
       }
       const records: FrappeEnquiryDocument[] = [];
       let offset = 0;
@@ -170,11 +205,12 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         hasMore = input.view === "all" && page.length === 500;
         offset += page.length;
       }
-      return records.map((document) => toEnquiry(document));
+      return records.map((document) => toEnquiry(document, options));
     },
 
     async listByMobile(mobile) {
       const target = await connection();
+      const options = await loadEnquiryOptions(target);
       const query = new URLSearchParams({
         fields: JSON.stringify(enquiryFields),
         filters: JSON.stringify([["mobile", "=", requiredMobile(mobile)]]),
@@ -185,7 +221,11 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         target,
         `/api/resource/Enquiry?${query}`
       );
-      return (response.data ?? []).map((document) => toEnquiry(document));
+      return (response.data ?? []).map((document) => toEnquiry(document, options));
+    },
+
+    async options() {
+      return loadEnquiryOptions();
     },
 
     async queryReport(input) {
@@ -229,10 +269,15 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
 
     async create(input) {
       const target = await connection();
+      const options = await loadEnquiryOptions(target);
+      const status = resolveStatusName(input.status, options);
       const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
         target,
         "/api/resource/Enquiry",
-        { body: JSON.stringify(toPayload(input, employee(), true, true)), method: "POST" }
+        {
+          body: JSON.stringify(toPayload({ ...input, status }, employee(), true, true)),
+          method: "POST"
+        }
       );
       if (!response.data?.name) throw AppError.conflict("Frappe did not return the new enquiry.");
       return hydrate(target, response.data.name, response.data);
@@ -272,11 +317,16 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
 
     async update(name, input) {
       const target = await connection();
+      const options = await loadEnquiryOptions(target);
+      const status = resolveStatusName(input.status, options);
       const enquiryName = requiredName(name);
       const response = await frappeRequest<{ data?: FrappeEnquiryDocument }>(
         target,
         `/api/resource/Enquiry/${encodeURIComponent(enquiryName)}`,
-        { body: JSON.stringify(toPayload(input, employee(), false, false)), method: "PUT" }
+        {
+          body: JSON.stringify(toPayload({ ...input, status }, employee(), false, false)),
+          method: "PUT"
+        }
       );
       return hydrate(target, enquiryName, response.data);
     },
@@ -289,7 +339,7 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
         `/api/resource/Enquiry/${encodeURIComponent(enquiryName)}`,
         {
           body: JSON.stringify({
-            ...(status ? { status: toFrappeStatus(status) } : {}),
+            ...(status ? { status } : {}),
             enquiry_messages: messages.map(({ comment, mode, name: childName, parentMessage }) => ({
               comment: richText(comment),
               ...(mode ? { mode: mode === "reply" ? "Reply" : "Comment" } : {}),
@@ -428,6 +478,7 @@ async function hydrate(
   name: string,
   summary?: FrappeEnquiryDocument
 ) {
+  const options = await loadOptionsForConnection(connection);
   const document =
     summary?.enquiry_messages !== undefined
       ? summary
@@ -443,7 +494,7 @@ async function hydrate(
     connection,
     `/api/method/frappe.desk.form.load.get_docinfo?${query}`
   );
-  return toEnquiry(document, timeline.docinfo);
+  return toEnquiry(document, options, timeline.docinfo);
 }
 
 function toPayload(
@@ -456,6 +507,7 @@ function toPayload(
     assigned_to_employee: input.assignedToEmployee || null,
     customer: input.customer || null,
     date: input.enquiryDate,
+    due_date: input.dueDate,
     enquiry_details: input.enquiryMessage,
     ...(includeMessages
       ? {
@@ -468,7 +520,8 @@ function toPayload(
     group: input.enquiryGroup || null,
     mobile: input.mobile,
     priority: toFrappePriority(input.priority),
-    status: toFrappeStatus(input.status),
+    status: input.status,
+    status_details: input.statusDetails || null,
     title: input.title,
     ...(includeOwner ? { user_employee: userEmployee } : {})
   };
@@ -476,13 +529,16 @@ function toPayload(
 
 function toEnquiry(
   document: FrappeEnquiryDocument,
+  options: FrappeLiveEnquiryOptions,
   docinfo?: FrappeDocumentInfo
 ): FrappeLiveEnquiry {
+  const status = document.status?.trim() || options.statuses[0]?.name || "New";
   return {
     activities: toActivities(document, docinfo),
     assignedToEmployee: document.assigned_to_employee?.trim() || null,
     createdAt: timestamp(document.creation),
     customer: document.customer?.trim() ?? "",
+    dueDate: document.due_date?.slice(0, 10) ?? null,
     enquiryDate: document.date?.slice(0, 10) ?? null,
     enquiryGroup: document.group?.trim() ?? "",
     enquiryMessage: document.enquiry_details?.trim() ?? "",
@@ -498,7 +554,9 @@ function toEnquiry(
     modifiedBy: document.modified_by?.trim() || null,
     name: document.name,
     priority: fromFrappePriority(document.priority),
-    status: document.status?.trim() || "Open",
+    status,
+    statusGroup: options.statuses.find((candidate) => candidate.name === status)?.group ?? "New",
+    statusDetails: document.status_details?.trim() ?? "",
     title: document.title?.trim() || "",
     userEmployee: document.user_employee?.trim() ?? ""
   };
@@ -675,18 +733,58 @@ function timestamp(value?: string) {
   return Number.isNaN(date.valueOf()) ? new Date(0).toISOString() : date.toISOString();
 }
 
-function toFrappeStatus(value: string) {
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "new") return "New";
-  if (normalized === "won") return "Won";
-  if (normalized === "lost") return "Lost";
-  if (normalized === "reopen") return "Re-open";
-  if (normalized === "hold-for-approval") return "Hold for Approval";
-  if (normalized === "hold-for-spares") return "Hold for Spares";
-  if (normalized === "hold-for-job-out") return "Hold for Job-Out";
-  if (normalized === "long-hold") return "Long Hold";
-  if (normalized === "escalation") return "Escalation";
-  return "Open";
+function referenceListUrl(doctype: string, fields: string[]) {
+  const query = new URLSearchParams({
+    fields: JSON.stringify(fields),
+    limit_page_length: "500",
+    order_by: "idx desc, creation asc"
+  });
+  return `/api/resource/${encodeURIComponent(doctype)}?${query}`;
+}
+
+async function loadOptionsForConnection(connection: FrappeConnectionCredentials) {
+  const [groups, statuses] = await Promise.all([
+    frappeRequest<{ data?: FrappeEnquiryGroupDocument[] }>(
+      connection,
+      referenceListUrl("Enquiry Group", ["name", "group_name"])
+    ),
+    frappeRequest<{ data?: FrappeEnquiryStatusDocument[] }>(
+      connection,
+      referenceListUrl("Enquiry Status", ["name", "status_name", "status_group"])
+    )
+  ]);
+  return {
+    groups: (groups.data ?? []).flatMap((document) => {
+      const name = document.group_name?.trim() || document.name?.trim();
+      return name ? [{ name }] : [];
+    }),
+    statuses: (statuses.data ?? []).flatMap((document) => {
+      const name = document.status_name?.trim() || document.name?.trim();
+      return name ? [{ group: enquiryStatusGroup(document.status_group), name }] : [];
+    })
+  } satisfies FrappeLiveEnquiryOptions;
+}
+
+function enquiryStatusGroup(value?: string): FrappeLiveEnquiryOptions["statuses"][number]["group"] {
+  return value === "Closed" || value === "Hold" || value === "Pending" ? value : "New";
+}
+
+function statusKey(value: string) {
+  const key = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-|-$/gu, "");
+  return key === "re-open" ? "reopen" : key;
+}
+
+function resolveStatusName(value: string, options: FrappeLiveEnquiryOptions) {
+  const normalized = statusKey(value);
+  const status = options.statuses.find(
+    ({ name }) => name === value.trim() || statusKey(name) === normalized
+  );
+  if (!status) throw AppError.validation("Select a current Frappe enquiry status.");
+  return status.name;
 }
 
 function fromFrappePriority(value?: string) {
@@ -746,6 +844,7 @@ function toJobExecution(
 ): import("./frappe.types.js").FrappeLiveJobExecution {
   return {
     createdAt: jobTimestamp(document.creation),
+    date: document.date?.slice(0, 10) ?? null,
     employee: document.employee?.trim() ?? "",
     employeeCostPerHour: Number(document.employee_cost_per_hour ?? 0),
     enquiry: document.enquiry?.trim() ?? "",
@@ -799,11 +898,23 @@ type FrappeCustomerDocument = {
   name?: string;
 };
 
+type FrappeEnquiryGroupDocument = {
+  group_name?: string;
+  name?: string;
+};
+
+type FrappeEnquiryStatusDocument = {
+  name?: string;
+  status_group?: string;
+  status_name?: string;
+};
+
 type FrappeEnquiryDocument = {
   assigned_to_employee?: string;
   creation?: string;
   customer?: string;
   date?: string;
+  due_date?: string;
   enquiry_details?: string;
   enquiry_messages?: Array<{
     comment?: string;
@@ -819,12 +930,14 @@ type FrappeEnquiryDocument = {
   name: string;
   priority?: string;
   status?: string;
+  status_details?: string;
   title?: string;
   user_employee?: string;
 };
 
 type FrappeJobExecutionDocument = {
   creation?: string;
+  date?: string;
   employee?: string;
   employee_cost_per_hour?: number | string;
   enquiry?: string;

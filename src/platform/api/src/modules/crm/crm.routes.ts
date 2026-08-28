@@ -8,18 +8,8 @@ import { CrmService } from "./crm.service.js";
 const path = "/crm/enquiries";
 const mobileJobsPath = "/mobile/crm/jobs";
 const priority = z.enum(["low", "normal", "high", "urgent"]);
-const status = z.enum([
-  "new",
-  "open",
-  "hold-for-approval",
-  "hold-for-spares",
-  "hold-for-job-out",
-  "long-hold",
-  "escalation",
-  "won",
-  "lost",
-  "reopen"
-]);
+const status = z.string().trim().min(1).max(140);
+const statusGroup = z.enum(["closed", "hold", "new", "pending"]);
 const userReference = z.object({
   email: z.string(),
   id: z.string().min(1),
@@ -38,6 +28,7 @@ const message = z.object({
 });
 const job = z.object({
   createdAt: z.iso.datetime(),
+  date: z.iso.date().nullable(),
   employee: z.string(),
   employeeCostPerHour: z.number(),
   enquiry: z.string(),
@@ -73,6 +64,8 @@ const record = z.object({
   priority,
   schedules: z.array(z.object({ id: z.string(), scheduledOn: z.iso.date() })),
   status,
+  statusGroup,
+  statusDetails: z.string(),
   tasks: z.array(z.unknown()),
   title: z.string(),
   updatedAt: z.iso.datetime(),
@@ -97,6 +90,7 @@ const payload = z.object({
   priority,
   schedules: z.array(z.object({ scheduledOn: z.iso.date() })).max(20),
   status,
+  statusDetails: z.string().trim().max(10_000).optional(),
   title: z.string().trim().max(220),
   workspace: z.string().trim().max(100_000)
 });
@@ -135,9 +129,7 @@ const query = z.object({
   fromDate: z.iso.date().optional(),
   priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
   search: z.string().trim().max(220).optional(),
-  status: z
-    .union([status, z.enum(["active", "all", "in-progress", "closed", "hold", "other"])])
-    .optional(),
+  status: status.optional(),
   toDate: z.iso.date().optional(),
   view: z.enum(["all", "assigned", "created", "open"])
 });
@@ -174,6 +166,7 @@ const mobileMatch = z.object({
   frappeName: z.string().min(1),
   id: z.number().int().positive(),
   status,
+  statusGroup,
   title: z.string()
 });
 const overviewGroup = z.object({
@@ -188,7 +181,7 @@ const overviewGroup = z.object({
   inProgress: z.number().int().nonnegative(),
   oldestActiveDays: z.number().int().nonnegative(),
   priorityCounts: z.array(z.object({ count: z.number().int().nonnegative(), priority })),
-  statusCounts: z.array(z.object({ count: z.number().int().nonnegative(), status })),
+  statusCounts: z.array(z.object({ count: z.number().int().nonnegative(), status, statusGroup })),
   total: z.number().int().nonnegative()
 });
 const overview = z.object({
@@ -209,6 +202,10 @@ const report = z.object({
   columns: z.array(z.object({ fieldname: z.string(), label: z.string() })),
   rows: z.array(z.record(z.string(), z.union([z.number(), z.string(), z.null()])))
 });
+const enquiryOptions = z.object({
+  groups: z.array(z.object({ label: z.string(), value: z.string() })),
+  statuses: z.array(z.object({ group: statusGroup, label: z.string(), value: z.string() }))
+});
 
 export async function registerCrmRoutes(
   app: FastifyInstance,
@@ -216,6 +213,12 @@ export async function registerCrmRoutes(
   notificationPublisher: PlatformModuleDependencies["notificationPublisher"]
 ) {
   registerMobileJobRoutes(app, service);
+  registerContractRoute(app, {
+    method: "GET",
+    url: `${path}/options`,
+    schemas: { response: enquiryOptions },
+    handler: async ({ request }) => (await service(request)).options()
+  });
   registerContractRoute(app, {
     method: "GET",
     url: path,
@@ -384,6 +387,12 @@ function registerMobileJobRoutes(
   service: (request: Parameters<typeof identityContext>[0]) => Promise<CrmService>
 ) {
   registerContractRoute(app, {
+    method: "GET",
+    url: "/mobile/crm/options",
+    schemas: { response: enquiryOptions },
+    handler: async ({ request }) => (await service(request)).options()
+  });
+  registerContractRoute(app, {
     method: "POST",
     url: "/mobile/crm/call-enquiries",
     schemas: { body: mobileCallCapturePayload, response: record },
@@ -393,7 +402,8 @@ function registerMobileJobRoutes(
     method: "GET",
     url: mobileJobsPath,
     schemas: { querystring: mobileJobsQuery, response: z.array(record) },
-    handler: async ({ query, request }) => (await service(request)).list({ status: query.status, view: "assigned" })
+    handler: async ({ query, request }) =>
+      (await service(request)).list({ status: query.status, view: "assigned" })
   });
   registerContractRoute(app, {
     method: "GET",
@@ -406,7 +416,10 @@ function registerMobileJobRoutes(
     url: `${mobileJobsPath}/:id/comments`,
     schemas: { body: mobileCommentPayload, params, response: record },
     handler: async ({ body, params, request }) =>
-      (await service(request)).addMessage(params.id, { comment: body.comment, messageType: "comment" })
+      (await service(request)).addMessage(params.id, {
+        comment: body.comment,
+        messageType: "comment"
+      })
   });
   registerContractRoute(app, {
     method: "POST",
@@ -418,6 +431,7 @@ function registerMobileJobRoutes(
     method: "POST",
     url: `${mobileJobsPath}/:id/jobs/:jobName/stop`,
     schemas: { params: jobParams, response: record },
-    handler: async ({ params, request }) => (await service(request)).stopJob(params.id, params.jobName)
+    handler: async ({ params, request }) =>
+      (await service(request)).stopJob(params.id, params.jobName)
   });
 }

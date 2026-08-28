@@ -66,6 +66,14 @@ export type FrappeLiveCustomerReference = {
   name: string;
 };
 
+export type FrappeLiveEnquiryOptions = {
+  groups: Array<{ name: string }>;
+  statuses: Array<{
+    group: "Closed" | "Hold" | "New" | "Pending";
+    name: string;
+  }>;
+};
+
 export type FrappeLiveEnquiryMessage = {
   comment: string;
   createdAt: string | null;
@@ -76,6 +84,7 @@ export type FrappeLiveEnquiryMessage = {
 
 export type FrappeLiveJobExecution = {
   createdAt: string;
+  date: string | null;
   employee: string;
   employeeCostPerHour: number;
   enquiry: string;
@@ -108,6 +117,7 @@ export type FrappeLiveEnquiry = {
   assignedToEmployee: string | null;
   createdAt: string;
   customer: string;
+  dueDate: string | null;
   enquiryDate: string | null;
   enquiryGroup: string;
   enquiryMessage: string;
@@ -118,6 +128,8 @@ export type FrappeLiveEnquiry = {
   name: string;
   priority: "high" | "low" | "normal" | "urgent";
   status: string;
+  statusGroup: "Closed" | "Hold" | "New" | "Pending";
+  statusDetails: string;
   title: string;
   userEmployee: string;
 };
@@ -125,6 +137,7 @@ export type FrappeLiveEnquiry = {
 export type FrappeLiveEnquirySavePayload = {
   assignedToEmployee: string | null;
   customer: string;
+  dueDate: string | null;
   enquiryDate: string | null;
   enquiryGroup: string;
   enquiryMessage: string;
@@ -132,6 +145,7 @@ export type FrappeLiveEnquirySavePayload = {
   mobile: string;
   priority: "high" | "low" | "normal" | "urgent";
   status: string;
+  statusDetails: string;
   title: string;
 };
 
@@ -163,6 +177,7 @@ export type FrappeLiveEnquiryGateway = {
   ) => Promise<FrappeLiveJobExecution>;
   list: (input: { employee: string; view: FrappeLiveEnquiryView }) => Promise<FrappeLiveEnquiry[]>;
   listByMobile: (mobile: string) => Promise<FrappeLiveEnquiry[]>;
+  options: () => Promise<FrappeLiveEnquiryOptions>;
   queryReport: (input: {
     filters: Record<string, string | null>;
     reportName: "Enquiry List-In wise Status" | "Enquiry Owner wise Status";
@@ -219,7 +234,10 @@ export type FrappeLiveStaffRequestSavePayload = {
 
 export type FrappeLiveStaffRequestGateway = {
   addApprovalComment: (name: string, content: string) => Promise<FrappeLiveStaffRequest>;
-  create: (employee: string, input: FrappeLiveStaffRequestSavePayload) => Promise<FrappeLiveStaffRequest>;
+  create: (
+    employee: string,
+    input: FrappeLiveStaffRequestSavePayload
+  ) => Promise<FrappeLiveStaffRequest>;
   get: (name: string) => Promise<FrappeLiveStaffRequest>;
   list: (input: { employee?: string }) => Promise<FrappeLiveStaffRequest[]>;
   update: (

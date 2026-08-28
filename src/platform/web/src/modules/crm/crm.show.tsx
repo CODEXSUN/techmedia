@@ -53,7 +53,7 @@ import { EstimateEnquiryTab } from "../estimate";
 import { QuotationEnquiryTab } from "../quotation";
 import { useCrmEnquiryChildMutations, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
 import { CrmJobForm } from "./crm.job-form";
-import { crmEnquiryListInOptions, crmEnquiryStatusOptions } from "./crm.options";
+import { useCrmOptionLists } from "./crm.options";
 import type {
   CrmEnquiry,
   CrmEnquirySavePayload,
@@ -307,7 +307,12 @@ export function CrmShow({
           ) : null}
           {view === "open" ? (
             <>
-              <Button className="desktop-enquiry-back" onClick={onBack} type="button" variant="outline">
+              <Button
+                className="desktop-enquiry-back"
+                onClick={onBack}
+                type="button"
+                variant="outline"
+              >
                 <ArrowLeft className="size-4" />
                 Back
               </Button>
@@ -561,7 +566,8 @@ function EnquirySummary({ record }: { record: CrmEnquiry }) {
             <WorkspaceStatusBadge label={capitalize(record.priority)} tone="neutral" />
           </div>
           <p className="text-xs text-muted-foreground sm:text-right">
-            Created by <span className="font-medium text-foreground/80">{record.createdBy.name}</span>
+            Created by{" "}
+            <span className="font-medium text-foreground/80">{record.createdBy.name}</span>
             <span aria-hidden="true"> · </span>
             <time dateTime={record.createdAt} title={formatDateTime(record.createdAt)}>
               {formatRelativeTime(record.createdAt)}
@@ -1031,6 +1037,7 @@ function EnquiryProperties({
   record: CrmEnquiry;
   users: CrmUserReference[];
 }) {
+  const crmOptions = useCrmOptionLists();
   const runningJobs = record.jobs.filter((job) => job.status === "Running");
   const [editing, setEditing] = useState<
     "assignedToUserId" | "enquiryGroup" | "priority" | "status" | null
@@ -1048,7 +1055,7 @@ function EnquiryProperties({
   }, [record]);
 
   const groupOptions = Array.from(
-    new Set([record.enquiryGroup, ...crmEnquiryListInOptions.map(({ value }) => value)])
+    new Set([record.enquiryGroup, ...crmOptions.groups.map(({ value }) => value)])
   )
     .filter(Boolean)
     .map((value) => ({ label: value, value }));
@@ -1160,7 +1167,7 @@ function EnquiryProperties({
           onSave={saveEdit}
         >
           <WorkspaceSelect
-            options={crmEnquiryStatusOptions}
+            options={crmOptions.statuses}
             value={status}
             onValueChange={(value) => setStatus(value as CrmEnquirySavePayload["status"])}
           />

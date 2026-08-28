@@ -15,7 +15,7 @@ import {
 } from "@codexsun/ui/workspace/upsert";
 import { cn } from "@codexsun/ui/lib/utils";
 import { useCrmCustomerReferencesQuery, useCrmEnquiryMobileMatchesQuery } from "./crm.hooks";
-import { crmEnquiryListInOptions, crmEnquiryStatusOptions } from "./crm.options";
+import { useCrmOptionLists } from "./crm.options";
 import { crmEnquirySchema } from "./crm.schema";
 import type {
   CrmEnquiry,
@@ -33,7 +33,7 @@ export const emptyEnquiry: CrmEnquirySavePayload = {
   mobile: "",
   priority: "normal",
   schedules: [],
-  status: "open",
+  status: "new",
   title: "",
   workspace: ""
 };
@@ -135,6 +135,7 @@ export function CrmEnquiryForm({
   record: CrmEnquiry | null;
   users: CrmUserReference[];
 }) {
+  const crmOptions = useCrmOptionLists();
   const [value, setValue] = useState(initialValue);
   const [customerSearch, setCustomerSearch] = useState(initialValue.customer);
   const [settledCustomerSearch, setSettledCustomerSearch] = useState(initialValue.customer);
@@ -298,7 +299,7 @@ export function CrmEnquiryForm({
             <WorkspaceFormGrid columns={1}>
               <WorkspaceFormField label="List in">
                 <WorkspaceSelect
-                  options={crmEnquiryListInOptions}
+                  options={crmOptions.groups}
                   placeholder="Choose Frappe group"
                   value={value.enquiryGroup}
                   onValueChange={(enquiryGroup) =>
@@ -345,7 +346,7 @@ export function CrmEnquiryForm({
               </WorkspaceFormField>
               <WorkspaceFormField label="Status" required>
                 <WorkspaceSelect
-                  options={crmEnquiryStatusOptions}
+                  options={crmOptions.statuses}
                   value={value.status}
                   onValueChange={(status) =>
                     setValue((current) => ({

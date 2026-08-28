@@ -6,8 +6,13 @@ import { WorkspaceDatePicker } from "@codexsun/ui/workspace/date-picker";
 import { WorkspaceLookup } from "@codexsun/ui/workspace/lookup";
 import { WorkspacePage } from "@codexsun/ui/workspace/page";
 import { useCrmReportQuery, useCrmUsersQuery } from "./crm.hooks";
-import { crmEnquiryListInOptions } from "./crm.options";
-import type { CrmEnquiryStatusFilter, CrmReport, CrmReportName, CrmUserReference } from "./crm.types";
+import { useCrmOptionLists } from "./crm.options";
+import type {
+  CrmEnquiryStatusFilter,
+  CrmReport,
+  CrmReportName,
+  CrmUserReference
+} from "./crm.types";
 
 type Filters = {
   assignedToEmployee: string;
@@ -39,6 +44,7 @@ export function CrmReports({
   const [filters, setFilters] = useState(emptyFilters);
   const query = useCrmReportQuery(report, filters);
   const users = useCrmUsersQuery();
+  const crmOptions = useCrmOptionLists();
   const listIn = report === "list-in-status";
 
   function resetFilters() {
@@ -118,7 +124,7 @@ export function CrmReports({
               allowTextValue={false}
               className="min-w-64 flex-1"
               onValueChange={(group) => setDraft((value) => ({ ...value, group }))}
-              options={crmEnquiryListInOptions}
+              options={crmOptions.groups}
               placeholder="List in"
               showAllOptionsOnFocus
               value={draft.group}

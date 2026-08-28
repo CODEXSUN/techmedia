@@ -1,4 +1,5 @@
 import type { CrmEnquiryStatus } from "./crm.types";
+import { useCrmOptionsQuery } from "./crm.hooks";
 
 export const crmEnquiryListInOptions = [
   "Stores",
@@ -26,3 +27,11 @@ export const crmEnquiryStatusOptions = [
   { label: "Lost", value: "lost" },
   { label: "Re-open", value: "reopen" }
 ] satisfies Array<{ label: string; value: CrmEnquiryStatus }>;
+
+export function useCrmOptionLists() {
+  const query = useCrmOptionsQuery();
+  return {
+    groups: query.data?.groups ?? crmEnquiryListInOptions,
+    statuses: query.data?.statuses ?? crmEnquiryStatusOptions
+  };
+}

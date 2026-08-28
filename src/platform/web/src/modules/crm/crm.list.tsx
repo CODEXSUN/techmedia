@@ -393,7 +393,13 @@ function plainText(value: string) {
     .trim();
 }
 
-const enquiryStatusAppearance = {
+type EnquiryStatusAppearance = {
+  badgeClassName: string;
+  iconClassName: string;
+  tone: "danger" | "info" | "neutral" | "success" | "warning";
+};
+
+const enquiryStatusAppearance: Record<string, EnquiryStatusAppearance> = {
   escalation: {
     badgeClassName: "border-red-600 bg-red-600 text-white",
     iconClassName: "text-white",
@@ -444,14 +450,7 @@ const enquiryStatusAppearance = {
     iconClassName: "text-white",
     tone: "success"
   }
-} satisfies Record<
-  CrmEnquiryStatus,
-  {
-    badgeClassName: string;
-    iconClassName: string;
-    tone: "danger" | "info" | "neutral" | "success" | "warning";
-  }
->;
+};
 
 const suspendedStatusAppearance = {
   badgeClassName: "border-red-600 bg-red-600 text-white",
@@ -461,7 +460,9 @@ const suspendedStatusAppearance = {
 
 export function EnquiryStatusBadge({ record }: { record: CrmEnquiry }) {
   const suspended = record.lifecycleStatus === "suspended";
-  const appearance = suspended ? suspendedStatusAppearance : enquiryStatusAppearance[record.status];
+  const appearance = suspended
+    ? suspendedStatusAppearance
+    : (enquiryStatusAppearance[record.status] ?? statusGroupAppearance(record.statusGroup));
   return (
     <span className="relative inline-flex">
       <span
@@ -477,6 +478,13 @@ export function EnquiryStatusBadge({ record }: { record: CrmEnquiry }) {
       />
     </span>
   );
+}
+
+function statusGroupAppearance(group: CrmEnquiry["statusGroup"]): EnquiryStatusAppearance {
+  if (group === "closed") return enquiryStatusAppearance.won!;
+  if (group === "hold") return enquiryStatusAppearance["hold-for-approval"]!;
+  if (group === "pending") return enquiryStatusAppearance.open!;
+  return enquiryStatusAppearance.new!;
 }
 
 function enquiryStatusLabel(status: CrmEnquiryStatus) {
