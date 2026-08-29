@@ -1,12 +1,15 @@
 package `in`.techmedia.techmedia_flutter
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import android.provider.CallLog
+import androidx.activity.result.ActivityResultLauncher
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.activity.result.IntentSenderRequest
@@ -23,7 +26,7 @@ class MainActivity : FlutterFragmentActivity() {
     private val updateChannel = "in.techmedia.techmedia_flutter/app-update"
     private val secureSessionChannel = "in.techmedia.techmedia_flutter/secure-session"
     private val mobileActionsChannel = "in.techmedia.techmedia_flutter/mobile-actions"
-    private val documentScanner = GmsDocumentScanning.getClient(
+    private val documentScanner by lazy { GmsDocumentScanning.getClient(
         GmsDocumentScannerOptions.Builder()
             .setGalleryImportAllowed(true)
             .setPageLimit(10)
@@ -33,18 +36,24 @@ class MainActivity : FlutterFragmentActivity() {
             )
             .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
             .build(),
-    )
-    private val documentScannerLauncher = registerForActivityResult(
-        ActivityResultContracts.StartIntentSenderForResult(),
-    ) { }
+    ) }
+    private lateinit var documentScannerLauncher: ActivityResultLauncher<IntentSenderRequest>
+    private lateinit var callLogPermissionLauncher: ActivityResultLauncher<String>
     private var pendingCallLogResult: MethodChannel.Result? = null
-    private val callLogPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        val result = pendingCallLogResult ?: return@registerForActivityResult
-        pendingCallLogResult = null
-        if (granted) result.success(readCallLogs())
-        else result.error("permission_denied", "Call log permission was denied.", null)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        documentScannerLauncher = registerForActivityResult(
+            ActivityResultContracts.StartIntentSenderForResult(),
+        ) { }
+        callLogPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            val result = pendingCallLogResult ?: return@registerForActivityResult
+            pendingCallLogResult = null
+            if (granted) deliverCallLogs(result)
+            else result.error("permission_denied", "Call log permission was denied.", null)
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -79,16 +88,27 @@ class MainActivity : FlutterFragmentActivity() {
                 Uri.parse("geo:0,0?q=${Uri.encode(call.argument<String>("query").orEmpty())}"),
             )
             "photo" -> Intent("android.media.action.IMAGE_CAPTURE")
+            "openAppSettings" -> Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:$packageName"),
+            )
             else -> return result.notImplemented()
         }
-        if (intent.resolveActivity(packageManager) == null) return result.success(false)
-        startActivity(intent)
-        result.success(true)
+        try {
+            startActivity(intent)
+            result.success(true)
+        } catch (_: ActivityNotFoundException) {
+            result.success(false)
+        }
     }
 
     private fun openCallLogs(result: MethodChannel.Result) {
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+            result.error("unsupported_device", "This device does not provide telephone call history.", null)
+            return
+        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
-            result.success(readCallLogs())
+            deliverCallLogs(result)
             return
         }
         if (pendingCallLogResult != null) {
@@ -97,6 +117,18 @@ class MainActivity : FlutterFragmentActivity() {
         }
         pendingCallLogResult = result
         callLogPermissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
+    }
+
+    private fun deliverCallLogs(result: MethodChannel.Result) {
+        try {
+            result.success(readCallLogs())
+        } catch (_: SecurityException) {
+            result.error(
+                "restricted_permission",
+                "The installer did not allow call history access for this application.",
+                null,
+            )
+        }
     }
 
     private fun readCallLogs(): List<Map<String, Any?>> {
@@ -108,8 +140,11 @@ class MainActivity : FlutterFragmentActivity() {
             CallLog.Calls.DATE,
             CallLog.Calls.DURATION,
         )
+        val uri = CallLog.Calls.CONTENT_URI.buildUpon()
+            .appendQueryParameter(CallLog.Calls.LIMIT_PARAM_KEY, "200")
+            .build()
         contentResolver.query(
-            CallLog.Calls.CONTENT_URI,
+            uri,
             projection,
             null,
             null,

@@ -38,3 +38,5 @@ Set `FLUTTER_BIN` when `flutter` is not available on `PATH`.
 
 The app never stores the account password. It stores only the access token, PIN verifier,
 account email, biometric preference, and last activity time in encrypted device storage.
+
+See [Mobile Call Log Permission](../../assist/documentation/mobile-call-log-permission.md) before distributing an administrator build that reads device call history.

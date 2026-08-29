@@ -22,6 +22,8 @@ class MobileActions {
 
   static Future<bool> photo() => _invoke('photo');
 
+  static Future<bool> openAppSettings() => _invoke('openAppSettings');
+
   static Future<List<Map<String, dynamic>>> callLogs() async {
     final rows = await _channel.invokeListMethod<dynamic>('callLogs') ?? [];
     return rows

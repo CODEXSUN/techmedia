@@ -15,66 +15,82 @@ class AdminCallLogPage extends StatefulWidget {
 }
 
 class _AdminCallLogPageState extends State<AdminCallLogPage> {
-  late Future<List<_CallEntry>> _calls = _loadCalls();
+  Future<List<_CallEntry>>? _calls;
   var _filter = _CallFilter.all;
   var _query = '';
 
   @override
   Widget build(BuildContext context) {
+    final callsRequest = _calls;
     return Scaffold(
       appBar: AppBar(title: const Text('Call Logs')),
-      body: FutureBuilder<List<_CallEntry>>(
-        future: _calls,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) return _PermissionState(onRetry: _reload);
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final calls = snapshot.data!
-              .where(_filter.includes)
-              .where(_matchesSearch)
-              .toList();
-          return RefreshIndicator(
-            onRefresh: _reload,
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _CallLogControls(
-                    filter: _filter,
-                    onFilterChanged: (filter) =>
-                        setState(() => _filter = filter),
-                    onSearchChanged: (value) =>
-                        setState(() => _query = value.trim().toLowerCase()),
-                  ),
-                ),
-                if (calls.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: Text('No matching calls.')),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
-                    sliver: SliverList.separated(
-                      itemCount: calls.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (context, index) => _CallLogCard(
-                        entry: calls[index],
-                        onCopy: () => _copy(calls[index].number),
-                        onSms: () => MobileActions.sms(calls[index].number),
-                        onWhatsApp: () => _openWhatsApp(calls[index]),
-                        onAttach: () => _attachToEnquiry(calls[index]),
-                        onCall: () => MobileActions.call(calls[index].number),
+      body: callsRequest == null
+          ? _CallLogDisclosure(onContinue: _requestAccess)
+          : FutureBuilder<List<_CallEntry>>(
+              future: callsRequest,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return _PermissionState(
+                    message: _callLogErrorMessage(snapshot.error),
+                    onRetry: _requestAccess,
+                    onOpenSettings: MobileActions.openAppSettings,
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final calls = snapshot.data!
+                    .where(_filter.includes)
+                    .where(_matchesSearch)
+                    .toList();
+                return RefreshIndicator(
+                  onRefresh: _reload,
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: _CallLogControls(
+                          filter: _filter,
+                          onFilterChanged: (filter) =>
+                              setState(() => _filter = filter),
+                          onSearchChanged: (value) => setState(
+                            () => _query = value.trim().toLowerCase(),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (calls.isEmpty)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(child: Text('No matching calls.')),
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+                          sliver: SliverList.separated(
+                            itemCount: calls.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) => _CallLogCard(
+                              entry: calls[index],
+                              onCopy: () => _copy(calls[index].number),
+                              onSms: () =>
+                                  MobileActions.sms(calls[index].number),
+                              onWhatsApp: () => _openWhatsApp(calls[index]),
+                              onAttach: () => _attachToEnquiry(calls[index]),
+                              onCall: () =>
+                                  MobileActions.call(calls[index].number),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                );
+              },
             ),
-          );
-        },
-      ),
     );
+  }
+
+  Future<void> _requestAccess() async {
+    setState(() => _calls = _loadCalls());
   }
 
   Future<List<_CallEntry>> _loadCalls() async {
@@ -84,7 +100,7 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
 
   Future<void> _reload() async {
     setState(() => _calls = _loadCalls());
-    await _calls;
+    await _calls!;
   }
 
   bool _matchesSearch(_CallEntry entry) {
@@ -361,10 +377,64 @@ class _DurationBadge extends StatelessWidget {
   );
 }
 
-class _PermissionState extends StatelessWidget {
-  const _PermissionState({required this.onRetry});
+class _CallLogDisclosure extends StatelessWidget {
+  const _CallLogDisclosure({required this.onContinue});
 
+  final Future<void> Function() onContinue;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircleAvatar(
+            radius: 34,
+            child: Icon(Icons.manage_history_rounded, size: 34),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Use device call history',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'TechMedia reads recent call numbers, direction, time, and duration so an administrator can register a selected call against a CRM enquiry.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'The app does not upload call history automatically. It sends one selected record only after you tap Attach.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onContinue,
+            icon: const Icon(Icons.lock_open_rounded),
+            label: const Text('Allow call history access'),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'You can revoke access in Android Settings.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _PermissionState extends StatelessWidget {
+  const _PermissionState({
+    required this.message,
+    required this.onRetry,
+    required this.onOpenSettings,
+  });
+
+  final String message;
   final Future<void> Function() onRetry;
+  final Future<bool> Function() onOpenSettings;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -375,14 +445,15 @@ class _PermissionState extends StatelessWidget {
         children: [
           const Icon(Icons.call_outlined, size: 42),
           const SizedBox(height: 12),
-          const Text(
-            'Allow call log access to view device calls.',
-            textAlign: TextAlign.center,
-          ),
+          Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 14),
           FilledButton.tonal(
             onPressed: onRetry,
-            child: const Text('Try again'),
+            child: const Text('Request again'),
+          ),
+          TextButton(
+            onPressed: onOpenSettings,
+            child: const Text('Open Android Settings'),
           ),
         ],
       ),
@@ -469,3 +540,13 @@ enum _CallFilter {
 }
 
 String _digits(String value) => value.replaceAll(RegExp(r'\D'), '');
+
+String _callLogErrorMessage(Object? error) {
+  if (error is PlatformException && error.code == 'unsupported_device') {
+    return 'This device does not provide telephone call history.';
+  }
+  if (error is PlatformException && error.code == 'restricted_permission') {
+    return 'Android blocked this hard-restricted permission. Install the approved enterprise build through a managed installer.';
+  }
+  return 'Android did not grant call history access. You can request access again or review the app permission in Settings.';
+}

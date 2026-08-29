@@ -203,7 +203,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   leading: const Icon(Icons.system_update_alt_rounded),
                   title: const Text('Check for updates'),
                   subtitle: const Text(
-                    "Version ${String.fromEnvironment('TECHMEDIA_APP_VERSION', defaultValue: '1.0.85')}",
+                    "Version ${String.fromEnvironment('TECHMEDIA_APP_VERSION', defaultValue: '1.0.86')}",
                   ),
                   onTap: widget.onCheckForUpdate == null
                       ? null

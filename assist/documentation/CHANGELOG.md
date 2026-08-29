@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.85
+Current version: 1.0.86
 
-Release tag: v-1.0.85
+Release tag: v-1.0.86
 
-Changelog label: v 1.0.85
+Changelog label: v 1.0.86
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,29 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.86
+
+### [v 1.0.86] 2026-08-29 11:03 pm - Android call log compatibility
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped the repository and Flutter application version to 1.0.86, build 86.
+- Added an administrator-only mobile Call Logs page.
+- Added search and incoming, outgoing, and missed call filters.
+- Added call, SMS, WhatsApp, copy, and enquiry attachment actions.
+- Registered selected call details as live Frappe enquiry comments.
+- Added a clear call-history disclosure before the Android permission request.
+- Added recovery for denied, restricted, and unsupported-device permission states.
+- Marked telephony as optional for tablets and other compatible Android devices.
+- Added Android 11 and later compatibility for external Phone, SMS, WhatsApp, Maps, and Camera actions.
+- Used the supported Android call-log limit parameter for recent history queries.
+- Documented Google Play and managed-device rules for the hard-restricted `READ_CALL_LOG` permission.
+- Removed the Home message shortcut, Next action section, and Today activity list.
 
 ## v-1.0.85
 
