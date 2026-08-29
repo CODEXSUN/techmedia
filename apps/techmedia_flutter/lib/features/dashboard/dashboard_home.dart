@@ -51,20 +51,6 @@ class DashboardHome extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             _StatsRow(jobCount: jobs.length, onOpenList: onOpenList),
-            const SizedBox(height: 30),
-            Text('Next action', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
-            if (jobs.isNotEmpty) _PriorityCard(job: jobs.first),
-            const SizedBox(height: 30),
-            Text('Today', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            for (final job in jobs.take(2))
-              _TodayRow(
-                icon: Icons.bolt_outlined,
-                title: job.title,
-                subtitle: job.lastAction,
-                time: _timeAgo(job.createdAt),
-              ),
           ],
         );
       },
@@ -158,55 +144,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _PriorityCard extends StatelessWidget {
-  const _PriorityCard({required this.job});
-  final CrmJob job;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      color: theme.colorScheme.primaryContainer,
-      child: ListTile(
-        dense: true,
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-        leading: Icon(Icons.priority_high, size: 20),
-        title: Text(job.title, style: TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('${job.customer} · ${job.dueDate}'),
-        trailing: Icon(Icons.chevron_right),
-      ),
-    );
-  }
-}
-
-class _TodayRow extends StatelessWidget {
-  const _TodayRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String time;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      visualDensity: VisualDensity.compact,
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(radius: 20, child: Icon(icon, size: 19)),
-      title: Text(title),
-      subtitle: Text(subtitle),
-      trailing: Text(time, style: Theme.of(context).textTheme.bodySmall),
-    );
-  }
-}
-
 class _Greeting {
   const _Greeting(this.label, this.quote);
 
@@ -238,11 +175,4 @@ class _Greeting {
       'Review, recharge, and return ready for tomorrow.',
     );
   }
-}
-
-String _timeAgo(DateTime value) {
-  final elapsed = DateTime.now().difference(value.toLocal());
-  if (elapsed.inDays > 0) return '${elapsed.inDays} days ago';
-  if (elapsed.inHours > 0) return '${elapsed.inHours} hours ago';
-  return 'Just now';
 }

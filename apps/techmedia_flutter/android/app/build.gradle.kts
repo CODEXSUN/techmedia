@@ -55,4 +55,5 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("com.google.code.findbugs:jsr305:3.0.2")
     implementation("com.google.errorprone:error_prone_annotations:2.28.0")
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0")
 }

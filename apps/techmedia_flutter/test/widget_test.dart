@@ -120,8 +120,14 @@ void main() {
 
     expect(find.text('Job'), findsOneWidget);
     expect(find.text('Duty'), findsWidgets);
-    expect(find.text('Actions'), findsWidgets);
+    expect(find.text('Chat'), findsOneWidget);
     expect(find.text('Menu'), findsOneWidget);
+
+    await tester.tap(find.text('Menu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Call logs'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Account'))).pop();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Job'));
     await tester.pump();

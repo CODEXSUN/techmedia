@@ -18,8 +18,7 @@ class DashboardListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (section.isJobs)
-      return _LiveJobsList(api: api, session: session, section: section);
+    if (section.isJobs) return _LiveJobsList(api: api, session: session);
     if (section.isActions)
       return ActionActivityPage(api: api, session: session);
     return _StandardList(section: section);
@@ -27,15 +26,10 @@ class DashboardListPage extends StatelessWidget {
 }
 
 class _LiveJobsList extends StatelessWidget {
-  const _LiveJobsList({
-    required this.api,
-    required this.session,
-    required this.section,
-  });
+  const _LiveJobsList({required this.api, required this.session});
 
   final TechMediaApi api;
   final UserSession session;
-  final DashboardListSection section;
 
   @override
   Widget build(BuildContext context) {
@@ -51,20 +45,15 @@ class _LiveJobsList extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         final items = snapshot.data!.map(DashboardListItem.fromCrmJob).toList();
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-          itemCount: items.length + 1,
-          separatorBuilder: (context, index) => const SizedBox(height: 10),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          itemCount: items.length,
+          separatorBuilder: (context, index) => const SizedBox(height: 14),
           itemBuilder: (context, index) {
-            if (index == 0)
-              return _ListHeading(
-                section: section,
-                subtitle: 'Live enquiries assigned to your account.',
-              );
             return JobEnquiryCard(
               api: api,
               session: session,
-              enquiry: items[index - 1],
-              job: snapshot.data![index - 1],
+              enquiry: items[index],
+              job: snapshot.data![index],
             );
           },
         );
@@ -103,23 +92,24 @@ class _StandardList extends StatelessWidget {
 }
 
 class _ListHeading extends StatelessWidget {
-  const _ListHeading({required this.section, this.subtitle});
+  const _ListHeading({required this.section});
 
   final DashboardListSection section;
-  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (!section.isJobs) ...[
+          Text(
+            section.heading ?? section.label,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 4),
+        ],
         Text(
-          section.heading ?? section.label,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '“${subtitle ?? '${section.items.length} items to review today.'}”',
+          '${section.items.length} items to review today.',
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
             color: const Color(0xFF837B88),
             fontStyle: FontStyle.italic,
@@ -158,6 +148,7 @@ class DashboardListItem {
     required this.assignedTo,
     required this.dueDate,
     required this.createdBy,
+    this.createdDate = '',
     required this.createdAgo,
     required this.lastAction,
     this.detail = '',
@@ -173,6 +164,7 @@ class DashboardListItem {
   final String assignedTo;
   final String dueDate;
   final String createdBy;
+  final String createdDate;
   final String createdAgo;
   final String lastAction;
   final JobStatus status;
@@ -186,6 +178,7 @@ class DashboardListItem {
     assignedTo: '',
     dueDate: job.dueDate,
     createdBy: job.createdBy,
+    createdDate: _shortDate(job.createdAt),
     createdAgo: _relativeTime(job.createdAt),
     lastAction: job.lastAction,
     status: switch (job.status) {
@@ -241,6 +234,7 @@ DashboardListItem _simpleItem(String number, String title, String detail) {
     assignedTo: '',
     dueDate: '',
     createdBy: '',
+    createdDate: '',
     createdAgo: '',
     lastAction: '',
   );
@@ -252,6 +246,25 @@ String _relativeTime(DateTime value) {
   if (difference.inHours > 0) return '${difference.inHours} hours ago';
   if (difference.inMinutes > 0) return '${difference.inMinutes} min ago';
   return 'Just now';
+}
+
+String _shortDate(DateTime value) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final local = value.toLocal();
+  return '${local.day} ${months[local.month - 1]}';
 }
 
 class _LiveState extends StatelessWidget {

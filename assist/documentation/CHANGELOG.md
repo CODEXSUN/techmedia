@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.53
+Current version: 1.0.85
 
-Release tag: v-1.0.53
+Release tag: v-1.0.85
 
-Changelog label: v 1.0.53
+Changelog label: v 1.0.85
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,27 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.85
+
+### [v 1.0.85] 2026-08-29 6:45 pm - Mobile jobs, chat, and actions
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped the repository and Flutter application version to 1.0.85, build 85.
+- Redesigned the My Jobs cards for a compact mobile workflow.
+- Added live job start and stop switches with light inactive borders.
+- Added native call, WhatsApp, location, document scan, and photo actions.
+- Added a WhatsApp message with the selected job details.
+- Added the live Messenger to the mobile dock as Chat.
+- Moved Actions from the dock to the account menu.
+- Added an Actions scaffold with an embossed quick-action button.
+- Added live enquiry action posting and job check-in controls.
+- Removed the My Jobs helper quote and reduced unused page content.
 
 ## v-1.0.53
 

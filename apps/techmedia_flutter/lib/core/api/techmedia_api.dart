@@ -250,6 +250,7 @@ class CrmJob {
     required this.number,
     required this.title,
     required this.customer,
+    this.mobile = '',
     required this.list,
     required this.dueDate,
     required this.createdBy,
@@ -267,6 +268,7 @@ class CrmJob {
   final String number;
   final String title;
   final String customer;
+  final String mobile;
   final String list;
   final String dueDate;
   final String createdBy;
@@ -295,6 +297,7 @@ class CrmJob {
       customer: customerName.isNotEmpty
           ? customerName
           : json['customer'] as String? ?? 'Customer',
+      mobile: json['mobile'] as String? ?? '',
       list: json['enquiryGroup'] as String? ?? 'General',
       dueDate: _dateLabel(
         schedule.isEmpty ? null : schedule.first['scheduledOn'] as String?,

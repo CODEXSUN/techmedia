@@ -1,10 +1,18 @@
 package `in`.techmedia.techmedia_flutter
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.provider.CallLog
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -14,6 +22,30 @@ import java.io.File
 class MainActivity : FlutterFragmentActivity() {
     private val updateChannel = "in.techmedia.techmedia_flutter/app-update"
     private val secureSessionChannel = "in.techmedia.techmedia_flutter/secure-session"
+    private val mobileActionsChannel = "in.techmedia.techmedia_flutter/mobile-actions"
+    private val documentScanner = GmsDocumentScanning.getClient(
+        GmsDocumentScannerOptions.Builder()
+            .setGalleryImportAllowed(true)
+            .setPageLimit(10)
+            .setResultFormats(
+                GmsDocumentScannerOptions.RESULT_FORMAT_JPEG,
+                GmsDocumentScannerOptions.RESULT_FORMAT_PDF,
+            )
+            .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+            .build(),
+    )
+    private val documentScannerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { }
+    private var pendingCallLogResult: MethodChannel.Result? = null
+    private val callLogPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        val result = pendingCallLogResult ?: return@registerForActivityResult
+        pendingCallLogResult = null
+        if (granted) result.success(readCallLogs())
+        else result.error("permission_denied", "Call log permission was denied.", null)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -22,6 +54,103 @@ class MainActivity : FlutterFragmentActivity() {
         val secureSession = SecureSessionManager(this)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, secureSessionChannel)
             .setMethodCallHandler(secureSession::handle)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, mobileActionsChannel)
+            .setMethodCallHandler(::handleMobileAction)
+    }
+
+    private fun handleMobileAction(call: MethodCall, result: MethodChannel.Result) {
+        if (call.method == "callLogs") {
+            openCallLogs(result)
+            return
+        }
+        if (call.method == "scanDocument") {
+            openDocumentScanner(result)
+            return
+        }
+        val intent = when (call.method) {
+            "call" -> Intent(Intent.ACTION_DIAL, Uri.parse("tel:${call.argument<String>("mobile").orEmpty()}"))
+            "sms" -> Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:${call.argument<String>("mobile").orEmpty()}"))
+            "whatsApp" -> Intent(
+                Intent.ACTION_VIEW,
+                whatsAppUri(call),
+            )
+            "location" -> Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("geo:0,0?q=${Uri.encode(call.argument<String>("query").orEmpty())}"),
+            )
+            "photo" -> Intent("android.media.action.IMAGE_CAPTURE")
+            else -> return result.notImplemented()
+        }
+        if (intent.resolveActivity(packageManager) == null) return result.success(false)
+        startActivity(intent)
+        result.success(true)
+    }
+
+    private fun openCallLogs(result: MethodChannel.Result) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+            result.success(readCallLogs())
+            return
+        }
+        if (pendingCallLogResult != null) {
+            result.error("request_in_progress", "A call log permission request is already active.", null)
+            return
+        }
+        pendingCallLogResult = result
+        callLogPermissionLauncher.launch(Manifest.permission.READ_CALL_LOG)
+    }
+
+    private fun readCallLogs(): List<Map<String, Any?>> {
+        val records = mutableListOf<Map<String, Any?>>()
+        val projection = arrayOf(
+            CallLog.Calls.CACHED_NAME,
+            CallLog.Calls.NUMBER,
+            CallLog.Calls.TYPE,
+            CallLog.Calls.DATE,
+            CallLog.Calls.DURATION,
+        )
+        contentResolver.query(
+            CallLog.Calls.CONTENT_URI,
+            projection,
+            null,
+            null,
+            "${CallLog.Calls.DATE} DESC",
+        )?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME)
+            val numberIndex = cursor.getColumnIndexOrThrow(CallLog.Calls.NUMBER)
+            val typeIndex = cursor.getColumnIndexOrThrow(CallLog.Calls.TYPE)
+            val dateIndex = cursor.getColumnIndexOrThrow(CallLog.Calls.DATE)
+            val durationIndex = cursor.getColumnIndexOrThrow(CallLog.Calls.DURATION)
+            while (cursor.moveToNext() && records.size < 200) {
+                records += mapOf(
+                    "name" to if (nameIndex >= 0) cursor.getString(nameIndex).orEmpty() else "",
+                    "number" to cursor.getString(numberIndex).orEmpty(),
+                    "type" to cursor.getInt(typeIndex),
+                    "timestamp" to cursor.getLong(dateIndex),
+                    "durationSeconds" to cursor.getLong(durationIndex),
+                )
+            }
+        }
+        return records
+    }
+
+    private fun openDocumentScanner(result: MethodChannel.Result) {
+        documentScanner.getStartScanIntent(this)
+            .addOnSuccessListener { intentSender ->
+                documentScannerLauncher.launch(IntentSenderRequest.Builder(intentSender).build())
+                result.success(true)
+            }
+            .addOnFailureListener { result.success(false) }
+    }
+
+    private fun whatsAppNumber(call: MethodCall): String {
+        val digits = call.argument<String>("mobile").orEmpty().filter(Char::isDigit)
+        return if (digits.length == 10) "91$digits" else digits
+    }
+
+    private fun whatsAppUri(call: MethodCall): Uri {
+        val number = whatsAppNumber(call)
+        val message = call.argument<String>("message").orEmpty()
+        return Uri.parse("https://wa.me/$number?text=${Uri.encode(message)}")
     }
 
     private fun handleUpdateCall(call: MethodCall, result: MethodChannel.Result) {

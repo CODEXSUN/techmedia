@@ -5,6 +5,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/techmedia_api.dart';
 import '../../core/messaging/live_message_notifications.dart';
+import 'action_activity_page.dart';
+import 'admin_call_log_page.dart';
 import 'dashboard_home.dart';
 import 'dashboard_list_page.dart';
 import 'coming_soon_page.dart';
@@ -44,7 +46,7 @@ class _DashboardPageState extends State<DashboardPage> {
     _messageNotifications = LiveMessageNotifications(
       api: widget.api,
       session: widget.session,
-    )..addListener(_updateMessageBadge);
+    );
     if (widget.enableLiveNotifications) {
       unawaited(_messageNotifications.start());
     }
@@ -52,9 +54,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   void dispose() {
-    _messageNotifications
-      ..removeListener(_updateMessageBadge)
-      ..dispose();
+    _messageNotifications.dispose();
     super.dispose();
   }
 
@@ -69,18 +69,19 @@ class _DashboardPageState extends State<DashboardPage> {
             SvgPicture.asset('assets/logo.svg', height: 28, width: 34),
             const SizedBox(width: 9),
             const Text('Tech Media'),
+            if (_selectedIndex == 1 || _selectedIndex == 3) ...[
+              const SizedBox(width: 12),
+              Container(height: 28, width: 1, color: const Color(0xFFD7D1DA)),
+              const SizedBox(width: 12),
+              Text(
+                _selectedIndex == 1 ? 'My Jobs' : 'Chat',
+                style: Theme.of(context).textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: MessageNotificationButton(
-              key: const Key('message-notification-button'),
-              unreadCount: _messageNotifications.unreadCount,
-              onPressed: _openMessages,
-            ),
-          ),
-        ],
+        actions: const [],
       ),
       body: SafeArea(top: false, child: _buildBody()),
       bottomNavigationBar: SafeArea(
@@ -105,7 +106,11 @@ class _DashboardPageState extends State<DashboardPage> {
       return const ComingSoonPage(title: 'Duty', icon: Icons.calendar_month);
     }
     if (_selectedIndex == 3) {
-      return const ComingSoonPage(title: 'Actions', icon: Icons.bolt);
+      return MessagesPage(
+        api: widget.api,
+        session: widget.session,
+        embedded: true,
+      );
     }
     return DashboardListPage(
       api: widget.api,
@@ -124,81 +129,115 @@ class _DashboardPageState extends State<DashboardPage> {
 
   void _selectDestination(int index) => setState(() => _selectedIndex = index);
 
-  Future<void> _openMessages() async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (context) =>
-            MessagesPage(api: widget.api, session: widget.session),
-      ),
-    );
-    await _messageNotifications.refresh();
-  }
-
-  void _updateMessageBadge() {
-    if (mounted) setState(() {});
-  }
-
   void _showMenu() {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Account', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Text(widget.session.profile.name),
-              Text(
-                widget.session.profile.email,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.pin_outlined),
-                title: const Text('Reset PIN'),
-                subtitle: const Text(
-                  'Confirm your password and set a new PIN.',
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Account', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Text(widget.session.profile.name),
+                Text(
+                  widget.session.profile.email,
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-                onTap: widget.onResetPin == null
-                    ? null
-                    : () {
-                        Navigator.pop(context);
-                        widget.onResetPin!();
-                      },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.system_update_alt_rounded),
-                title: const Text('Check for updates'),
-                subtitle: const Text(
-                  "Version ${String.fromEnvironment('TECHMEDIA_APP_VERSION', defaultValue: '1.0.53')}",
+                const SizedBox(height: 12),
+                if (_canViewCallLogs)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.call_outlined),
+                    title: const Text('Call logs'),
+                    subtitle: const Text('Admin device calls and CRM logging.'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (context) => AdminCallLogPage(
+                            api: widget.api,
+                            session: widget.session,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.bolt_outlined),
+                  title: const Text('Actions'),
+                  subtitle: const Text('View enquiry activity and follow-ups.'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (context) => ActionActivityPage(
+                          api: widget.api,
+                          session: widget.session,
+                        ),
+                      ),
+                    );
+                  },
                 ),
-                onTap: widget.onCheckForUpdate == null
-                    ? null
-                    : () {
-                        Navigator.pop(context);
-                        widget.onCheckForUpdate!();
-                      },
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.logout),
-                title: const Text('Sign out'),
-                onTap: () {
-                  Navigator.pop(context);
-                  widget.onSignOut();
-                },
-              ),
-            ],
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.pin_outlined),
+                  title: const Text('Reset PIN'),
+                  subtitle: const Text(
+                    'Confirm your password and set a new PIN.',
+                  ),
+                  onTap: widget.onResetPin == null
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          widget.onResetPin!();
+                        },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.system_update_alt_rounded),
+                  title: const Text('Check for updates'),
+                  subtitle: const Text(
+                    "Version ${String.fromEnvironment('TECHMEDIA_APP_VERSION', defaultValue: '1.0.85')}",
+                  ),
+                  onTap: widget.onCheckForUpdate == null
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          widget.onCheckForUpdate!();
+                        },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Sign out'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    widget.onSignOut();
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  bool get _canViewCallLogs {
+    final role = widget.session.profile.role.trim().toLowerCase();
+    return const {
+      'admin',
+      'administrator',
+      'super-admin',
+      'system-admin',
+      'system administrator',
+    }.contains(role);
   }
 }
 
@@ -327,9 +366,9 @@ const _destinations = [
     selectedIcon: Icons.calendar_month,
   ),
   _Destination(
-    label: 'Actions',
-    icon: Icons.bolt_outlined,
-    selectedIcon: Icons.bolt,
+    label: 'Chat',
+    icon: Icons.forum_outlined,
+    selectedIcon: Icons.forum,
   ),
   _Destination(label: 'Menu', icon: Icons.menu, selectedIcon: Icons.menu),
 ];

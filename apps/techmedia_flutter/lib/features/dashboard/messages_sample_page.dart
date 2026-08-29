@@ -33,9 +33,15 @@ class MessageNotificationButton extends StatelessWidget {
 }
 
 class MessagesPage extends StatefulWidget {
-  const MessagesPage({required this.api, required this.session, super.key});
+  const MessagesPage({
+    required this.api,
+    required this.session,
+    this.embedded = false,
+    super.key,
+  });
   final TechMediaApi api;
   final UserSession session;
+  final bool embedded;
 
   @override
   State<MessagesPage> createState() => _MessagesPageState();
@@ -59,9 +65,8 @@ class _MessagesPageState extends State<MessagesPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Messages')),
-    body: FutureBuilder<List<MessagingConversation>>(
+  Widget build(BuildContext context) {
+    final content = FutureBuilder<List<MessagingConversation>>(
       future: _conversations,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -110,8 +115,13 @@ class _MessagesPageState extends State<MessagesPage> {
           ),
         );
       },
-    ),
-  );
+    );
+    if (widget.embedded) return content;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Messages')),
+      body: content,
+    );
+  }
 
   Future<void> _openConversation(MessagingConversation conversation) async {
     await Navigator.of(context).push<void>(

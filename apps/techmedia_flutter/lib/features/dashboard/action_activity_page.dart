@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/techmedia_api.dart';
+import 'action_quick_action_sheet.dart';
 
 class ActionActivityPage extends StatefulWidget {
   const ActionActivityPage({
@@ -18,43 +19,98 @@ class ActionActivityPage extends StatefulWidget {
 
 class _ActionActivityPageState extends State<ActionActivityPage> {
   var _period = _ActionPeriod.threeDays;
+  late Future<List<CrmJob>> _jobs = _loadJobs();
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<CrmJob>>(
-      future: widget.api.assignedJobDetails(widget.session.accessToken),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Center(child: Text('Could not load live actions.'));
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final actions =
-            snapshot.data!
-                .expand(_LiveAction.fromJob)
-                .where((action) => _period.includes(action.createdAt))
-                .toList()
-              ..sort(
-                (left, right) => right.createdAt.compareTo(left.createdAt),
-              );
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-          itemCount: actions.length + 2,
-          separatorBuilder: (context, index) =>
-              SizedBox(height: index == 0 ? 14 : 8),
-          itemBuilder: (context, index) {
-            if (index == 0) return _ActionHeader(onChanged: _setPeriod);
-            if (index == 1)
-              return _ActionSummary(count: actions.length, period: _period);
-            return _ActionCard(action: actions[index - 2]);
-          },
-        );
-      },
+    return Scaffold(
+      appBar: AppBar(title: const Text('Actions')),
+      floatingActionButton: _EmbossedActionButton(onPressed: _openQuickActions),
+      body: FutureBuilder<List<CrmJob>>(
+        future: _jobs,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(child: Text('Could not load live actions.'));
+          }
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final actions =
+              snapshot.data!
+                  .expand(_LiveAction.fromJob)
+                  .where((action) => _period.includes(action.createdAt))
+                  .toList()
+                ..sort(
+                  (left, right) => right.createdAt.compareTo(left.createdAt),
+                );
+          return ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+            itemCount: actions.length + 2,
+            separatorBuilder: (context, index) =>
+                SizedBox(height: index == 0 ? 14 : 8),
+            itemBuilder: (context, index) {
+              if (index == 0) return _ActionHeader(onChanged: _setPeriod);
+              if (index == 1)
+                return _ActionSummary(count: actions.length, period: _period);
+              return _ActionCard(action: actions[index - 2]);
+            },
+          );
+        },
+      ),
     );
   }
 
   void _setPeriod(_ActionPeriod period) => setState(() => _period = period);
+
+  Future<List<CrmJob>> _loadJobs() =>
+      widget.api.assignedJobDetails(widget.session.accessToken);
+
+  Future<void> _openQuickActions() async {
+    final jobs = await _jobs;
+    if (!mounted) return;
+    final changed = await showActionQuickActionSheet(
+      context: context,
+      api: widget.api,
+      session: widget.session,
+      jobs: jobs,
+    );
+    if (changed && mounted) setState(() => _jobs = _loadJobs());
+  }
+}
+
+class _EmbossedActionButton extends StatelessWidget {
+  const _EmbossedActionButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x33702A86),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Color(0xCCFFFFFF),
+            blurRadius: 3,
+            offset: Offset(-2, -2),
+          ),
+        ],
+      ),
+      child: FloatingActionButton(
+        tooltip: 'Add action or check in',
+        onPressed: onPressed,
+        elevation: 0,
+        backgroundColor: const Color(0xFFF1DDF5),
+        foregroundColor: const Color(0xFF682A82),
+        child: const Icon(Icons.add_rounded, size: 30),
+      ),
+    );
+  }
 }
 
 class _ActionHeader extends StatelessWidget {
