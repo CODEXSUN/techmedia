@@ -76,6 +76,49 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
     return (response.data ?? response.message ?? []).map(toJobExecution);
   }
 
+  async function loadJobsForEnquiries(names: string[]) {
+    const enquiryNames = [...new Set(names.map(requiredName))];
+    const jobsByEnquiry = new Map<string, import("./frappe.types.js").FrappeLiveJobExecution[]>();
+    for (const name of enquiryNames) jobsByEnquiry.set(name, []);
+    if (!enquiryNames.length) return jobsByEnquiry;
+
+    const target = await connection();
+    const responses = await Promise.all(
+      chunk(enquiryNames, 100).map((namesBatch) => loadJobBatch(target, namesBatch))
+    );
+    for (const document of responses.flat()) {
+      const job = toJobExecution(document);
+      const enquiryName = document.enquiry?.trim();
+      if (enquiryName && jobsByEnquiry.has(enquiryName)) {
+        jobsByEnquiry.get(enquiryName)?.push(job);
+      }
+    }
+    return jobsByEnquiry;
+  }
+
+  async function loadJobBatch(connection: FrappeConnectionCredentials, names: string[]) {
+    const jobs: FrappeJobExecutionDocument[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const response = await frappeRequest<{
+        data?: FrappeJobExecutionDocument[];
+        message?: FrappeJobExecutionDocument[];
+      }>(connection, "/api/v2/method/frappe.client.get_list", {
+        body: JSON.stringify({
+          doctype: "Job Execution",
+          fields: jobExecutionFields,
+          filters: [["enquiry", "in", names]],
+          limit_page_length: 500,
+          limit_start: offset,
+          order_by: "creation desc"
+        }),
+        method: "POST"
+      });
+      const page = response.data ?? response.message ?? [];
+      jobs.push(...page);
+      if (page.length < 500) return jobs;
+    }
+  }
+
   async function loadCustomers(search = "") {
     const target = await connection();
     const normalizedSearch = search.trim();
@@ -251,6 +294,10 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
 
     async jobs(name) {
       return loadJobs(name);
+    },
+
+    async jobsForEnquiries(names) {
+      return loadJobsForEnquiries(names);
     },
 
     async createJob(name, input) {
@@ -500,20 +547,18 @@ async function hydrate(
   return toEnquiry(withMessageMetadata(document, messageMetadata), options, timeline.docinfo);
 }
 
-async function loadMessageMetadata(
-  connection: FrappeConnectionCredentials,
-  enquiryName: string
-) {
+async function loadMessageMetadata(connection: FrappeConnectionCredentials, enquiryName: string) {
   try {
     return await requestMessageMetadata(connection, enquiryName, [
       "name",
       "owner",
       "creation",
       "posted_at",
-      "posted_by"
+      "posted_by",
+      "idx"
     ]);
   } catch {
-    return requestMessageMetadata(connection, enquiryName, ["name", "owner", "creation"]);
+    return requestMessageMetadata(connection, enquiryName, ["name", "owner", "creation", "idx"]);
   }
 }
 
@@ -550,8 +595,8 @@ function withMessageMetadata(
   const byName = new Map(metadata.map((entry) => [entry.name, entry]));
   return {
     ...document,
-    enquiry_messages: (document.enquiry_messages ?? []).map((message) => {
-      const systemFields = message.name ? byName.get(message.name) : undefined;
+    enquiry_messages: (document.enquiry_messages ?? []).map((message, index) => {
+      const systemFields = (message.name ? byName.get(message.name) : undefined) ?? metadata[index];
       return {
         ...message,
         ...(systemFields?.posted_at || systemFields?.creation
@@ -1005,6 +1050,7 @@ type FrappeEnquiryDocument = {
 
 type FrappeEnquiryMessageMetadata = {
   creation?: string;
+  idx?: number;
   name: string;
   owner?: string;
   posted_at?: string;

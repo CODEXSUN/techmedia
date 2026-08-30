@@ -57,6 +57,13 @@ class SecureSessionStore {
   }
 
   Future<void> setPin(String pin, {required bool useBiometric}) async {
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+      throw ArgumentError.value(
+        pin,
+        'pin',
+        'PIN must contain exactly 4 digits',
+      );
+    }
     final salt = _randomSalt();
     await Future.wait([
       _write(_pinSaltKey, salt),
@@ -66,6 +73,7 @@ class SecureSessionStore {
   }
 
   Future<bool> verifyPin(String pin) async {
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) return false;
     final salt = await _read(_pinSaltKey);
     final expected = await _read(_pinHashKey);
     if (salt == null || expected == null) return false;
@@ -79,6 +87,15 @@ class SecureSessionStore {
   Future<bool> authenticateBiometric() async {
     return await _channel.invokeMethod<bool>('authenticateBiometric') ?? false;
   }
+
+  /// Stores device-only UI state in the encrypted Android session store.
+  ///
+  /// CRM records remain in Frappe; callers must not use this for business data.
+  Future<String?> readDeviceValue(String key) => _read(key);
+
+  Future<void> writeDeviceValue(String key, String value) => _write(key, value);
+
+  Future<void> deleteDeviceValue(String key) => _delete(key);
 
   Future<void> clearSession({bool forgetAccount = false}) async {
     await Future.wait([

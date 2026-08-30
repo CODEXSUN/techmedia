@@ -171,6 +171,7 @@ export type FrappeLiveEnquiryGateway = {
   employees: () => Promise<FrappeLiveEmployee[]>;
   get: (name: string) => Promise<FrappeLiveEnquiry>;
   jobs: (name: string) => Promise<FrappeLiveJobExecution[]>;
+  jobsForEnquiries?: (names: string[]) => Promise<Map<string, FrappeLiveJobExecution[]>>;
   createJob: (
     name: string,
     input: FrappeLiveJobExecutionSavePayload

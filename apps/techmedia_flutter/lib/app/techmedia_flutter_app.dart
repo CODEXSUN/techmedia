@@ -7,6 +7,7 @@ import '../core/auth/secure_session_store.dart';
 import '../core/config/app_config.dart';
 import '../core/update/app_update_service.dart';
 import '../features/auth/login_page.dart';
+import '../features/auth/change_password_dialog.dart';
 import '../features/auth/pin_auth_pages.dart';
 import '../features/dashboard/dashboard_page.dart';
 
@@ -213,6 +214,47 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
     );
   }
 
+  Future<void> _changePassword() async {
+    final session = _session;
+    final navigatorContext = _navigatorKey.currentContext;
+    if (session == null || navigatorContext == null) return;
+    final value = await showDialog<PasswordChange>(
+      context: navigatorContext,
+      builder: (context) => const ChangePasswordDialog(),
+    );
+    if (value == null) return;
+    try {
+      final verified = await _api.signIn(
+        email: session.profile.email,
+        password: value.currentPassword,
+      );
+      final accessToken = await _api.changePassword(
+        accessToken: verified.accessToken,
+        profile: session.profile,
+        password: value.newPassword,
+      );
+      await _secureSession.saveLogin(
+        email: session.profile.email,
+        accessToken: accessToken,
+      );
+      if (!mounted || !navigatorContext.mounted) return;
+      setState(() {
+        _session = UserSession(
+          accessToken: accessToken,
+          profile: session.profile,
+        );
+      });
+      ScaffoldMessenger.of(navigatorContext).showSnackBar(
+        const SnackBar(content: Text('Password changed successfully.')),
+      );
+    } on TechMediaApiException catch (error) {
+      if (navigatorContext.mounted) {
+        ScaffoldMessenger.of(navigatorContext)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
   void _scheduleUpdateCheck() {
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
   }
@@ -318,6 +360,7 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
           api: _api,
           session: _session!,
           onResetPin: _resetPin,
+          onChangePassword: _changePassword,
           onCheckForUpdate: () => _checkForUpdate(reportCurrent: true),
           onSignOut: _signOut,
         );

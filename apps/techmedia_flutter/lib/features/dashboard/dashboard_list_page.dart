@@ -3,22 +3,27 @@ import 'package:flutter/material.dart';
 import '../../core/api/techmedia_api.dart';
 import 'action_activity_page.dart';
 import 'job_enquiry_card.dart';
+import 'dashboard_jobs_feed.dart';
 
 class DashboardListPage extends StatelessWidget {
   const DashboardListPage({
     required this.api,
     required this.session,
     required this.section,
+    required this.jobsFeed,
     super.key,
   });
 
   final TechMediaApi api;
   final UserSession session;
   final DashboardListSection section;
+  final DashboardJobsFeed jobsFeed;
 
   @override
   Widget build(BuildContext context) {
-    if (section.isJobs) return _LiveJobsList(api: api, session: session);
+    if (section.isJobs) {
+      return _LiveJobsList(api: api, session: session, jobsFeed: jobsFeed);
+    }
     if (section.isActions)
       return ActionActivityPage(api: api, session: session);
     return _StandardList(section: section);
@@ -26,24 +31,34 @@ class DashboardListPage extends StatelessWidget {
 }
 
 class _LiveJobsList extends StatelessWidget {
-  const _LiveJobsList({required this.api, required this.session});
+  const _LiveJobsList({
+    required this.api,
+    required this.session,
+    required this.jobsFeed,
+  });
 
   final TechMediaApi api;
   final UserSession session;
+  final DashboardJobsFeed jobsFeed;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<CrmJob>>(
-      future: api.assignedJobs(session.accessToken),
-      builder: (context, snapshot) {
-        if (snapshot.hasError)
+    return ListenableBuilder(
+      listenable: jobsFeed,
+      builder: (context, child) {
+        if (jobsFeed.error != null && jobsFeed.jobs.isEmpty) {
           return _LiveState(
             message: 'Could not load your assigned enquiries.',
-            onRetry: () {},
+            onRetry: () {
+              jobsFeed.refresh();
+            },
           );
-        if (!snapshot.hasData)
+        }
+        if (jobsFeed.isLoading && jobsFeed.jobs.isEmpty) {
           return const Center(child: CircularProgressIndicator());
-        final items = snapshot.data!.map(DashboardListItem.fromCrmJob).toList();
+        }
+        final jobs = jobsFeed.jobs;
+        final items = jobs.map(DashboardListItem.fromCrmJob).toList();
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           itemCount: items.length,
@@ -53,7 +68,10 @@ class _LiveJobsList extends StatelessWidget {
               api: api,
               session: session,
               enquiry: items[index],
-              job: snapshot.data![index],
+              job: jobs[index],
+              onJobChanged: () {
+                jobsFeed.refresh();
+              },
             );
           },
         );
@@ -175,7 +193,7 @@ class DashboardListItem {
     title: job.title,
     customer: job.customer,
     list: job.list,
-    assignedTo: '',
+    assignedTo: job.assignedTo,
     dueDate: job.dueDate,
     createdBy: job.createdBy,
     createdDate: _shortDate(job.createdAt),

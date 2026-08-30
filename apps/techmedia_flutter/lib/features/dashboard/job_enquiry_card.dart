@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api/techmedia_api.dart';
 import '../../core/platform/mobile_actions.dart';
 import 'dashboard_list_page.dart';
 import 'job_detail_page.dart';
+import 'job_duration.dart';
+import 'job_start_countdown.dart';
 
 class JobEnquiryCard extends StatefulWidget {
   const JobEnquiryCard({
@@ -11,6 +15,7 @@ class JobEnquiryCard extends StatefulWidget {
     required this.session,
     required this.enquiry,
     required this.job,
+    required this.onJobChanged,
     super.key,
   });
 
@@ -18,6 +23,7 @@ class JobEnquiryCard extends StatefulWidget {
   final UserSession session;
   final DashboardListItem enquiry;
   final CrmJob job;
+  final VoidCallback onJobChanged;
 
   @override
   State<JobEnquiryCard> createState() => _JobEnquiryCardState();
@@ -25,7 +31,34 @@ class JobEnquiryCard extends StatefulWidget {
 
 class _JobEnquiryCardState extends State<JobEnquiryCard> {
   late CrmJob _job = widget.job;
+  final _startCountdown = JobStartCountdown.instance;
   bool _updating = false;
+  Timer? _runningTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown.addListener(_refreshCountdown);
+    _syncRunningTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant JobEnquiryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.job != widget.job) _job = widget.job;
+    _syncRunningTimer();
+  }
+
+  @override
+  void dispose() {
+    _startCountdown.removeListener(_refreshCountdown);
+    _runningTimer?.cancel();
+    super.dispose();
+  }
+
+  void _refreshCountdown() {
+    if (mounted) setState(() {});
+  }
 
   CrmJobExecution? get _runningJob {
     for (final execution in _job.jobs) {
@@ -34,10 +67,22 @@ class _JobEnquiryCardState extends State<JobEnquiryCard> {
     return null;
   }
 
+  void _syncRunningTimer() {
+    if (_runningJob == null) {
+      _runningTimer?.cancel();
+      _runningTimer = null;
+      return;
+    }
+    _runningTimer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final enquiry = DashboardListItem.fromCrmJob(_job);
     final running = _runningJob != null;
+    final starting = _startCountdown.isPending(_job.sourceId);
     return Card(
       margin: EdgeInsets.zero,
       color: Colors.white,
@@ -67,6 +112,11 @@ class _JobEnquiryCardState extends State<JobEnquiryCard> {
                 _JobCardHeader(
                   enquiry: enquiry,
                   running: running,
+                  starting: starting,
+                  countdownLabel: _startCountdown.label(_job.sourceId),
+                  runningDuration: running
+                      ? formatJobDuration(_runningJob!)
+                      : null,
                   updating: _updating,
                   onChanged: _toggleJob,
                 ),
@@ -114,20 +164,28 @@ class _JobEnquiryCardState extends State<JobEnquiryCard> {
 
   Future<void> _toggleJob(bool shouldRun) async {
     if (_updating) return;
+    final starting = _startCountdown.isPending(_job.sourceId);
+    if (!shouldRun && starting) {
+      _startCountdown.cancel(_job.sourceId);
+      return;
+    }
+    if (shouldRun) {
+      _scheduleJobStart();
+      return;
+    }
     setState(() => _updating = true);
     try {
       final running = _runningJob;
-      final updated = shouldRun
-          ? await widget.api.startJob(
-              accessToken: widget.session.accessToken,
-              id: _job.sourceId,
-            )
-          : await widget.api.stopJob(
-              accessToken: widget.session.accessToken,
-              id: _job.sourceId,
-              jobName: running!.name,
-            );
-      if (mounted) setState(() => _job = updated);
+      final updated = await widget.api.stopJob(
+        accessToken: widget.session.accessToken,
+        id: _job.sourceId,
+        jobName: running!.name,
+      );
+      if (mounted) {
+        setState(() => _job = updated);
+        _syncRunningTimer();
+        widget.onJobChanged();
+      }
     } on TechMediaApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -138,17 +196,60 @@ class _JobEnquiryCardState extends State<JobEnquiryCard> {
     }
   }
 
-  void _openDetail(BuildContext context, DashboardListItem enquiry) {
-    Navigator.of(context).push<void>(
+  void _scheduleJobStart() {
+    final scheduled = _startCountdown.start(
+      jobId: _job.sourceId,
+      onElapsed: () async {
+        try {
+          final updated = await widget.api.startJob(
+            accessToken: widget.session.accessToken,
+            id: _job.sourceId,
+          );
+          if (mounted) {
+            setState(() => _job = updated);
+            _syncRunningTimer();
+            widget.onJobChanged();
+          }
+        } on TechMediaApiException catch (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(error.message)));
+          }
+        }
+      },
+    );
+    if (scheduled && mounted) setState(() {});
+  }
+
+  Future<void> _openDetail(
+    BuildContext context,
+    DashboardListItem enquiry,
+  ) async {
+    await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (context) => JobDetailPage(
           api: widget.api,
           session: widget.session,
           enquiry: enquiry,
           initialJob: _job,
+          onJobChanged: widget.onJobChanged,
         ),
       ),
     );
+    if (!mounted) return;
+    try {
+      final refreshed = await widget.api.job(
+        widget.session.accessToken,
+        _job.sourceId,
+      );
+      if (mounted) {
+        setState(() => _job = refreshed);
+        _syncRunningTimer();
+        widget.onJobChanged();
+      }
+    } on TechMediaApiException {
+      // The next list refresh will retry if the connection was interrupted.
+    }
   }
 
   Future<void> _runContactAction(
@@ -201,12 +302,18 @@ class _JobCardHeader extends StatelessWidget {
   const _JobCardHeader({
     required this.enquiry,
     required this.running,
+    required this.starting,
+    required this.countdownLabel,
+    required this.runningDuration,
     required this.updating,
     required this.onChanged,
   });
 
   final DashboardListItem enquiry;
   final bool running;
+  final bool starting;
+  final String countdownLabel;
+  final String? runningDuration;
   final bool updating;
   final ValueChanged<bool> onChanged;
 
@@ -246,13 +353,21 @@ class _JobCardHeader extends StatelessWidget {
           ),
         ),
         Icon(
-          running ? Icons.stop_rounded : Icons.play_arrow_rounded,
+          running
+              ? Icons.stop_rounded
+              : starting
+              ? Icons.timer_outlined
+              : Icons.play_arrow_rounded,
           size: 18,
           color: const Color(0xFF242127),
         ),
         const SizedBox(width: 3),
         Text(
-          running ? 'Stop' : 'Start',
+          running
+              ? 'Stop ${runningDuration ?? ''}'.trim()
+              : starting
+              ? countdownLabel
+              : 'Start',
           style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(width: 2),
@@ -263,7 +378,7 @@ class _JobCardHeader extends StatelessWidget {
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           )
         else
-          _EmbossedSwitch(value: running, onChanged: onChanged),
+          _EmbossedSwitch(value: running || starting, onChanged: onChanged),
       ],
     );
   }

@@ -29,6 +29,24 @@ class TechMediaApi {
     );
   }
 
+  Future<String> changePassword({
+    required String accessToken,
+    required UserProfile profile,
+    required String password,
+  }) async {
+    final data = await _request(
+      '/identity/profile',
+      accessToken: accessToken,
+      method: 'PUT',
+      body: {
+        'email': profile.email,
+        'name': profile.name,
+        'password': password,
+      },
+    ) as Map<String, dynamic>;
+    return data['accessToken'] as String;
+  }
+
   Future<List<CrmJob>> assignedJobs(String accessToken) async {
     final data = await _request(
       '/mobile/crm/jobs',
@@ -251,6 +269,7 @@ class CrmJob {
     required this.title,
     required this.customer,
     this.mobile = '',
+    this.assignedTo = '',
     required this.list,
     required this.dueDate,
     required this.createdBy,
@@ -269,6 +288,7 @@ class CrmJob {
   final String title;
   final String customer;
   final String mobile;
+  final String assignedTo;
   final String list;
   final String dueDate;
   final String createdBy;
@@ -298,6 +318,7 @@ class CrmJob {
           ? customerName
           : json['customer'] as String? ?? 'Customer',
       mobile: json['mobile'] as String? ?? '',
+      assignedTo: _assignedToName(json['assignedTo']),
       list: json['enquiryGroup'] as String? ?? 'General',
       dueDate: _dateLabel(
         schedule.isEmpty ? null : schedule.first['scheduledOn'] as String?,
@@ -324,6 +345,11 @@ class CrmJob {
           .toList(),
     );
   }
+}
+
+String _assignedToName(Object? value) {
+  if (value is! Map<String, dynamic>) return '';
+  return value['title'] as String? ?? value['name'] as String? ?? '';
 }
 
 class CrmJobExecution {
@@ -376,12 +402,14 @@ class CrmActivity {
     required this.action,
     required this.details,
     required this.createdAt,
+    required this.createdBy,
   });
 
   final String id;
   final String action;
   final String details;
   final DateTime createdAt;
+  final String createdBy;
 
   factory CrmActivity.fromJson(Map<String, dynamic> json) => CrmActivity(
     id: json['uuid']?.toString() ?? json['id']?.toString() ?? '',
@@ -389,6 +417,7 @@ class CrmActivity {
     details: _plainTextComment(json['details'] as String? ?? ''),
     createdAt:
         DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+    createdBy: json['createdBy'] as String? ?? '',
   );
 }
 

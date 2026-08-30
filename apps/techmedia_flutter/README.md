@@ -28,7 +28,7 @@ Set `FLUTTER_BIN` when `flutter` is not available on `PATH`.
 
 - Native Flutter sign-in UI using `POST /auth/login`.
 - Encrypted Android session storage backed by the Android Keystore.
-- A 4 to 6 digit local PIN and optional biometric unlock.
+- A 4 digit local PIN and optional biometric unlock.
 - A 10-day inactivity limit before the app requires the full password again.
 - A PIN that remains saved until the user resets it or signs out.
 - Server session validation after each PIN or biometric unlock.

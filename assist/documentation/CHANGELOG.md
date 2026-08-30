@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.86
+Current version: 1.0.89
 
-Release tag: v-1.0.86
+Release tag: v-1.0.89
 
-Changelog label: v 1.0.86
+Changelog label: v 1.0.89
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,62 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.89
+
+### [v 1.0.89] 2026-08-30 10:02 pm - Durable mobile job starts and faster refresh
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.89.
+- Stored a pending 90-second job-start deadline in encrypted device storage and restored it after an app resume or restart.
+- Sent restored starts through the existing live API, then refreshed the shared Home and Jobs snapshot so timers and controls remain aligned.
+- Batched live Frappe job-execution hydration for the Jobs refresh, replacing one request per enquiry with bounded bulk requests.
+- Added automated coverage for device-stored pending start deadlines while preserving the existing mobile card, detail, and action-sheet UI.
+
+## v-1.0.88
+
+### [v 1.0.88] 2026-08-30 2:41 pm - Mobile permission and job detail refinements
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped the repository and Flutter application version to 1.0.88, build 88.
+- Added duration badges for completed job executions.
+- Showed detailed compact timestamps such as 1d 5h.
+- Sent the Frappe activity author to the mobile work feed.
+- Replaced generic message activity text with the related comment text when available.
+- Simplified the mobile job show card with one job number, status, enquiry list, and creator details.
+- Removed the unnecessary assignee row from the job show card.
+- Changed the comment composer label to Write a comment only.
+- Saved successful call-log consent on the device and skipped the repeated disclosure screen.
+- Opened the four-digit PIN keyboard when the unlock screen opens or biometric unlock does not complete.
+
+## v-1.0.87
+
+### [v 1.0.87] 2026-08-30 1:15 pm - Mobile job feed and guarded start
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped the repository and Flutter application version to 1.0.87, build 87.
+- Added four-digit PIN setup and unlock fields with automatic focus and automatic submit.
+- Kept the mobile Messenger composer visible above the Android keyboard.
+- Replaced job tabs with one time-ordered work feed for comments, job executions, and activity.
+- Added floating job actions for photo, document scanning, location, completion, charges, and collected amounts.
+- Calculated job duration from recorded start and stop times with second, minute, and hour labels.
+- Added a 90-second cancellable job-start countdown that continues after its dialog is hidden.
+- Kept the card switch active during the countdown so the user can cancel before Frappe records the job.
 
 ## v-1.0.86
 

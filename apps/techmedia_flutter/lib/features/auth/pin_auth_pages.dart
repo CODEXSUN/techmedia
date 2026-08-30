@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class PinSetupPage extends StatefulWidget {
   const PinSetupPage({
@@ -19,6 +20,8 @@ class PinSetupPage extends StatefulWidget {
 class _PinSetupPageState extends State<PinSetupPage> {
   final _pin = TextEditingController();
   final _confirmation = TextEditingController();
+  final _pinFocus = FocusNode();
+  final _confirmationFocus = FocusNode();
   bool _useBiometric = false;
   bool _saving = false;
   String? _error;
@@ -27,12 +30,14 @@ class _PinSetupPageState extends State<PinSetupPage> {
   void dispose() {
     _pin.dispose();
     _confirmation.dispose();
+    _pinFocus.dispose();
+    _confirmationFocus.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
-    if (!RegExp(r'^\d{4,6}$').hasMatch(_pin.text)) {
-      setState(() => _error = 'Use a 4 to 6 digit PIN.');
+    if (!RegExp(r'^\d{4}$').hasMatch(_pin.text)) {
+      setState(() => _error = 'Use a 4 digit PIN.');
       return;
     }
     if (_pin.text != _confirmation.text) {
@@ -73,12 +78,21 @@ class _PinSetupPageState extends State<PinSetupPage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  _PinField(controller: _pin, label: 'New PIN'),
+                  _PinField(
+                    controller: _pin,
+                    focusNode: _pinFocus,
+                    label: 'New PIN',
+                    autofocus: true,
+                    onCompleted: (_) => _confirmationFocus.requestFocus(),
+                  ),
                   const SizedBox(height: 14),
                   _PinField(
                     controller: _confirmation,
+                    focusNode: _confirmationFocus,
                     label: 'Confirm PIN',
-                    onSubmitted: (_) => _saving ? null : _save(),
+                    onCompleted: (_) {
+                      if (!_saving) _save();
+                    },
                   ),
                   if (widget.biometricAvailable) ...[
                     const SizedBox(height: 10),
@@ -139,6 +153,7 @@ class PinUnlockPage extends StatefulWidget {
 
 class _PinUnlockPageState extends State<PinUnlockPage> {
   final _pin = TextEditingController();
+  final _pinFocus = FocusNode();
   bool _checking = false;
   String? _error;
 
@@ -147,12 +162,15 @@ class _PinUnlockPageState extends State<PinUnlockPage> {
     super.initState();
     if (widget.biometricEnabled) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _useBiometric());
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _focusPinInput());
     }
   }
 
   @override
   void dispose() {
     _pin.dispose();
+    _pinFocus.dispose();
     super.dispose();
   }
 
@@ -167,6 +185,10 @@ class _PinUnlockPageState extends State<PinUnlockPage> {
       _checking = false;
       _error = valid ? null : 'Incorrect PIN or expired session.';
     });
+    if (!valid) {
+      _pin.clear();
+      _focusPinInput();
+    }
   }
 
   Future<void> _useBiometric() async {
@@ -177,6 +199,13 @@ class _PinUnlockPageState extends State<PinUnlockPage> {
       _checking = false;
       if (!valid) _error = 'Biometric unlock was not completed.';
     });
+    if (!valid) _focusPinInput();
+  }
+
+  void _focusPinInput() {
+    if (!mounted) return;
+    _pinFocus.requestFocus();
+    SystemChannels.textInput.invokeMethod<void>('TextInput.show');
   }
 
   @override
@@ -204,8 +233,12 @@ class _PinUnlockPageState extends State<PinUnlockPage> {
                   const SizedBox(height: 24),
                   _PinField(
                     controller: _pin,
+                    focusNode: _pinFocus,
                     label: 'PIN',
-                    onSubmitted: (_) => _checking ? null : _unlock(),
+                    autofocus: true,
+                    onCompleted: (_) {
+                      if (!_checking) _unlock();
+                    },
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 10),
@@ -314,29 +347,138 @@ class _PasswordConfirmationDialogState
   }
 }
 
-class _PinField extends StatelessWidget {
+class _PinField extends StatefulWidget {
   const _PinField({
     required this.controller,
+    required this.focusNode,
     required this.label,
-    this.onSubmitted,
+    required this.onCompleted,
+    this.autofocus = false,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final String label;
-  final ValueChanged<String>? onSubmitted;
+  final ValueChanged<String> onCompleted;
+  final bool autofocus;
+
+  @override
+  State<_PinField> createState() => _PinFieldState();
+}
+
+class _PinFieldState extends State<_PinField> {
+  bool _completionSent = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PinField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode == widget.focusNode) return;
+    oldWidget.focusNode.removeListener(_handleFocusChanged);
+    widget.focusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_handleFocusChanged);
+    super.dispose();
+  }
+
+  void _handleFocusChanged() => setState(() {});
+
+  void _handleChanged(String value) {
+    if (value.length < 4) {
+      _completionSent = false;
+      setState(() {});
+      return;
+    }
+    setState(() {});
+    if (_completionSent) return;
+    _completionSent = true;
+    widget.onCompleted(value);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      obscureText: true,
-      keyboardType: TextInputType.number,
-      maxLength: 6,
-      onSubmitted: onSubmitted,
-      decoration: InputDecoration(
-        border: const OutlineInputBorder(),
-        labelText: label,
-        counterText: '',
+    final colorScheme = Theme.of(context).colorScheme;
+    final value = widget.controller.text;
+    return Semantics(
+      label: widget.label,
+      textField: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.label, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: widget.focusNode.requestFocus,
+            child: Stack(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(4, (index) {
+                    final filled = index < value.length;
+                    final active =
+                        widget.focusNode.hasFocus &&
+                        index == value.length.clamp(0, 3);
+                    return Container(
+                      width: 62,
+                      height: 64,
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: colorScheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: active
+                              ? colorScheme.primary
+                              : colorScheme.outlineVariant,
+                          width: active ? 2 : 1.25,
+                        ),
+                      ),
+                      child: Text(
+                        filled ? '•' : '',
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 32,
+                          height: 1,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0.01,
+                    child: TextField(
+                      controller: widget.controller,
+                      focusNode: widget.focusNode,
+                      autofocus: widget.autofocus,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      autofillHints: const [AutofillHints.oneTimeCode],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      onChanged: _handleChanged,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

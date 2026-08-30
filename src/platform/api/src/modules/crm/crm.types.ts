@@ -105,6 +105,7 @@ export type CrmEnquiryAttachment = {
 export type CrmEnquiryActivity = {
   action: string;
   createdAt: string;
+  createdBy: string;
   createdByUserId: number;
   details: string;
   id: number;

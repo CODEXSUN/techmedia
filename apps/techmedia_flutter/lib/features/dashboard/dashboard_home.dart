@@ -1,35 +1,46 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api/techmedia_api.dart';
+import 'dashboard_list_page.dart';
+import 'job_duration.dart';
+import 'dashboard_jobs_feed.dart';
+import 'job_detail_page.dart';
+import 'job_start_countdown.dart';
 
 class DashboardHome extends StatelessWidget {
   const DashboardHome({
     required this.api,
     required this.session,
     required this.onOpenList,
+    required this.jobsFeed,
     super.key,
   });
 
   final TechMediaApi api;
   final UserSession session;
   final ValueChanged<int> onOpenList;
+  final DashboardJobsFeed jobsFeed;
 
   @override
   Widget build(BuildContext context) {
     final greeting = _Greeting.forTime(DateTime.now());
     final firstName = session.profile.name.split(' ').first;
-    return FutureBuilder<List<CrmJob>>(
-      future: api.assignedJobs(session.accessToken),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([jobsFeed, JobStartCountdown.instance]),
+      builder: (context, child) {
+        if (jobsFeed.error != null && jobsFeed.jobs.isEmpty) {
           return const Center(
             child: Text('Could not load live dashboard data.'),
           );
         }
-        if (!snapshot.hasData) {
+        if (jobsFeed.isLoading && jobsFeed.jobs.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
-        final jobs = snapshot.data!;
+        final jobs = jobsFeed.jobs;
+        final runningJob = _runningJob(jobs);
+        final pendingJob = _pendingJob(jobs);
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           children: [
@@ -51,9 +62,213 @@ class DashboardHome extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             _StatsRow(jobCount: jobs.length, onOpenList: onOpenList),
+            if (runningJob != null) ...[
+              const SizedBox(height: 18),
+              _RunningJobCard(
+                job: runningJob,
+                onOpenJob: () => _openJob(context, runningJob),
+              ),
+            ] else if (pendingJob != null) ...[
+              const SizedBox(height: 18),
+              _PendingJobCard(
+                job: pendingJob,
+                onOpenJob: () => _openJob(context, pendingJob),
+              ),
+            ],
           ],
         );
       },
+    );
+  }
+
+  Future<void> _openJob(BuildContext context, CrmJob job) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) => JobDetailPage(
+          api: api,
+          session: session,
+          enquiry: DashboardListItem.fromCrmJob(job),
+          initialJob: job,
+          onJobChanged: jobsFeed.refresh,
+        ),
+      ),
+    );
+  }
+}
+
+CrmJob? _runningJob(List<CrmJob> jobs) {
+  for (final job in jobs) {
+    if (job.jobs.any((execution) => execution.isRunning)) return job;
+  }
+  return null;
+}
+
+CrmJob? _pendingJob(List<CrmJob> jobs) {
+  final countdown = JobStartCountdown.instance;
+  for (final job in jobs) {
+    if (countdown.isPending(job.sourceId)) return job;
+  }
+  return null;
+}
+
+class _PendingJobCard extends StatelessWidget {
+  const _PendingJobCard({required this.job, required this.onOpenJob});
+
+  final CrmJob job;
+  final VoidCallback onOpenJob;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      label: 'Open pending job start ${job.title}',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onOpenJob,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFCF9FD),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFD6B5E8)),
+          ),
+          child: Row(
+            children: [
+              const CircleAvatar(
+                backgroundColor: Color(0xFFF0E2FA),
+                foregroundColor: Color(0xFF682A82),
+                child: Icon(Icons.hourglass_top_rounded),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Starting job',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: const Color(0xFF682A82),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      job.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                JobStartCountdown.instance.label(job.sourceId),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: const Color(0xFF682A82),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RunningJobCard extends StatefulWidget {
+  const _RunningJobCard({required this.job, required this.onOpenJob});
+
+  final CrmJob job;
+  final VoidCallback onOpenJob;
+
+  @override
+  State<_RunningJobCard> createState() => _RunningJobCardState();
+}
+
+class _RunningJobCardState extends State<_RunningJobCard> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final execution = widget.job.jobs.firstWhere(
+      (candidate) => candidate.isRunning,
+    );
+    final theme = Theme.of(context);
+    return Semantics(
+      button: true,
+      label: 'Open running job ${widget.job.title}',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: widget.onOpenJob,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFCF9FD),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFD6B5E8)),
+          ),
+          child: Row(
+            children: [
+              const CircleAvatar(
+                backgroundColor: Color(0xFFF0E2FA),
+                foregroundColor: Color(0xFF682A82),
+                child: Icon(Icons.timer_outlined),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Job running',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: const Color(0xFF682A82),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.job.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                formatJobDuration(execution),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: const Color(0xFF682A82),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/techmedia_api.dart';
+import 'job_start_countdown.dart';
 
 Future<bool> showActionQuickActionSheet({
   required BuildContext context,
@@ -150,10 +151,24 @@ Future<bool> _showCheckIn(
   try {
     final running = _runningExecution(selected);
     if (running == null) {
-      await api.startJob(
-        accessToken: session.accessToken,
-        id: selected.sourceId,
+      if (!context.mounted) return false;
+      final scheduled = JobStartCountdown.instance.start(
+        jobId: selected.sourceId,
+        onElapsed: () async {
+          try {
+            await api.startJob(
+              accessToken: session.accessToken,
+              id: selected.sourceId,
+            );
+          } on TechMediaApiException catch (error) {
+            if (context.mounted) _showError(context, error.message);
+          }
+        },
       );
+      if (!scheduled && context.mounted) {
+        _showError(context, 'This job start is already pending.');
+        return false;
+      }
     } else {
       await api.stopJob(
         accessToken: session.accessToken,

@@ -24,6 +24,9 @@ class MobileActions {
 
   static Future<bool> openAppSettings() => _invoke('openAppSettings');
 
+  static Future<bool> hasCallLogAccess() async =>
+      await _channel.invokeMethod<bool>('hasCallLogAccess') ?? false;
+
   static Future<List<Map<String, dynamic>>> callLogs() async {
     final rows = await _channel.invokeListMethod<dynamic>('callLogs') ?? [];
     return rows

@@ -250,47 +250,89 @@ class _ConversationThreadState extends State<_ConversationThread> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.conversation.title)),
-    body: FutureBuilder<List<MessagingMessage>>(
-      future: _messages,
-      builder: (context, snapshot) {
-        if (snapshot.hasError)
-          return Center(
-            child: FilledButton.tonal(
-              onPressed: _refresh,
-              child: const Text('Retry messages'),
+  Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.conversation.title)),
+      resizeToAvoidBottomInset: false,
+      body: Column(
+        children: [
+          Expanded(
+            child: FutureBuilder<List<MessagingMessage>>(
+              future: _messages,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: FilledButton.tonal(
+                      onPressed: _refresh,
+                      child: const Text('Retry messages'),
+                    ),
+                  );
+                }
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final messages = snapshot.data!;
+                return ListView.separated(
+                  reverse: true,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+                  itemCount: messages.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 8),
+                  itemBuilder: (context, index) => _MessageBubble(
+                    message: messages[messages.length - index - 1],
+                    mine:
+                        messages[messages.length - index - 1].senderEmail
+                            .toLowerCase() ==
+                        widget.session.profile.email.toLowerCase(),
+                  ),
+                );
+              },
             ),
-          );
-        if (!snapshot.hasData)
-          return const Center(child: CircularProgressIndicator());
-        final messages = snapshot.data!;
-        return ListView.separated(
-          reverse: true,
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
-          itemCount: messages.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 8),
-          itemBuilder: (context, index) => _MessageBubble(
-            message: messages[messages.length - index - 1],
-            mine:
-                messages[messages.length - index - 1].senderEmail
-                    .toLowerCase() ==
-                widget.session.profile.email.toLowerCase(),
           ),
-        );
-      },
-    ),
-    bottomNavigationBar: SafeArea(
+          AnimatedPadding(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            padding: EdgeInsets.only(bottom: keyboardInset),
+            child: _ConversationComposer(
+              controller: _composer,
+              isSending: _isSending,
+              onSend: _send,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConversationComposer extends StatelessWidget {
+  const _ConversationComposer({
+    required this.controller,
+    required this.isSending,
+    required this.onSend,
+  });
+
+  final TextEditingController controller;
+  final bool isSending;
+  final Future<void> Function() onSend;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).scaffoldBackgroundColor,
+    child: SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
               child: TextField(
-                controller: _composer,
+                controller: controller,
                 minLines: 1,
                 maxLines: 4,
+                textInputAction: TextInputAction.newline,
                 decoration: const InputDecoration(
                   hintText: 'Write a message',
                   border: OutlineInputBorder(),
@@ -299,7 +341,7 @@ class _ConversationThreadState extends State<_ConversationThread> {
             ),
             const SizedBox(width: 8),
             IconButton.filled(
-              onPressed: _isSending ? null : _send,
+              onPressed: isSending ? null : onSend,
               icon: const Icon(Icons.send),
             ),
           ],

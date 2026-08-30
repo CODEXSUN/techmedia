@@ -26,6 +26,8 @@ class MainActivity : FlutterFragmentActivity() {
     private val updateChannel = "in.techmedia.techmedia_flutter/app-update"
     private val secureSessionChannel = "in.techmedia.techmedia_flutter/secure-session"
     private val mobileActionsChannel = "in.techmedia.techmedia_flutter/mobile-actions"
+    private val callLogPreferences = "techmedia_call_log_access"
+    private val callLogDisclosureKey = "disclosure_accepted"
     private val documentScanner by lazy { GmsDocumentScanning.getClient(
         GmsDocumentScannerOptions.Builder()
             .setGalleryImportAllowed(true)
@@ -51,7 +53,10 @@ class MainActivity : FlutterFragmentActivity() {
         ) { granted ->
             val result = pendingCallLogResult ?: return@registerForActivityResult
             pendingCallLogResult = null
-            if (granted) deliverCallLogs(result)
+            if (granted) {
+                rememberCallLogDisclosure()
+                deliverCallLogs(result)
+            }
             else result.error("permission_denied", "Call log permission was denied.", null)
         }
     }
@@ -68,6 +73,10 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     private fun handleMobileAction(call: MethodCall, result: MethodChannel.Result) {
+        if (call.method == "hasCallLogAccess") {
+            result.success(hasCallLogAccess())
+            return
+        }
         if (call.method == "callLogs") {
             openCallLogs(result)
             return
@@ -107,7 +116,7 @@ class MainActivity : FlutterFragmentActivity() {
             result.error("unsupported_device", "This device does not provide telephone call history.", null)
             return
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED) {
+        if (hasCallLogAccess()) {
             deliverCallLogs(result)
             return
         }
@@ -121,6 +130,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     private fun deliverCallLogs(result: MethodChannel.Result) {
         try {
+            rememberCallLogDisclosure()
             result.success(readCallLogs())
         } catch (_: SecurityException) {
             result.error(
@@ -129,6 +139,22 @@ class MainActivity : FlutterFragmentActivity() {
                 null,
             )
         }
+    }
+
+    private fun hasCallLogAccess(): Boolean {
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_CALL_LOG,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) rememberCallLogDisclosure()
+        return granted
+    }
+
+    private fun rememberCallLogDisclosure() {
+        getSharedPreferences(callLogPreferences, MODE_PRIVATE)
+            .edit()
+            .putBoolean(callLogDisclosureKey, true)
+            .apply()
     }
 
     private fun readCallLogs(): List<Map<String, Any?>> {

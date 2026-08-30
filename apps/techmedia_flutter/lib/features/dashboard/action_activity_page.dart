@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/techmedia_api.dart';
 import 'action_quick_action_sheet.dart';
+import 'job_duration.dart';
 
 class ActionActivityPage extends StatefulWidget {
   const ActionActivityPage({
@@ -335,7 +336,7 @@ class _LiveAction {
       yield _LiveAction(
         title: '${execution.status} job · #${job.number}',
         detail:
-            '${job.title} · ${execution.employee} · ${execution.hours.toStringAsFixed(2)} hr',
+            '${job.title} · ${execution.employee} · ${formatJobDuration(execution)}',
         time: _relativeTime(execution.createdAt),
         createdAt: execution.createdAt,
       );

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:techmedia_flutter/core/api/techmedia_api.dart';
 import 'package:techmedia_flutter/core/auth/secure_session_store.dart';
 import 'package:techmedia_flutter/core/update/app_update_service.dart';
 import 'package:techmedia_flutter/features/auth/login_page.dart';
+import 'package:techmedia_flutter/features/auth/pin_auth_pages.dart';
 import 'package:techmedia_flutter/features/dashboard/dashboard_list_page.dart';
 import 'package:techmedia_flutter/features/dashboard/dashboard_page.dart';
 import 'package:techmedia_flutter/features/dashboard/job_detail_page.dart';
+import 'package:techmedia_flutter/features/dashboard/job_duration.dart';
+import 'package:techmedia_flutter/features/dashboard/job_start_countdown.dart';
+import 'package:techmedia_flutter/features/dashboard/job_start_store.dart';
 import 'package:techmedia_flutter/features/dashboard/messages_sample_page.dart';
 
 void main() {
@@ -81,6 +86,114 @@ void main() {
     expect(job.activities.single.details, 'Vijay changed Status');
   });
 
+  test('formats job duration from actual recorded times', () {
+    CrmJobExecution execution({
+      required String start,
+      String? stop,
+      double hours = 0,
+    }) => CrmJobExecution(
+      name: 'JOBEXE1',
+      employee: 'HR-EMP-00001',
+      createdAt: DateTime(2026, 8, 30),
+      date: '2026-08-30',
+      startTime: start,
+      stopTime: stop,
+      hours: hours,
+      employeeCostPerHour: 0,
+      totalCost: 0,
+      status: stop == null ? 'Running' : 'Completed',
+    );
+
+    expect(
+      formatJobDuration(execution(start: '09:43:38', stop: '09:43:47')),
+      '9 sec',
+    );
+    expect(
+      formatJobDuration(execution(start: '09:43:38', stop: '09:45:12')),
+      '1 min',
+    );
+    expect(
+      formatJobDuration(execution(start: '09:43:38', stop: '10:45:12')),
+      '1 hr 1 min',
+    );
+    expect(
+      formatJobDuration(
+        execution(start: '09:43:38'),
+        now: DateTime(2026, 8, 30, 9, 43, 48),
+      ),
+      '10 sec',
+    );
+    expect(
+      formatJobDuration(execution(start: '', stop: null, hours: 0.5)),
+      'Running',
+    );
+  });
+
+  test('keeps a queued job start cancellable before it is recorded', () {
+    const jobId = 'test-pending-job';
+    final countdown = JobStartCountdown.instance;
+    var recorded = false;
+
+    expect(
+      countdown.start(
+        jobId: jobId,
+        onElapsed: () async {
+          recorded = true;
+        },
+      ),
+      isTrue,
+    );
+    expect(countdown.label(jobId), matches(RegExp(r'^[01] sec$')));
+    expect(countdown.isPending(jobId), isTrue);
+    expect(countdown.isCancellable(jobId), isTrue);
+
+    countdown.cancel(jobId);
+
+    expect(countdown.isPending(jobId), isFalse);
+    expect(recorded, isFalse);
+  });
+
+  test('stores pending job deadlines in encrypted device state', () async {
+    const channel = MethodChannel(
+      'in.techmedia.techmedia_flutter/secure-session',
+    );
+    final values = <String, String>{};
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          final key = call.arguments['key'] as String;
+          switch (call.method) {
+            case 'read':
+              return values[key];
+            case 'write':
+              values[key] = call.arguments['value'] as String;
+              return null;
+            case 'delete':
+              values.remove(key);
+              return null;
+          }
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+
+    final store = JobStartStore(SecureSessionStore(channel: channel));
+    final deadline = DateTime.now().add(const Duration(seconds: 90));
+    await store.write([PersistedJobStart(jobId: '762', deadline: deadline)]);
+
+    final restored = await store.read();
+    expect(restored, hasLength(1));
+    expect(restored.single.jobId, '762');
+    expect(
+      restored.single.deadline.difference(deadline).inSeconds.abs(),
+      lessThanOrEqualTo(1),
+    );
+
+    await store.write(const []);
+    expect(await store.read(), isEmpty);
+  });
+
   testWidgets('shows the TechMedia sign-in screen', (
     WidgetTester tester,
   ) async {
@@ -95,6 +208,60 @@ void main() {
 
     expect(find.text('Welcome'), findsOneWidget);
     expect(find.text('Sign in'), findsOneWidget);
+  });
+
+  testWidgets('unlocks automatically after four PIN digits', (
+    WidgetTester tester,
+  ) async {
+    String? submittedPin;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PinUnlockPage(
+          email: 'vijay@techmedia.in',
+          biometricEnabled: false,
+          onPin: (pin) async {
+            submittedPin = pin;
+            return true;
+          },
+          onBiometric: () async => false,
+          onUsePassword: () {},
+        ),
+      ),
+    );
+
+    final pinInput = tester.widget<TextField>(find.byType(TextField));
+    expect(pinInput.autofocus, isTrue);
+
+    await tester.enterText(find.byType(TextField), '12345');
+    await tester.pump();
+
+    expect(submittedPin, '1234');
+    expect(find.text('•'), findsNWidgets(4));
+  });
+
+  testWidgets('sets a PIN automatically after both four-digit entries', (
+    WidgetTester tester,
+  ) async {
+    String? savedPin;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PinSetupPage(
+          biometricAvailable: false,
+          onComplete: (pin, _) async => savedPin = pin,
+        ),
+      ),
+    );
+
+    final inputs = find.byType(TextField);
+    expect(inputs, findsNWidgets(2));
+    expect(tester.widget<TextField>(inputs.first).autofocus, isTrue);
+
+    await tester.enterText(inputs.first, '2468');
+    await tester.pump();
+    await tester.enterText(inputs.last, '2468');
+    await tester.pump();
+
+    expect(savedPin, '2468');
   });
 
   testWidgets('shows the dashboard dock destinations', (
@@ -119,12 +286,13 @@ void main() {
     );
 
     expect(find.text('Job'), findsOneWidget);
-    expect(find.text('Duty'), findsWidgets);
+    expect(find.text('Duty'), findsNothing);
     expect(find.text('Chat'), findsOneWidget);
     expect(find.text('Menu'), findsOneWidget);
 
     await tester.tap(find.text('Menu'));
     await tester.pumpAndSettle();
+    expect(find.text('Duty'), findsOneWidget);
     expect(find.text('Call logs'), findsOneWidget);
     Navigator.of(tester.element(find.text('Account'))).pop();
     await tester.pumpAndSettle();
@@ -132,7 +300,10 @@ void main() {
     await tester.tap(find.text('Job'));
     await tester.pump();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      find.text('Could not load your assigned enquiries.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('shows the job detail comments and reply flow', (
@@ -166,10 +337,21 @@ void main() {
       ),
     );
 
-    expect(find.text('Job #762'), findsOneWidget);
-    expect(find.text('Comments'), findsOneWidget);
-    expect(find.text('Jobs'), findsOneWidget);
-    expect(find.text('Activity'), findsOneWidget);
+    expect(find.text('#762  Open'), findsOneWidget);
+    expect(find.text('Comments'), findsNothing);
+    expect(find.text('Jobs'), findsNothing);
+    expect(find.text('Activity'), findsNothing);
+
+    await tester.tap(find.byTooltip('Add action'));
+    await tester.pumpAndSettle();
+    expect(find.text('Scan document'), findsOneWidget);
+    expect(find.text('Take photo'), findsOneWidget);
+    expect(find.text('Log location'), findsOneWidget);
+    expect(find.text('Mark completed'), findsOneWidget);
+    expect(find.text('Charges'), findsOneWidget);
+    expect(find.text('Collected Rs.'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Scan document'))).pop();
+    await tester.pumpAndSettle();
 
     await tester.enterText(
       find.byType(TextField),

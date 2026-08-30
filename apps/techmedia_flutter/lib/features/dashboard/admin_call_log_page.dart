@@ -18,13 +18,22 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
   Future<List<_CallEntry>>? _calls;
   var _filter = _CallFilter.all;
   var _query = '';
+  var _checkingSavedAccess = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSavedAccess();
+  }
 
   @override
   Widget build(BuildContext context) {
     final callsRequest = _calls;
     return Scaffold(
       appBar: AppBar(title: const Text('Call Logs')),
-      body: callsRequest == null
+      body: _checkingSavedAccess
+          ? const Center(child: CircularProgressIndicator())
+          : callsRequest == null
           ? _CallLogDisclosure(onContinue: _requestAccess)
           : FutureBuilder<List<_CallEntry>>(
               future: callsRequest,
@@ -91,6 +100,15 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
 
   Future<void> _requestAccess() async {
     setState(() => _calls = _loadCalls());
+  }
+
+  Future<void> _restoreSavedAccess() async {
+    final hasAccess = await MobileActions.hasCallLogAccess();
+    if (!mounted) return;
+    setState(() {
+      _checkingSavedAccess = false;
+      if (hasAccess) _calls = _loadCalls();
+    });
   }
 
   Future<List<_CallEntry>> _loadCalls() async {

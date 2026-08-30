@@ -4,12 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/techmedia_api.dart';
+import '../../core/auth/secure_session_store.dart';
 import '../../core/messaging/live_message_notifications.dart';
 import 'action_activity_page.dart';
 import 'admin_call_log_page.dart';
 import 'dashboard_home.dart';
+import 'dashboard_jobs_feed.dart';
 import 'dashboard_list_page.dart';
 import 'coming_soon_page.dart';
+import 'job_start_countdown.dart';
+import 'job_start_store.dart';
 import 'messages_sample_page.dart';
 
 const _dockVerticalPadding = 8.0;
@@ -22,6 +26,7 @@ class DashboardPage extends StatefulWidget {
     required this.onSignOut,
     this.onResetPin,
     this.onCheckForUpdate,
+    this.onChangePassword,
     this.enableLiveNotifications = true,
   });
 
@@ -30,6 +35,7 @@ class DashboardPage extends StatefulWidget {
   final VoidCallback onSignOut;
   final Future<void> Function()? onResetPin;
   final Future<void> Function()? onCheckForUpdate;
+  final Future<void> Function()? onChangePassword;
   final bool enableLiveNotifications;
 
   @override
@@ -39,6 +45,8 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   var _selectedIndex = 0;
   late final LiveMessageNotifications _messageNotifications;
+  late final DashboardJobsFeed _jobsFeed;
+  late final JobStartStore _jobStartStore;
 
   @override
   void initState() {
@@ -47,14 +55,32 @@ class _DashboardPageState extends State<DashboardPage> {
       api: widget.api,
       session: widget.session,
     );
+    _jobsFeed = DashboardJobsFeed(api: widget.api, session: widget.session)
+      ..start();
+    _jobStartStore = JobStartStore(SecureSessionStore());
+    unawaited(_restorePendingJobStarts());
     if (widget.enableLiveNotifications) {
       unawaited(_messageNotifications.start());
     }
   }
 
+  Future<void> _restorePendingJobStarts() {
+    return JobStartCountdown.instance.restore(
+      store: _jobStartStore,
+      onElapsed: (jobId) async {
+        await widget.api.startJob(
+          accessToken: widget.session.accessToken,
+          id: jobId,
+        );
+        await _jobsFeed.refresh();
+      },
+    );
+  }
+
   @override
   void dispose() {
     _messageNotifications.dispose();
+    _jobsFeed.dispose();
     super.dispose();
   }
 
@@ -81,7 +107,39 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ],
         ),
-        actions: const [],
+        actions: _selectedIndex == 0
+            ? [
+                PopupMenuButton<_HomeMenuAction>(
+                  tooltip: 'Account options',
+                  icon: const Icon(Icons.more_vert_rounded),
+                  onSelected: _handleHomeMenuAction,
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _HomeMenuAction.resetPin,
+                      child: _HomeMenuItem(
+                        icon: Icons.pin_outlined,
+                        label: 'Reset PIN',
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _HomeMenuAction.changePassword,
+                      child: _HomeMenuItem(
+                        icon: Icons.lock_reset_outlined,
+                        label: 'Change password',
+                      ),
+                    ),
+                    PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: _HomeMenuAction.checkForUpdates,
+                      child: _HomeMenuItem(
+                        icon: Icons.system_update_alt_rounded,
+                        label: 'Check for updates',
+                      ),
+                    ),
+                  ],
+                ),
+              ]
+            : const [],
       ),
       body: SafeArea(top: false, child: _buildBody()),
       bottomNavigationBar: SafeArea(
@@ -99,6 +157,7 @@ class _DashboardPageState extends State<DashboardPage> {
       return DashboardHome(
         api: widget.api,
         session: widget.session,
+        jobsFeed: _jobsFeed,
         onOpenList: _selectDestination,
       );
     }
@@ -115,19 +174,29 @@ class _DashboardPageState extends State<DashboardPage> {
     return DashboardListPage(
       api: widget.api,
       session: widget.session,
+      jobsFeed: _jobsFeed,
       section: dashboardListSections[_selectedIndex],
     );
   }
 
   void _onDestinationSelected(int index) {
-    if (index == 4) {
+    if (index == 3) {
       _showMenu();
       return;
     }
-    _selectDestination(index);
+    _selectDestination(index == 2 ? 3 : index);
   }
 
   void _selectDestination(int index) => setState(() => _selectedIndex = index);
+
+  void _handleHomeMenuAction(_HomeMenuAction action) {
+    final task = switch (action) {
+      _HomeMenuAction.resetPin => widget.onResetPin,
+      _HomeMenuAction.changePassword => widget.onChangePassword,
+      _HomeMenuAction.checkForUpdates => widget.onCheckForUpdate,
+    };
+    if (task != null) unawaited(task());
+  }
 
   void _showMenu() {
     showModalBottomSheet<void>(
@@ -149,6 +218,16 @@ class _DashboardPageState extends State<DashboardPage> {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_month_outlined),
+                  title: const Text('Duty'),
+                  subtitle: const Text('View duty schedule and reminders.'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _selectDestination(2);
+                  },
+                ),
                 if (_canViewCallLogs)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -186,34 +265,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.pin_outlined),
-                  title: const Text('Reset PIN'),
-                  subtitle: const Text(
-                    'Confirm your password and set a new PIN.',
-                  ),
-                  onTap: widget.onResetPin == null
-                      ? null
-                      : () {
-                          Navigator.pop(context);
-                          widget.onResetPin!();
-                        },
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.system_update_alt_rounded),
-                  title: const Text('Check for updates'),
-                  subtitle: const Text(
-                    "Version ${String.fromEnvironment('TECHMEDIA_APP_VERSION', defaultValue: '1.0.86')}",
-                  ),
-                  onTap: widget.onCheckForUpdate == null
-                      ? null
-                      : () {
-                          Navigator.pop(context);
-                          widget.onCheckForUpdate!();
-                        },
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.logout),
                   title: const Text('Sign out'),
                   onTap: () {
@@ -241,6 +292,20 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
+enum _HomeMenuAction { resetPin, changePassword, checkForUpdates }
+
+class _HomeMenuItem extends StatelessWidget {
+  const _HomeMenuItem({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
+  );
+}
+
 class _BottomDock extends StatelessWidget {
   const _BottomDock({
     required this.selectedIndex,
@@ -265,7 +330,7 @@ class _BottomDock extends StatelessWidget {
             (index) => Expanded(
               child: _DockItem(
                 destination: _destinations[index],
-                isSelected: index == selectedIndex,
+                isSelected: index == _dockSelectedIndex,
                 onTap: () => onDestinationSelected(index),
               ),
             ),
@@ -274,6 +339,8 @@ class _BottomDock extends StatelessWidget {
       ),
     );
   }
+
+  int get _dockSelectedIndex => selectedIndex == 3 ? 2 : selectedIndex;
 }
 
 class _DockItem extends StatelessWidget {
@@ -296,25 +363,26 @@ class _DockItem extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 54),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 160),
-                height: 36,
-                width: 36,
+                height: 42,
+                width: 42,
                 decoration: BoxDecoration(
                   color: _Destination.backgroundColor.withValues(
                     alpha: isSelected ? 1 : 0.55,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   isSelected ? destination.selectedIcon : destination.icon,
                   color: _Destination.iconColor,
-                  size: 20,
+                  size: 24,
                 ),
               ),
               const SizedBox(height: 4),
@@ -359,11 +427,6 @@ const _destinations = [
     label: 'Job',
     icon: Icons.business_center_outlined,
     selectedIcon: Icons.business_center,
-  ),
-  _Destination(
-    label: 'Duty',
-    icon: Icons.calendar_month_outlined,
-    selectedIcon: Icons.calendar_month,
   ),
   _Destination(
     label: 'Chat',

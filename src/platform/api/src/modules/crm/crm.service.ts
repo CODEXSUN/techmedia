@@ -89,7 +89,24 @@ export class CrmService {
     const unreadAssignmentResourceIds = await this.notifications.unreadAssignmentResourceIds(
       this.context.actorUserId
     );
-    return this.mapMany(filtered, unreadAssignmentResourceIds);
+    const enquiries = await this.mapMany(filtered, unreadAssignmentResourceIds);
+    const jobsByEnquiry = await this.jobsForList(enquiries.map((enquiry) => enquiry.frappeName));
+    return enquiries.map((enquiry) => ({
+      ...enquiry,
+      // Job executions are live Frappe records. Include them in the list so a
+      // newly signed-in mobile client can restore an active job control.
+      jobs: jobsByEnquiry.get(enquiry.frappeName) ?? []
+    }));
+  }
+
+  private async jobsForList(enquiryNames: string[]) {
+    if (this.gateway.jobsForEnquiries) {
+      return this.gateway.jobsForEnquiries(enquiryNames);
+    }
+    const jobs = await Promise.all(
+      enquiryNames.map(async (name) => [name, await this.gateway.jobs(name)] as const)
+    );
+    return new Map(jobs);
   }
 
   async options() {
@@ -415,6 +432,7 @@ export class CrmService {
       activities: record.activities.map((entry) => ({
         action: entry.action,
         createdAt: entry.createdAt,
+        createdBy: entry.createdBy,
         createdByUserId: numericId(entry.createdBy),
         details: entry.details,
         id: numericId(entry.name),
