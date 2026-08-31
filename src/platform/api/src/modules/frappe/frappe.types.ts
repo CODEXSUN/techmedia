@@ -254,6 +254,34 @@ export type FrappeLiveStaffRequestGatewayFactory = (context: {
   userId: number;
 }) => FrappeLiveStaffRequestGateway;
 
+export type FrappeLiveSopReport = {
+  actions: string;
+  createdAt: string;
+  date: string;
+  name: string;
+};
+
+export type FrappeLiveSopDuty = {
+  department: string;
+  frequency: "Daily" | "Monthly" | "Weekly" | "Yearly";
+  index: number;
+  reports: FrappeLiveSopReport[];
+  sopItem: string;
+  sopName: string;
+  steps: string;
+};
+
+export type FrappeLiveSopDutyGateway = {
+  createReport: (input: { actions: string; sopItem: string }) => Promise<FrappeLiveSopReport>;
+  list: (employee: string) => Promise<FrappeLiveSopDuty[]>;
+};
+
+export type FrappeLiveSopDutyGatewayFactory = (context: {
+  database: Kysely<TechMediaDatabase>;
+  employee: string | null;
+  userId: number;
+}) => FrappeLiveSopDutyGateway;
+
 export type FrappeUserPreview = {
   email: string;
   enabled: boolean;

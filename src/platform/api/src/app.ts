@@ -13,6 +13,7 @@ import { hrModule } from "./modules/hr/index.js";
 import { estimateModule } from "./modules/estimate/index.js";
 import {
   frappeLiveEnquiryGatewayContract,
+  frappeLiveSopDutyGatewayContract,
   frappeLiveStaffRequestGatewayContract,
   frappeModule
 } from "./modules/frappe/index.js";
@@ -80,6 +81,7 @@ export async function createApp() {
     {
       app,
       frappeLiveEnquiryGateway: frappeLiveEnquiryGatewayContract,
+      frappeLiveSopDutyGateway: frappeLiveSopDutyGatewayContract,
       frappeLiveStaffRequestGateway: frappeLiveStaffRequestGatewayContract,
       notificationPublisher: createNotificationPublisher(getTechMediaDatabase())
     },

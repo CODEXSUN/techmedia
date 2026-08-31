@@ -11,7 +11,7 @@ Use one public origin for the web application, API, mobile client, and WebSocket
 | Web application | `https://app.techmedia.in/` | Web port `7060` |
 | HTTP API | `https://app.techmedia.in/api/platform` | API port `7050` through the web proxy |
 | Messenger WebSocket | `wss://app.techmedia.in/api/platform/ws/messaging` | API port `7050` through the web proxy |
-| Flutter release files | `https://app.techmedia.in/api/platform/mobile/release/` | API release storage |
+| Flutter release manifest | `https://app.techmedia.in/mobile/update/latest.json` | API release storage |
 
 Do not publish the API port directly to the internet. Keep `TECHMEDIA_BIND_ADDRESS=127.0.0.1`.
 Route public HTTPS traffic to `TECHMEDIA_WEB_HOST_PORT`.
@@ -102,12 +102,12 @@ The API reads `MOBILE_RELEASE_STORAGE_ROOT`. Docker Compose sets it to the mount
    ```
 
 3. Copy `storage/mobile/release` into the API container release path after the API deployment.
-4. Check `https://app.techmedia.in/api/platform/mobile/release/latest.json`.
+4. Check `https://app.techmedia.in/mobile/update/latest.json`.
 5. Start an older Android app version and confirm that it shows the update approval dialog after login.
 
 ## Update behavior
 
-The app checks `latest.json` after login. It downloads the APK only after the user selects Update.
+The app checks `https://app.techmedia.in/mobile/update/latest.json` at every startup. It downloads the APK only after the user selects Update.
 It verifies the SHA-256 value before it starts Android's package installer.
 
 Android always requires user approval to install an update. The app cannot silently install an APK.
@@ -117,8 +117,8 @@ Android always requires user approval to install an update. The app cannot silen
 Before you announce an update, verify these requests through Cloudflare:
 
 ```text
-GET /api/platform/mobile/release/latest.json  -> 200
-GET /api/platform/mobile/release/TechMedia-<version>.apk  -> 200
+GET /mobile/update/latest.json  -> 200
+GET /mobile/update/TechMedia-<version>.apk  -> 200
 ```
 
 If either request returns 404, deploy the API image that contains the mobile release routes. Then

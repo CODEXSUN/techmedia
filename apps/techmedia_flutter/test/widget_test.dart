@@ -13,6 +13,7 @@ import 'package:techmedia_flutter/features/dashboard/job_detail_page.dart';
 import 'package:techmedia_flutter/features/dashboard/job_duration.dart';
 import 'package:techmedia_flutter/features/dashboard/job_start_countdown.dart';
 import 'package:techmedia_flutter/features/dashboard/job_start_store.dart';
+import 'package:techmedia_flutter/features/dashboard/call_log_note_store.dart';
 import 'package:techmedia_flutter/features/dashboard/messages_sample_page.dart';
 
 void main() {
@@ -39,6 +40,13 @@ void main() {
     expect(isNewerVersion('1.0.2', '1.0.1'), isTrue);
     expect(isNewerVersion('1.0.1', '1.0.1'), isFalse);
     expect(isNewerVersion('1.0.0', '1.0.1'), isFalse);
+  });
+
+  test('rejects an HTML update response without crashing', () {
+    expect(
+      () => AppRelease.fromJson({'versionName': '<!doctype html>'}),
+      throwsA(isA<AppUpdateException>()),
+    );
   });
 
   test('converts Frappe rich-text comments to readable mobile text', () {
@@ -84,6 +92,29 @@ void main() {
     expect(job.jobs.single.name, 'JOBEXE3');
     expect(job.jobs.single.status, 'Completed');
     expect(job.activities.single.details, 'Vijay changed Status');
+  });
+
+  test('maps live SOP duties and reporting for mobile', () {
+    final duty = HrDuty.fromJson({
+      'department': 'Stores - TMR',
+      'frequency': 'Daily',
+      'index': 1,
+      'reports': [
+        {
+          'actions': '<p>Opening checklist completed.</p>',
+          'createdAt': '2026-08-31T05:30:00.000Z',
+          'date': '2026-08-31',
+          'name': 'REPORTING305',
+        },
+      ],
+      'sopItem': 'SOP-1',
+      'sopName': 'Store Opening Check List',
+      'steps': '<p>Check the counter.</p>',
+    });
+
+    expect(duty.sopItem, 'SOP-1');
+    expect(duty.reports.single.actions, 'Opening checklist completed.');
+    expect(duty.steps, 'Check the counter.');
   });
 
   test('formats job duration from actual recorded times', () {
@@ -194,6 +225,50 @@ void main() {
     expect(await store.read(), isEmpty);
   });
 
+  test('keeps rough call comments on this device until conversion', () async {
+    const channel = MethodChannel(
+      'in.techmedia.techmedia_flutter/secure-session',
+    );
+    final values = <String, String>{};
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          final key = call.arguments['key'] as String;
+          switch (call.method) {
+            case 'read':
+              return values[key];
+            case 'write':
+              values[key] = call.arguments['value'] as String;
+              return null;
+            case 'delete':
+              values.remove(key);
+              return null;
+          }
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+
+    final store = CallLogNoteStore(
+      SecureSessionStore(channel: channel),
+      accountEmail: 'vijay@techmedia.in',
+    );
+    final note = CallLogNote(
+      id: 'note-1',
+      mobile: '9655227738',
+      content: 'Sundar asked about a laptop.',
+      createdAt: DateTime(2026, 8, 31),
+    );
+    await store.save(note);
+
+    expect((await store.read('9655227738')).single.content, note.content);
+    expect(await store.read('9999999999'), isEmpty);
+
+    await store.remove(note.id);
+    expect(await store.read(note.mobile), isEmpty);
+  });
+
   testWidgets('shows the TechMedia sign-in screen', (
     WidgetTester tester,
   ) async {
@@ -294,6 +369,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Duty'), findsOneWidget);
     expect(find.text('Call logs'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Duty'))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Account options'));
+    await tester.pumpAndSettle();
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('vijay@techmedia.in'), findsOneWidget);
+    expect(find.text('Sign out'), findsOneWidget);
     Navigator.of(tester.element(find.text('Account'))).pop();
     await tester.pumpAndSettle();
 

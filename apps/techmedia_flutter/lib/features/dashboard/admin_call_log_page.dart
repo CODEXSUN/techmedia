@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/api/techmedia_api.dart';
 import '../../core/platform/mobile_actions.dart';
+import 'call_log_notes_page.dart';
 
 class AdminCallLogPage extends StatefulWidget {
   const AdminCallLogPage({required this.api, required this.session, super.key});
@@ -15,7 +16,7 @@ class AdminCallLogPage extends StatefulWidget {
 }
 
 class _AdminCallLogPageState extends State<AdminCallLogPage> {
-  Future<List<_CallEntry>>? _calls;
+  Future<List<CallLogEntry>>? _calls;
   var _filter = _CallFilter.all;
   var _query = '';
   var _checkingSavedAccess = true;
@@ -35,7 +36,7 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
           ? const Center(child: CircularProgressIndicator())
           : callsRequest == null
           ? _CallLogDisclosure(onContinue: _requestAccess)
-          : FutureBuilder<List<_CallEntry>>(
+          : FutureBuilder<List<CallLogEntry>>(
               future: callsRequest,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -80,11 +81,7 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
                                 const SizedBox(height: 10),
                             itemBuilder: (context, index) => _CallLogCard(
                               entry: calls[index],
-                              onCopy: () => _copy(calls[index].number),
-                              onSms: () =>
-                                  MobileActions.sms(calls[index].number),
-                              onWhatsApp: () => _openWhatsApp(calls[index]),
-                              onAttach: () => _attachToEnquiry(calls[index]),
+                              onOpen: () => _openComments(calls[index]),
                               onCall: () =>
                                   MobileActions.call(calls[index].number),
                             ),
@@ -111,9 +108,9 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
     });
   }
 
-  Future<List<_CallEntry>> _loadCalls() async {
+  Future<List<CallLogEntry>> _loadCalls() async {
     final rows = await MobileActions.callLogs();
-    return rows.map(_CallEntry.fromPlatform).toList();
+    return rows.map(CallLogEntry.fromPlatform).toList();
   }
 
   Future<void> _reload() async {
@@ -121,103 +118,22 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
     await _calls!;
   }
 
-  bool _matchesSearch(_CallEntry entry) {
+  bool _matchesSearch(CallLogEntry entry) {
     if (_query.isEmpty) return true;
     return entry.name.toLowerCase().contains(_query) ||
         entry.number.toLowerCase().contains(_query);
   }
 
-  Future<void> _copy(String number) async {
-    await Clipboard.setData(ClipboardData(text: number));
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Number copied.')));
-    }
-  }
-
-  Future<void> _openWhatsApp(_CallEntry entry) async {
-    final opened = await MobileActions.whatsApp(
-      entry.number,
-      message:
-          'Following up on our ${entry.directionLabel.toLowerCase()} call.',
-    );
-    if (!opened && mounted) _showMessage('WhatsApp is not available.');
-  }
-
-  Future<void> _attachToEnquiry(_CallEntry entry) async {
-    List<CrmJob> jobs;
-    try {
-      jobs = await widget.api.assignedJobs(widget.session.accessToken);
-    } on TechMediaApiException catch (error) {
-      if (mounted) _showMessage(error.message);
-      return;
-    }
-    if (!mounted || jobs.isEmpty) {
-      if (mounted) _showMessage('No enquiries are available.');
-      return;
-    }
-    final matching = jobs.where(
-      (job) => _digits(job.mobile) == _digits(entry.number),
-    );
-    final selected = await _selectEnquiry(
-      jobs,
-      matching.isEmpty ? jobs.first : matching.first,
-    );
-    if (selected == null) return;
-    try {
-      await widget.api.addJobComment(
-        accessToken: widget.session.accessToken,
-        id: selected.sourceId,
-        comment: entry.crmComment,
-      );
-      if (mounted)
-        _showMessage('Call attached to enquiry #${selected.number}.');
-    } on TechMediaApiException catch (error) {
-      if (mounted) _showMessage(error.message);
-    }
-  }
-
-  Future<CrmJob?> _selectEnquiry(List<CrmJob> jobs, CrmJob initial) {
-    var selected = initial;
-    return showDialog<CrmJob>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Attach call to enquiry'),
-          content: DropdownButtonFormField<CrmJob>(
-            initialValue: selected,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Enquiry'),
-            items: jobs
-                .map(
-                  (job) => DropdownMenuItem(
-                    value: job,
-                    child: Text('#${job.number} · ${job.title}'),
-                  ),
-                )
-                .toList(),
-            onChanged: (job) {
-              if (job != null) setDialogState(() => selected = job);
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, selected),
-              child: const Text('Attach'),
-            ),
-          ],
+  Future<void> _openComments(CallLogEntry entry) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) => CallLogNotesPage(
+          api: widget.api,
+          session: widget.session,
+          entry: entry,
         ),
       ),
     );
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -267,114 +183,70 @@ class _CallLogControls extends StatelessWidget {
 class _CallLogCard extends StatelessWidget {
   const _CallLogCard({
     required this.entry,
-    required this.onCopy,
-    required this.onSms,
-    required this.onWhatsApp,
-    required this.onAttach,
+    required this.onOpen,
     required this.onCall,
   });
 
-  final _CallEntry entry;
-  final VoidCallback onCopy;
-  final VoidCallback onSms;
-  final VoidCallback onWhatsApp;
-  final VoidCallback onAttach;
+  final CallLogEntry entry;
+  final VoidCallback onOpen;
   final VoidCallback onCall;
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      clipBehavior: Clip.antiAlias,
       color: Colors.white,
       elevation: 2,
       surfaceTintColor: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              backgroundColor: entry.color.withValues(alpha: 0.13),
-              foregroundColor: entry.color,
-              child: Icon(entry.icon),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: InkWell(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: entry.color.withValues(alpha: 0.13),
+                foregroundColor: entry.color,
+                child: Icon(entry.icon),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.contactTitle,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    if (entry.hasSavedName) Text(entry.number),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Text(entry.displayTime),
+                        const SizedBox(width: 8),
+                        _DurationBadge(label: entry.durationLabel),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Column(
                 children: [
-                  Text(
-                    entry.displayName,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(entry.number),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Text(entry.displayTime),
-                      const SizedBox(width: 8),
-                      _DurationBadge(label: entry.durationLabel),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 4,
-                    children: [
-                      _MicroAction(
-                        tooltip: 'Copy number',
-                        icon: Icons.copy_outlined,
-                        onPressed: onCopy,
-                      ),
-                      _MicroAction(
-                        tooltip: 'Send SMS',
-                        icon: Icons.sms_outlined,
-                        onPressed: onSms,
-                      ),
-                      _MicroAction(
-                        tooltip: 'Open WhatsApp',
-                        icon: Icons.phone_in_talk_outlined,
-                        onPressed: onWhatsApp,
-                      ),
-                      _MicroAction(
-                        tooltip: 'Attach to enquiry',
-                        icon: Icons.note_add_outlined,
-                        onPressed: onAttach,
-                      ),
-                    ],
+                  IconButton.filledTonal(
+                    tooltip: 'Call ${entry.displayName}',
+                    onPressed: onCall,
+                    icon: const Icon(Icons.call_rounded),
                   ),
                 ],
               ),
-            ),
-            IconButton.filledTonal(
-              tooltip: 'Call ${entry.displayName}',
-              onPressed: onCall,
-              icon: const Icon(Icons.call_rounded),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
-
-class _MicroAction extends StatelessWidget {
-  const _MicroAction({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => IconButton.filledTonal(
-    tooltip: tooltip,
-    visualDensity: VisualDensity.compact,
-    onPressed: onPressed,
-    icon: Icon(icon, size: 18),
-  );
 }
 
 class _DurationBadge extends StatelessWidget {
@@ -423,7 +295,7 @@ class _CallLogDisclosure extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'The app does not upload call history automatically. It sends one selected record only after you tap Attach.',
+            'The app does not upload call history automatically. It posts one enquiry only after an administrator completes the form.',
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 18),
@@ -479,8 +351,8 @@ class _PermissionState extends StatelessWidget {
   );
 }
 
-class _CallEntry {
-  const _CallEntry({
+class CallLogEntry {
+  const CallLogEntry({
     required this.name,
     required this.number,
     required this.type,
@@ -494,7 +366,7 @@ class _CallEntry {
   final DateTime timestamp;
   final int durationSeconds;
 
-  factory _CallEntry.fromPlatform(Map<String, dynamic> row) => _CallEntry(
+  factory CallLogEntry.fromPlatform(Map<String, dynamic> row) => CallLogEntry(
     name: row['name'] as String? ?? '',
     number: row['number'] as String? ?? '',
     type: (row['type'] as num?)?.toInt() ?? 0,
@@ -504,7 +376,12 @@ class _CallEntry {
     durationSeconds: (row['durationSeconds'] as num?)?.toInt() ?? 0,
   );
 
-  String get displayName => name.trim().isEmpty ? 'Unknown' : name.trim();
+  bool get hasSavedName => name.trim().isNotEmpty;
+  String get displayName => hasSavedName ? name.trim() : 'Unknown';
+  String get contactTitle => hasSavedName ? name.trim() : number;
+  String get savedName => hasSavedName ? name.trim() : '';
+  String get mobile => _digits(number).takeLast(10);
+  String get direction => type == 1 ? 'incoming' : 'outgoing';
   String get directionLabel => switch (type) {
     1 => 'Incoming',
     2 => 'Outgoing',
@@ -535,9 +412,6 @@ class _CallEntry {
     final hour = local.hour % 12 == 0 ? 12 : local.hour % 12;
     return '${local.day}/${local.month}/${local.year} · $hour:${local.minute.toString().padLeft(2, '0')} $period';
   }
-
-  String get crmComment =>
-      'Call log: $directionLabel call with $displayName ($number) on $displayTime. Duration: $durationLabel.';
 }
 
 enum _CallFilter {
@@ -549,7 +423,7 @@ enum _CallFilter {
   const _CallFilter(this.label);
   final String label;
 
-  bool includes(_CallEntry entry) => switch (this) {
+  bool includes(CallLogEntry entry) => switch (this) {
     _CallFilter.all => true,
     _CallFilter.incoming => entry.type == 1,
     _CallFilter.outgoing => entry.type == 2,
@@ -558,6 +432,14 @@ enum _CallFilter {
 }
 
 String _digits(String value) => value.replaceAll(RegExp(r'\D'), '');
+
+bool isCallLogAdministrator(String role) =>
+    const {'admin', 'super-admin'}.contains(role.trim().toLowerCase());
+
+extension on String {
+  String takeLast(int count) =>
+      length <= count ? this : substring(length - count);
+}
 
 String _callLogErrorMessage(Object? error) {
   if (error is PlatformException && error.code == 'unsupported_device') {

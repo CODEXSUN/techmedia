@@ -11,7 +11,7 @@ import 'admin_call_log_page.dart';
 import 'dashboard_home.dart';
 import 'dashboard_jobs_feed.dart';
 import 'dashboard_list_page.dart';
-import 'coming_soon_page.dart';
+import 'duty_page.dart';
 import 'job_start_countdown.dart';
 import 'job_start_store.dart';
 import 'messages_sample_page.dart';
@@ -113,7 +113,14 @@ class _DashboardPageState extends State<DashboardPage> {
                   tooltip: 'Account options',
                   icon: const Icon(Icons.more_vert_rounded),
                   onSelected: _handleHomeMenuAction,
-                  itemBuilder: (context) => const [
+                  itemBuilder: (context) => [
+                    PopupMenuItem<_HomeMenuAction>(
+                      enabled: false,
+                      child: _AccountMenuHeader(
+                        profile: widget.session.profile,
+                      ),
+                    ),
+                    const PopupMenuDivider(),
                     PopupMenuItem(
                       value: _HomeMenuAction.resetPin,
                       child: _HomeMenuItem(
@@ -134,6 +141,14 @@ class _DashboardPageState extends State<DashboardPage> {
                       child: _HomeMenuItem(
                         icon: Icons.system_update_alt_rounded,
                         label: 'Check for updates',
+                      ),
+                    ),
+                    PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: _HomeMenuAction.signOut,
+                      child: _HomeMenuItem(
+                        icon: Icons.logout,
+                        label: 'Sign out',
                       ),
                     ),
                   ],
@@ -162,7 +177,7 @@ class _DashboardPageState extends State<DashboardPage> {
       );
     }
     if (_selectedIndex == 2) {
-      return const ComingSoonPage(title: 'Duty', icon: Icons.calendar_month);
+      return DutyPage(api: widget.api, session: widget.session);
     }
     if (_selectedIndex == 3) {
       return MessagesPage(
@@ -190,10 +205,15 @@ class _DashboardPageState extends State<DashboardPage> {
   void _selectDestination(int index) => setState(() => _selectedIndex = index);
 
   void _handleHomeMenuAction(_HomeMenuAction action) {
+    if (action == _HomeMenuAction.signOut) {
+      widget.onSignOut();
+      return;
+    }
     final task = switch (action) {
       _HomeMenuAction.resetPin => widget.onResetPin,
       _HomeMenuAction.changePassword => widget.onChangePassword,
       _HomeMenuAction.checkForUpdates => widget.onCheckForUpdate,
+      _HomeMenuAction.signOut => null,
     };
     if (task != null) unawaited(task());
   }
@@ -210,14 +230,6 @@ class _DashboardPageState extends State<DashboardPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Account', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Text(widget.session.profile.name),
-                Text(
-                  widget.session.profile.email,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.calendar_month_outlined),
@@ -263,15 +275,6 @@ class _DashboardPageState extends State<DashboardPage> {
                     );
                   },
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.logout),
-                  title: const Text('Sign out'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    widget.onSignOut();
-                  },
-                ),
               ],
             ),
           ),
@@ -292,7 +295,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-enum _HomeMenuAction { resetPin, changePassword, checkForUpdates }
+enum _HomeMenuAction { resetPin, changePassword, checkForUpdates, signOut }
 
 class _HomeMenuItem extends StatelessWidget {
   const _HomeMenuItem({required this.icon, required this.label});
@@ -302,7 +305,29 @@ class _HomeMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(label)],
+    children: [
+      Icon(icon, size: 20),
+      const SizedBox(width: 12),
+      Expanded(child: Text(label, overflow: TextOverflow.ellipsis)),
+    ],
+  );
+}
+
+class _AccountMenuHeader extends StatelessWidget {
+  const _AccountMenuHeader({required this.profile});
+
+  final UserProfile profile;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text('Account', style: Theme.of(context).textTheme.labelLarge),
+      const SizedBox(height: 4),
+      Text(profile.name, style: Theme.of(context).textTheme.titleSmall),
+      Text(profile.email, style: Theme.of(context).textTheme.bodySmall),
+    ],
   );
 }
 

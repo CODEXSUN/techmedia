@@ -6,6 +6,6 @@ import { registerHrRoutes } from "./hr.routes.js";
 export const hrModule = defineModule<PlatformModuleDependencies>({
   key: "hr.request",
   label: "HR Requests",
-  register: ({ app, frappeLiveStaffRequestGateway }) =>
-    registerHrRoutes(app, frappeLiveStaffRequestGateway)
+  register: ({ app, frappeLiveSopDutyGateway, frappeLiveStaffRequestGateway }) =>
+    registerHrRoutes(app, frappeLiveStaffRequestGateway, frappeLiveSopDutyGateway)
 });

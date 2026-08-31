@@ -18,6 +18,7 @@ type ApplicationLayoutProps = {
   actions?: ReactNode;
   addUserHref?: string;
   brand?: SidebarBrand;
+  bottomMenuItems?: SidemenuItem[];
   children: ReactNode;
   globalSearchPlaceholder?: string;
   globalSearchValue?: string;
@@ -93,6 +94,7 @@ export function ApplicationLayout({
   actions,
   addUserHref,
   brand,
+  bottomMenuItems,
   children,
   globalSearchPlaceholder,
   globalSearchValue,
@@ -122,6 +124,7 @@ export function ApplicationLayout({
         subtitle: brand?.subtitle ?? "application workspace",
         title: brand?.title ?? "Application Desk"
       }}
+      {...(bottomMenuItems ? { bottomMenuItems } : {})}
       {...(globalSearchPlaceholder ? { globalSearchPlaceholder } : {})}
       {...(globalSearchValue !== undefined ? { globalSearchValue } : {})}
       headerTitle={headerTitle}

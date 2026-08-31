@@ -1,14 +1,22 @@
 import { AppError } from "@codexsun/framework/errors";
 import type { PlatformModuleDependencies } from "../../module-dependencies.js";
 import type { FrappeLiveStaffRequest } from "../frappe/frappe.types.js";
-import type { HrRequestApproval, HrRequestContext, HrStaffRequest, HrStaffRequestSavePayload } from "./hr.types.js";
+import type {
+  HrDuty,
+  HrRequestApproval,
+  HrRequestContext,
+  HrStaffRequest,
+  HrStaffRequestSavePayload
+} from "./hr.types.js";
 
 type LiveGateway = ReturnType<PlatformModuleDependencies["frappeLiveStaffRequestGateway"]>;
+type SopDutyGateway = ReturnType<PlatformModuleDependencies["frappeLiveSopDutyGateway"]>;
 
 export class HrService {
   constructor(
     private readonly context: HrRequestContext,
-    private readonly gateway: LiveGateway
+    private readonly gateway: LiveGateway,
+    private readonly sopDutyGateway: SopDutyGateway
   ) {}
 
   async approve(name: string) {
@@ -31,9 +39,22 @@ export class HrService {
   async list(view: "all" | "my") {
     if (view === "all") await this.requireAdministrator("hr.request.all.view");
     else await this.context.authorize("hr.request.own.view");
-    return (await this.gateway.list(view === "my" ? { employee: this.employee() } : {})).map((request) =>
-      this.map(request)
+    return (await this.gateway.list(view === "my" ? { employee: this.employee() } : {})).map(
+      (request) => this.map(request)
     );
+  }
+
+  async duties(): Promise<HrDuty[]> {
+    await this.context.authorize("hr.request.own.view");
+    return this.sopDutyGateway.list(this.employee());
+  }
+
+  async reportDuty(sopItem: string, actions: string): Promise<HrDuty> {
+    await this.context.authorize("hr.request.create");
+    const duty = (await this.duties()).find((candidate) => candidate.sopItem === sopItem.trim());
+    if (!duty) throw AppError.forbidden("This SOP is not assigned to the signed-in employee.");
+    const report = await this.sopDutyGateway.createReport({ actions, sopItem });
+    return { ...duty, reports: [report, ...duty.reports] };
   }
 
   async update(name: string, input: HrStaffRequestSavePayload) {
@@ -97,7 +118,10 @@ export class HrService {
   }
 }
 
-function approvalFromComment(comment: string, fallback: string): Omit<HrRequestApproval, "approvedBy"> | null {
+function approvalFromComment(
+  comment: string,
+  fallback: string
+): Omit<HrRequestApproval, "approvedBy"> | null {
   if (!comment.startsWith("Approved by ")) return null;
   const approvedAt = comment.match(/on (.+)\.$/u)?.[1] ?? fallback;
   return { approvedAt, comment };

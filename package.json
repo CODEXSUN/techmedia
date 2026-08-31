@@ -1,6 +1,6 @@
 {
   "name": "techmedia",
-  "version": "1.0.89",
+  "version": "1.0.93",
   "private": true,
   "packageManager": "npm@12.0.2",
   "description": "techmedia orchestrator",

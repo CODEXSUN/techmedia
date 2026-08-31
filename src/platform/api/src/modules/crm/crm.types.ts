@@ -217,16 +217,20 @@ export type CrmEnquirySavePayload = {
 };
 
 export type CrmMobileCallCapturePayload = {
+  assignedToUserId: string | null;
   customerName: string;
   direction: "incoming" | "outgoing";
   durationSeconds: number;
+  enquiryGroup: string;
   message: string;
   mobile: string;
   occurredAt: string;
+  title: string;
 };
 
 export type CrmEnquiryListFilters = {
   assignedToEmployee?: string;
+  createdByEmployee?: string;
   enquiryId?: string;
   enquiryGroup?: string;
   fromDate?: string;
@@ -280,6 +284,17 @@ export type CrmEnquiryOverviewGroup = {
 };
 
 export type CrmReportName = "list-in-status" | "owner-status";
+
+export type CrmContributorReportRow = {
+  count: number;
+  employee: string;
+  name: string;
+};
+
+export type CrmStatusReportRow = {
+  count: number;
+  status: string;
+};
 
 export type CrmReportColumn = {
   fieldname: string;

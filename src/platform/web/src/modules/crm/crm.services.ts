@@ -26,6 +26,7 @@ const path = "/crm/enquiries";
 
 export function listCrmEnquiries(input: {
   assignedToEmployee?: string;
+  createdByEmployee?: string;
   enquiryId?: string;
   enquiryGroup?: string;
   fromDate?: string;
@@ -37,6 +38,7 @@ export function listCrmEnquiries(input: {
 }) {
   const query = new URLSearchParams({ view: input.view });
   if (input.assignedToEmployee) query.set("assignedToEmployee", input.assignedToEmployee);
+  if (input.createdByEmployee) query.set("createdByEmployee", input.createdByEmployee);
   if (input.search?.trim()) query.set("search", input.search.trim());
   if (input.enquiryId) query.set("enquiryId", String(input.enquiryId));
   if (input.enquiryGroup) query.set("enquiryGroup", input.enquiryGroup);
@@ -66,6 +68,25 @@ export function getCrmReport(
   if (filters.group) query.set("group", filters.group);
   const suffix = query.size ? `?${query}` : "";
   return apiGet<CrmReport>(`${path}/reports/${name}${suffix}`);
+}
+
+export function getCrmContributorsReport(filters: { fromDate?: string; toDate?: string }) {
+  return getCrmReportRows<import("./crm.types").CrmContributorReportRow>("contributors", filters);
+}
+
+export function getCrmStatusReport(filters: { fromDate?: string; toDate?: string }) {
+  return getCrmReportRows<import("./crm.types").CrmStatusReportRow>("status", filters);
+}
+
+function getCrmReportRows<T>(
+  name: "contributors" | "status",
+  filters: { fromDate?: string; toDate?: string }
+) {
+  const query = new URLSearchParams();
+  if (filters.fromDate) query.set("fromDate", filters.fromDate);
+  if (filters.toDate) query.set("toDate", filters.toDate);
+  const suffix = query.size ? `?${query}` : "";
+  return apiGet<T[]>(`${path}/reports/${name}${suffix}`);
 }
 
 export function getCrmEnquiry(name: string) {

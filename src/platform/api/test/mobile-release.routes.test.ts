@@ -19,10 +19,18 @@ test("serves the current mobile release manifest and APK", async () => {
     assert.equal(manifest.headers["cache-control"], "no-cache");
     assert.equal(manifest.body, '{"versionName":"1.0.1"}\n');
 
+    const publicManifest = await app.inject("/mobile/update/latest.json");
+    assert.equal(publicManifest.statusCode, 200);
+    assert.equal(publicManifest.body, manifest.body);
+
     const apk = await app.inject("/mobile/release/TechMedia-1.0.1.apk");
     assert.equal(apk.statusCode, 200);
     assert.equal(apk.headers["content-type"], "application/vnd.android.package-archive");
     assert.equal(apk.body, "apk-bytes");
+
+    const publicApk = await app.inject("/mobile/update/TechMedia-1.0.1.apk");
+    assert.equal(publicApk.statusCode, 200);
+    assert.equal(publicApk.body, apk.body);
 
     const missing = await app.inject("/mobile/release/other.apk");
     assert.equal(missing.statusCode, 404);

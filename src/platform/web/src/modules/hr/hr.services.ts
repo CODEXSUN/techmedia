@@ -1,7 +1,20 @@
 import { apiGet, apiPost, apiPut } from "../../shared/api/platform-api";
-import type { HrStaffRequest, HrStaffRequestSavePayload, HrStaffRequestView } from "./hr.types";
+import type {
+  HrDuty,
+  HrStaffRequest,
+  HrStaffRequestSavePayload,
+  HrStaffRequestView
+} from "./hr.types";
 
 const path = "/hr/requests";
+
+export function listHrDuties() {
+  return apiGet<HrDuty[]>("/hr/duties");
+}
+
+export function reportHrDuty(sopItem: string, actions: string) {
+  return apiPost<HrDuty>(`/hr/duties/${encodeURIComponent(sopItem)}/reports`, { actions });
+}
 
 export function approveHrStaffRequest(name: string) {
   return apiPost<HrStaffRequest>(`${path}/${encodeURIComponent(name)}/approve`, {});

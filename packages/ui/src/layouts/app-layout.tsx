@@ -21,10 +21,7 @@ import {
   type SidebarUser,
   type SidebarUserMenuItem
 } from "../blocks/menu/sidemenu/app-sidebar";
-import {
-  TopMenu,
-  type TopMenuWorkspaceItem
-} from "../blocks/menu/sidemenu/top-menu";
+import { TopMenu, type TopMenuWorkspaceItem } from "../blocks/menu/sidemenu/top-menu";
 import type { TopMenuNotification } from "../blocks/menu/sidemenu/top-menu-notifications";
 import type { SidemenuItem } from "../blocks/menu/sidemenu/sub/sidemenu-section";
 import { SidebarInset, SidebarProvider } from "../components/sidebar";
@@ -32,6 +29,7 @@ import { SidebarInset, SidebarProvider } from "../components/sidebar";
 type AppLayoutProps = {
   addUserHref?: string;
   brand?: SidebarBrand;
+  bottomMenuItems?: SidemenuItem[];
   children: ReactNode;
   globalSearchPlaceholder?: string;
   globalSearchValue?: string;
@@ -181,6 +179,7 @@ export const defaultUserMenuItems: SidebarUserMenuItem[] = [
 export function AppLayout({
   addUserHref,
   brand = defaultSidebarBrand,
+  bottomMenuItems,
   children,
   globalSearchPlaceholder,
   globalSearchValue,
@@ -232,6 +231,7 @@ export function AppLayout({
       <div className="flex min-h-0 flex-1">
         <AppSidebar
           brand={brand}
+          {...(bottomMenuItems ? { bottomItems: bottomMenuItems } : {})}
           className="md:!bottom-auto md:!top-14 md:!h-[calc(100svh-3.5rem)] md:!p-1"
           items={menuItems}
           showUserMenu={showSidebarUser}

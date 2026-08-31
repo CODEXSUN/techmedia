@@ -141,6 +141,9 @@ export function CrmWorkspace({
     ...(reportFilters.assignedToEmployee
       ? { assignedToEmployee: reportFilters.assignedToEmployee }
       : {}),
+    ...(reportFilters.createdByEmployee
+      ? { createdByEmployee: reportFilters.createdByEmployee }
+      : {}),
     ...(reportFilters.enquiryGroup ? { enquiryGroup: reportFilters.enquiryGroup } : {}),
     ...(reportFilters.fromDate ? { fromDate: reportFilters.fromDate } : {}),
     ...(reportFilters.priority ? { priority: reportFilters.priority } : {}),
@@ -464,6 +467,7 @@ function reportFiltersFromUrl(defaultStatus: CrmEnquiryStatusFilter) {
   if (typeof window === "undefined") {
     return {
       assignedToEmployee: "",
+      createdByEmployee: "",
       enquiryGroup: "",
       fromDate: "",
       priority: undefined,
@@ -493,6 +497,7 @@ function reportFiltersFromUrl(defaultStatus: CrmEnquiryStatusFilter) {
   ].includes(value ?? "")
     ? {
         assignedToEmployee: query.get("assignedToEmployee") ?? "",
+        createdByEmployee: query.get("createdByEmployee") ?? "",
         enquiryGroup: query.get("enquiryGroup") ?? "",
         fromDate: query.get("fromDate") ?? "",
         priority: priorityFromUrl(query.get("priority")),
@@ -501,6 +506,7 @@ function reportFiltersFromUrl(defaultStatus: CrmEnquiryStatusFilter) {
       }
     : {
         assignedToEmployee: query.get("assignedToEmployee") ?? "",
+        createdByEmployee: query.get("createdByEmployee") ?? "",
         enquiryGroup: query.get("enquiryGroup") ?? "",
         fromDate: query.get("fromDate") ?? "",
         priority: priorityFromUrl(query.get("priority")),
@@ -519,6 +525,7 @@ function reportScopeDescription(
   description: string,
   filters: {
     assignedToEmployee: string;
+    createdByEmployee: string;
     enquiryGroup: string;
     fromDate: string;
     priority: CrmEnquiryPriority | undefined;
@@ -534,6 +541,12 @@ function reportScopeDescription(
             ? "Unassigned"
             : (users.find((user) => user.id === filters.assignedToEmployee)?.name ??
               filters.assignedToEmployee)
+        }`
+      : "",
+    filters.createdByEmployee
+      ? `Created by ${
+          users.find((user) => user.id === filters.createdByEmployee)?.name ??
+          filters.createdByEmployee
         }`
       : "",
     filters.fromDate ? `from ${filters.fromDate}` : "",

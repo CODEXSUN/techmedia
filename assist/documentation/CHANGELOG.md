@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.89
+Current version: 1.0.93
 
-Release tag: v-1.0.89
+Release tag: v-1.0.93
 
-Changelog label: v 1.0.89
+Changelog label: v 1.0.93
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,64 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.93
+
+### [v 1.0.93] 2026-08-31 11:56 pm - Mobile enquiry preview card
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.93.
+- Added a live enquiry preview above the mobile call-enquiry message field.
+- Generate a single-line enquiry title from the first 44 characters of the message while retaining the complete message for the enquiry body.
+- Added selected list and allocated-person details to the preview card, using the same allocation language as the Jobs cards.
+- Removed the manual title input and kept the post action fixed at the bottom of the form.
+- Added a medium-rounded, full outline to the message field for clearer data entry.
+
+## v-1.0.92
+
+### [v 1.0.92] 2026-08-31 11:15 pm - Direct mobile startup updates
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.92.
+
+## v-1.0.91
+
+### [v 1.0.91] 2026-08-31 8:19 pm - Mobile SOP duties
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.91.
+
+## v-1.0.90
+
+### [v 1.0.90] 2026-08-31 8:36 am - Mobile call notes and enquiry conversion
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.90.
+- Replaced call-log shortcut actions with a focused admin-only call-notes workflow.
+- Saved rough call comments in encrypted, account-scoped device storage until an administrator converts one to an enquiry.
+- Added a message-first enquiry form with live Frappe lists and employee allocation choices.
+- Removed a converted local note only after its live enquiry post succeeds.
+- Kept mobile call-enquiry API compatibility for earlier installed clients while enforcing administrator access for new posts.
 
 ## v-1.0.89
 

@@ -28,12 +28,14 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
   StoredSession? _storedSession;
   String _lastEmail = '';
   _AuthStage _stage = _AuthStage.loading;
+  var _checkingForUpdate = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadLocalSession();
+    _scheduleUpdateCheck();
   }
 
   @override
@@ -260,6 +262,8 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
   }
 
   Future<void> _checkForUpdate({bool reportCurrent = false}) async {
+    if (_checkingForUpdate) return;
+    _checkingForUpdate = true;
     try {
       final release = await _updates.checkForUpdate();
       final appContext = _navigatorKey.currentContext;
@@ -289,6 +293,8 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
         ScaffoldMessenger.of(appContext)
             .showSnackBar(SnackBar(content: Text(error.message)));
       }
+    } finally {
+      _checkingForUpdate = false;
     }
   }
 

@@ -72,6 +72,24 @@ class TechMediaApi {
     return CrmJob.fromJson(data as Map<String, dynamic>);
   }
 
+  Future<List<CrmMobileEnquiryMatch>> mobileEnquiries({
+    required String accessToken,
+    required String mobile,
+  }) async {
+    final data = await _request(
+      '/crm/enquiries/mobile-matches',
+      accessToken: accessToken,
+      query: {'mobile': mobile},
+    );
+    if (data is! List) {
+      throw const TechMediaApiException('Unexpected mobile enquiry response.');
+    }
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(CrmMobileEnquiryMatch.fromJson)
+        .toList();
+  }
+
   Future<CrmJob> addJobComment({
     required String accessToken,
     required String id,
@@ -82,6 +100,56 @@ class TechMediaApi {
       accessToken: accessToken,
       method: 'POST',
       body: {'comment': comment},
+    );
+    return CrmJob.fromJson(data as Map<String, dynamic>);
+  }
+
+  Future<CrmCallEnquiryFormData> callEnquiryFormData(String accessToken) async {
+    final responses = await Future.wait([
+      _request('/mobile/crm/options', accessToken: accessToken),
+      _request('/crm/enquiries/user-references', accessToken: accessToken),
+    ]);
+    final options = responses[0] as Map<String, dynamic>;
+    final users = responses[1] as List<dynamic>;
+    return CrmCallEnquiryFormData(
+      groups: (options['groups'] as List<dynamic>)
+          .whereType<Map<String, dynamic>>()
+          .map(CrmCallEnquiryGroup.fromJson)
+          .toList(),
+      assignees: users
+          .whereType<Map<String, dynamic>>()
+          .map(CrmCallEnquiryAssignee.fromJson)
+          .toList(),
+    );
+  }
+
+  Future<CrmJob> createCallEnquiry({
+    required String accessToken,
+    required String mobile,
+    required String customerName,
+    required String title,
+    required String enquiryGroup,
+    required String? assignedToUserId,
+    required String message,
+    required String direction,
+    required int durationSeconds,
+    required DateTime occurredAt,
+  }) async {
+    final data = await _request(
+      '/mobile/crm/call-enquiries',
+      accessToken: accessToken,
+      method: 'POST',
+      body: {
+        'assignedToUserId': assignedToUserId,
+        'customerName': customerName,
+        'direction': direction,
+        'durationSeconds': durationSeconds,
+        'enquiryGroup': enquiryGroup,
+        'message': message,
+        'mobile': mobile,
+        'occurredAt': occurredAt.toUtc().toIso8601String(),
+        'title': title,
+      },
     );
     return CrmJob.fromJson(data as Map<String, dynamic>);
   }
@@ -97,6 +165,27 @@ class TechMediaApi {
       body: const {},
     );
     return CrmJob.fromJson(data as Map<String, dynamic>);
+  }
+
+  Future<List<HrDuty>> duties(String accessToken) async {
+    final data = await _request('/mobile/hr/duties', accessToken: accessToken);
+    if (data is! List)
+      throw const TechMediaApiException('Unexpected duties response.');
+    return data.whereType<Map<String, dynamic>>().map(HrDuty.fromJson).toList();
+  }
+
+  Future<HrDuty> reportDuty({
+    required String accessToken,
+    required String sopItem,
+    required String actions,
+  }) async {
+    final data = await _request(
+      '/mobile/hr/duties/${Uri.encodeComponent(sopItem)}/reports',
+      accessToken: accessToken,
+      method: 'POST',
+      body: {'actions': actions},
+    );
+    return HrDuty.fromJson(data as Map<String, dynamic>);
   }
 
   Future<CrmJob> stopJob({
@@ -261,6 +350,66 @@ class TechMediaApiException implements Exception {
   final String message;
 }
 
+class CrmCallEnquiryFormData {
+  const CrmCallEnquiryFormData({required this.groups, required this.assignees});
+
+  final List<CrmCallEnquiryGroup> groups;
+  final List<CrmCallEnquiryAssignee> assignees;
+}
+
+class CrmCallEnquiryGroup {
+  const CrmCallEnquiryGroup({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  factory CrmCallEnquiryGroup.fromJson(Map<String, dynamic> json) =>
+      CrmCallEnquiryGroup(
+        label: json['label'] as String? ?? '',
+        value: json['value'] as String? ?? '',
+      );
+}
+
+class CrmCallEnquiryAssignee {
+  const CrmCallEnquiryAssignee({required this.id, required this.name});
+
+  final String id;
+  final String name;
+
+  factory CrmCallEnquiryAssignee.fromJson(Map<String, dynamic> json) =>
+      CrmCallEnquiryAssignee(
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+      );
+}
+
+class CrmMobileEnquiryMatch {
+  const CrmMobileEnquiryMatch({
+    required this.frappeName,
+    required this.number,
+    required this.title,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final String frappeName;
+  final int number;
+  final String title;
+  final String status;
+  final DateTime createdAt;
+
+  factory CrmMobileEnquiryMatch.fromJson(Map<String, dynamic> json) =>
+      CrmMobileEnquiryMatch(
+        frappeName: json['frappeName'] as String? ?? '',
+        number: json['id'] as int? ?? 0,
+        title: json['title'] as String? ?? 'Untitled enquiry',
+        status: json['status'] as String? ?? 'Open',
+        createdAt:
+            DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0),
+      );
+}
+
 class CrmJob {
   const CrmJob({
     required this.id,
@@ -345,6 +494,61 @@ class CrmJob {
           .toList(),
     );
   }
+}
+
+class HrDuty {
+  const HrDuty({
+    required this.department,
+    required this.frequency,
+    required this.index,
+    required this.reports,
+    required this.sopItem,
+    required this.sopName,
+    required this.steps,
+  });
+
+  final String department;
+  final String frequency;
+  final int index;
+  final List<HrDutyReport> reports;
+  final String sopItem;
+  final String sopName;
+  final String steps;
+
+  factory HrDuty.fromJson(Map<String, dynamic> json) => HrDuty(
+    department: json['department'] as String? ?? '',
+    frequency: json['frequency'] as String? ?? 'Daily',
+    index: json['index'] as int? ?? 0,
+    reports: (json['reports'] as List? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(HrDutyReport.fromJson)
+        .toList(),
+    sopItem: json['sopItem'] as String? ?? '',
+    sopName: json['sopName'] as String? ?? '',
+    steps: _plainTextComment(json['steps'] as String? ?? ''),
+  );
+}
+
+class HrDutyReport {
+  const HrDutyReport({
+    required this.actions,
+    required this.createdAt,
+    required this.date,
+    required this.name,
+  });
+
+  final String actions;
+  final DateTime createdAt;
+  final String date;
+  final String name;
+
+  factory HrDutyReport.fromJson(Map<String, dynamic> json) => HrDutyReport(
+    actions: _plainTextComment(json['actions'] as String? ?? ''),
+    createdAt:
+        DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+    date: json['date'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+  );
 }
 
 String _assignedToName(Object? value) {

@@ -70,6 +70,7 @@ export type SidebarUserMenuItem = {
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   brand: SidebarBrand;
+  bottomItems?: SidemenuItem[];
   items: SidemenuItem[];
   showUserMenu?: boolean;
   user: SidebarUser;
@@ -99,6 +100,7 @@ const defaultUserMenuItems: SidebarUserMenuItem[] = [
 
 export function AppSidebar({
   brand,
+  bottomItems = [],
   className,
   items,
   showUserMenu = true,
@@ -116,6 +118,7 @@ export function AppSidebar({
         <SidemenuSection items={items} />
       </SidebarContent>
       <SidebarFooter className="border-t">
+        {bottomItems.length ? <SidemenuSection items={bottomItems} /> : null}
         <div className="px-2 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
           {versionLabel}
         </div>
@@ -275,7 +278,9 @@ function BrandIdentity({
       <BrandLogo brand={brand} fallback={fallback} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
         <span className="truncate font-semibold">{brand.title}</span>
-        {subtitle ? <span className="truncate text-xs text-muted-foreground">{subtitle}</span> : null}
+        {subtitle ? (
+          <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
+        ) : null}
       </div>
     </>
   );

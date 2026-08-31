@@ -28,12 +28,22 @@ class AppUpdateService {
       throw AppUpdateException('Unable to check for app updates.');
     }
 
-    final release = AppRelease.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
+    final release = _releaseFromResponse(response.body);
     return isNewerVersion(release.versionName, AppConfig.appVersion)
         ? release
         : null;
+  }
+
+  AppRelease _releaseFromResponse(String body) {
+    try {
+      final value = jsonDecode(body);
+      if (value is! Map<String, dynamic>) {
+        throw const AppUpdateException('The update information is invalid.');
+      }
+      return AppRelease.fromJson(value);
+    } on FormatException {
+      throw const AppUpdateException('The update information is invalid.');
+    }
   }
 
   Future<void> downloadAndInstall(AppRelease release) async {

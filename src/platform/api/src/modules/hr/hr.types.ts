@@ -42,3 +42,20 @@ export type HrRequestContext = {
   database: Kysely<TechMediaDatabase>;
   frappeEmployeeCode: string | null;
 };
+
+export type HrDutyReport = {
+  actions: string;
+  createdAt: string;
+  date: string;
+  name: string;
+};
+
+export type HrDuty = {
+  department: string;
+  frequency: "Daily" | "Monthly" | "Weekly" | "Yearly";
+  index: number;
+  reports: HrDutyReport[];
+  sopItem: string;
+  sopName: string;
+  steps: string;
+};

@@ -247,6 +247,12 @@ export type CrmEnquiryOverviewGroup = {
 };
 
 export type CrmReportName = "list-in-status" | "owner-status";
+export type CrmContributorReportRow = {
+  count: number;
+  employee: string;
+  name: string;
+};
+export type CrmStatusReportRow = { count: number; status: string };
 export type CrmReport = {
   columns: Array<{ fieldname: string; label: string }>;
   rows: Array<Record<string, number | string | null>>;

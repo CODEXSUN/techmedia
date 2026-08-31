@@ -12,7 +12,9 @@ const extraArgs = process.argv.slice(3);
 const supported = new Set(["build-debug", "build-release", "release", "run"]);
 
 if (!command || !supported.has(command)) {
-  fail("Usage: node tools/flutter-mobile.mjs <run|build-debug|build-release|release> [Flutter options]");
+  fail(
+    "Usage: node tools/flutter-mobile.mjs <run|build-debug|build-release|release> [Flutter options]"
+  );
 }
 
 if (command === "run") runFlutter(["run", ...extraArgs]);
@@ -22,19 +24,14 @@ if (command === "release") {
   buildApk("release");
   runNode([
     join(root, "tools", "publish-flutter-mobile-release.mjs"),
-    "--base-url=https://app.techmedia.in/api/platform",
+    "--base-url=https://app.techmedia.in/mobile/update",
     ...(extraArgs.includes("--mandatory") ? ["--mandatory"] : [])
   ]);
 }
 
 function buildApk(mode) {
   const version = repositoryVersion();
-  runFlutter([
-    "build",
-    "apk",
-    `--${mode}`,
-    `--dart-define=TECHMEDIA_APP_VERSION=${version}`
-  ]);
+  runFlutter(["build", "apk", `--${mode}`, `--dart-define=TECHMEDIA_APP_VERSION=${version}`]);
   if (mode === "release") copyVersionedRelease(version);
 }
 
@@ -49,12 +46,13 @@ function copyVersionedRelease(version) {
 
 function runFlutter(args) {
   const executable = flutterExecutable();
-  const result = platform() === "win32"
-    ? spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", executable, ...args], {
-        cwd: appRoot,
-        stdio: "inherit"
-      })
-    : spawnSync(executable, args, { cwd: appRoot, stdio: "inherit" });
+  const result =
+    platform() === "win32"
+      ? spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", executable, ...args], {
+          cwd: appRoot,
+          stdio: "inherit"
+        })
+      : spawnSync(executable, args, { cwd: appRoot, stdio: "inherit" });
   if (result.error) fail(result.error.message);
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
@@ -77,7 +75,8 @@ function flutterExecutable() {
 
 function repositoryVersion() {
   const value = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
-  if (typeof value !== "string" || !/^\d+\.\d+\.\d+$/u.test(value)) fail("Invalid repository version.");
+  if (typeof value !== "string" || !/^\d+\.\d+\.\d+$/u.test(value))
+    fail("Invalid repository version.");
   return value;
 }
 

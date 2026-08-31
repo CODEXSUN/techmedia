@@ -13,9 +13,12 @@ const sourceApk = join(flutterRoot, "build", "app", "outputs", "flutter-apk", "a
 const releaseRoot = join(root, "storage", "mobile", "release");
 
 if (!baseUrl || !/^https:\/\/.+/u.test(baseUrl)) {
-  fail("Usage: node tools/publish-flutter-mobile-release.mjs --base-url=https://app.techmedia.in/api/platform [--mandatory]");
+  fail(
+    "Usage: node tools/publish-flutter-mobile-release.mjs --base-url=https://app.techmedia.in/mobile/update [--mandatory]"
+  );
 }
-if (!existsSync(sourceApk)) fail("Build the Flutter release APK before publishing it to portal storage.");
+if (!existsSync(sourceApk))
+  fail("Build the Flutter release APK before publishing it to portal storage.");
 
 const version = readVersion();
 const versionCode = readVersionCode();
@@ -29,7 +32,7 @@ writeFileSync(
   join(releaseRoot, "latest.json"),
   `${JSON.stringify(
     {
-      apkUrl: `${baseUrl.replace(/\/$/u, "")}/mobile/release/${apkName}`,
+      apkUrl: `${baseUrl.replace(/\/$/u, "")}/${apkName}`,
       mandatory,
       notes: "Latest TechMedia mobile improvements.",
       releasedAt: new Date().toISOString(),

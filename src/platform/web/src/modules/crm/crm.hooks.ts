@@ -11,7 +11,9 @@ import {
   forceDeleteCrmEnquiry,
   getCrmEnquiryOverview,
   getCrmEnquiryOptions,
+  getCrmContributorsReport,
   getCrmReport,
+  getCrmStatusReport,
   listCrmCustomerReferences,
   listCrmEnquiries,
   listCrmEnquiryMobileMatches,
@@ -53,17 +55,42 @@ export function useCrmOptionsQuery(enabled = true) {
 
 export function useCrmReportQuery(
   name: CrmReportName,
-  filters: { assignedToEmployee?: string; fromDate?: string; group?: string; toDate?: string }
+  filters: { assignedToEmployee?: string; fromDate?: string; group?: string; toDate?: string },
+  enabled = true
 ) {
   return useQuery({
+    enabled,
     queryFn: () => getCrmReport(name, filters),
     queryKey: [...crmEnquiryQueryKey, "report", name, filters]
+  });
+}
+
+export function useCrmContributorsReportQuery(
+  filters: { fromDate?: string; toDate?: string },
+  enabled = true
+) {
+  return useQuery({
+    enabled,
+    queryFn: getCrmContributorsReport.bind(null, filters),
+    queryKey: [...crmEnquiryQueryKey, "report", "contributors", filters]
+  });
+}
+
+export function useCrmStatusReportQuery(
+  filters: { fromDate?: string; toDate?: string },
+  enabled = true
+) {
+  return useQuery({
+    enabled,
+    queryFn: getCrmStatusReport.bind(null, filters),
+    queryKey: [...crmEnquiryQueryKey, "report", "status", filters]
   });
 }
 
 export function useCrmEnquiriesQuery(
   input: {
     assignedToEmployee?: string;
+    createdByEmployee?: string;
     enquiryId?: string;
     enquiryGroup?: string;
     fromDate?: string;
@@ -85,6 +112,7 @@ export function useCrmEnquiriesQuery(
       input.view,
       input.status ?? "active",
       input.assignedToEmployee ?? "",
+      input.createdByEmployee ?? "",
       input.enquiryGroup ?? "",
       input.fromDate ?? "",
       input.toDate ?? "",

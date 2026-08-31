@@ -6,6 +6,7 @@ export {
 } from "./frappe.service.js";
 export { frappeLiveEnquiryGatewayContract } from "./frappe.enquiry-gateway.js";
 export { frappeLiveStaffRequestGatewayContract } from "./frappe.staff-request-gateway.js";
+export { frappeLiveSopDutyGatewayContract } from "./frappe.sop-duty-gateway.js";
 export type {
   FrappeConnectionCredentials,
   FrappeConnectionSettings,
@@ -18,6 +19,10 @@ export type {
   FrappeLiveStaffRequestGateway,
   FrappeLiveStaffRequestGatewayFactory,
   FrappeLiveStaffRequestSavePayload,
+  FrappeLiveSopDuty,
+  FrappeLiveSopDutyGateway,
+  FrappeLiveSopDutyGatewayFactory,
+  FrappeLiveSopReport,
   FrappeUserImportResult,
   FrappeUserPreview
 } from "./frappe.types.js";

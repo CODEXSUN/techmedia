@@ -3,6 +3,7 @@ import type { PlatformModuleDependencies } from "../../module-dependencies.js";
 import { recordAuditEvent } from "../../database/audit.js";
 import type {
   CrmContext,
+  CrmContributorReportRow,
   CrmCustomerReference,
   CrmEnquiry,
   CrmEnquiryListFilters,
@@ -12,6 +13,7 @@ import type {
   CrmEnquiryOverview,
   CrmReport,
   CrmReportName,
+  CrmStatusReportRow,
   CrmEnquirySavePayload,
   CrmEnquiryStatusFilter,
   CrmEnquiryView,
@@ -80,6 +82,9 @@ export class CrmService {
           (filters.assignedToEmployee === "__unassigned__"
             ? !record.assignedToEmployee
             : record.assignedToEmployee === filters.assignedToEmployee)
+      )
+      .filter(
+        (record) => !filters.createdByEmployee || record.userEmployee === filters.createdByEmployee
       )
       .filter((record) => !filters.enquiryId || record.name === filters.enquiryId)
       .filter((record) => !filters.enquiryGroup || record.enquiryGroup === filters.enquiryGroup)
@@ -203,6 +208,36 @@ export class CrmService {
     });
   }
 
+  async contributorsReport(filters: ReportDateFilters): Promise<CrmContributorReportRow[]> {
+    const [records, employees] = await Promise.all([
+      this.reportRecords(filters),
+      this.gateway.employees()
+    ]);
+    const employeeNames = new Map(employees.map((employee) => [employee.name, employee.title]));
+    return countRecords(records, (record) => record.userEmployee || "Unknown").map(
+      ([employee, count]) => ({
+        count,
+        employee,
+        name: employeeNames.get(employee) ?? employee
+      })
+    );
+  }
+
+  async statusReport(filters: ReportDateFilters): Promise<CrmStatusReportRow[]> {
+    const [records, options] = await Promise.all([
+      this.reportRecords(filters),
+      this.gateway.options()
+    ]);
+    const counts = new Map(countRecords(records, (record) => fromFrappeStatus(record.status)));
+    const statuses = new Set([
+      ...options.statuses.map(({ name }) => fromFrappeStatus(name)),
+      ...counts.keys()
+    ]);
+    return [...statuses]
+      .sort((left, right) => left.localeCompare(right))
+      .map((status) => ({ count: counts.get(status) ?? 0, status }));
+  }
+
   async create(input: CrmEnquirySavePayload) {
     await this.context.authorize("crm.enquiry.create");
     await this.validateAssignment(input.assignedToUserId);
@@ -225,10 +260,11 @@ export class CrmService {
     const customer = input.customerName.trim();
     const options = await this.gateway.options();
     return this.create({
-      assignedToUserId: null,
+      assignedToUserId: input.assignedToUserId,
       customer: "",
       enquiryDate: input.occurredAt.slice(0, 10),
-      enquiryGroup: options.groups.some(({ name }) => name === "Calls") ? "Calls" : "",
+      enquiryGroup:
+        input.enquiryGroup || (options.groups.some(({ name }) => name === "Calls") ? "Calls" : ""),
       messages: [
         {
           comment: `Call: ${direction} · ${callTime} · ${duration}\n\nCustomer request:\n${input.message.trim()}`
@@ -238,7 +274,9 @@ export class CrmService {
       priority: "normal",
       schedules: [],
       status: "new",
-      title: customer ? `${direction} call - ${customer}` : `${direction} call - ${input.mobile}`,
+      title:
+        input.title.trim() ||
+        (customer ? `${direction} call - ${customer}` : `${direction} call - ${input.mobile}`),
       workspace: input.message.trim()
     });
   }
@@ -389,6 +427,19 @@ export class CrmService {
     await this.requireAnyView();
     const records = await this.gateway.list({ employee: this.employee(), view: "created" });
     return records.map((record) => ({ id: record.name, title: displayTitle(record) }));
+  }
+
+  private async reportRecords(filters: ReportDateFilters) {
+    await this.context.authorize("crm.report.view");
+    await this.context.authorize(viewPermissions.all);
+    const records = await this.gateway.list({ employee: this.employee(), view: "all" });
+    return records.filter((record) =>
+      matchesEnquiryDate(
+        record.enquiryDate,
+        filters.fromDate ?? undefined,
+        filters.toDate ?? undefined
+      )
+    );
   }
 
   private async mapMany(records: LiveRecord[], unreadAssignmentResourceIds = new Set<string>()) {
@@ -582,6 +633,20 @@ export class CrmService {
       console.error("[notification.enqueue]", error);
     }
   }
+}
+
+type ReportDateFilters = { fromDate: string | null; toDate: string | null };
+
+function countRecords(records: LiveRecord[], keyFor: (record: LiveRecord) => string) {
+  const counts = new Map<string, number>();
+  for (const record of records) {
+    const key = keyFor(record);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort(
+    ([leftKey, leftCount], [rightKey, rightCount]) =>
+      rightCount - leftCount || leftKey.localeCompare(rightKey)
+  );
 }
 
 function toLivePayload(input: CrmEnquirySavePayload) {

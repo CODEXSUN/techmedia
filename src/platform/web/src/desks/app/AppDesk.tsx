@@ -6,6 +6,7 @@ import {
   BotIcon,
   BookOpenIcon,
   CalendarDaysIcon,
+  ClipboardListIcon,
   InboxIcon,
   MessageCircleIcon,
   MessagesSquareIcon,
@@ -89,6 +90,9 @@ const CrmNotificationSettings = lazy(() =>
 const HrStaffRequestWorkspace = lazy(() =>
   import("../../modules/hr").then((module) => ({ default: module.HrStaffRequestWorkspace }))
 );
+const HrDutyWorkspace = lazy(() =>
+  import("../../modules/hr").then((module) => ({ default: module.HrDutyWorkspace }))
+);
 const EstimateWorkspace = lazy(() =>
   import("../../modules/estimate").then((module) => ({ default: module.EstimateWorkspace }))
 );
@@ -130,6 +134,7 @@ type Page =
   | "settings.notifications"
   | "hr.my"
   | "hr.all"
+  | "hr.duties"
   | "crm.overview"
   | "crm.assigned"
   | "crm.all"
@@ -240,7 +245,7 @@ export function AppDesk() {
     temaEnabled
   );
   const crmOverviewQuery = useCrmOverviewQuery(
-    page.startsWith("crm.") || page.startsWith("estimate.")
+    (page.startsWith("crm.") && page !== "hr.duties") || page.startsWith("estimate.")
   );
   const crmAllEnquiriesQuery = useCrmEnquiriesQuery(
     { status: "all", view: "all" },
@@ -253,6 +258,7 @@ export function AppDesk() {
   };
   const openAllEnquiries = (filters: {
     assignedToEmployee?: string;
+    createdByEmployee?: string;
     enquiryGroup?: string;
     fromDate?: string;
     status: import("../../modules/crm/crm.types").CrmEnquiryStatusFilter;
@@ -260,6 +266,7 @@ export function AppDesk() {
   }) => {
     const query = new URLSearchParams();
     if (filters.assignedToEmployee) query.set("assignedToEmployee", filters.assignedToEmployee);
+    if (filters.createdByEmployee) query.set("createdByEmployee", filters.createdByEmployee);
     if (filters.enquiryGroup) query.set("enquiryGroup", filters.enquiryGroup);
     if (filters.fromDate) query.set("fromDate", filters.fromDate);
     query.set("status", filters.status);
@@ -275,29 +282,30 @@ export function AppDesk() {
     saveTemaPetPreference(temaPetPlatform, visible);
     setTemaPetPreferred(visible);
   };
-  const menuItems = [
-    ...buildMenu(
-      page,
-      select,
-      superAdmin,
-      canUseCrm,
-      canCreateEnquiry,
-      canViewAllEnquiries,
-      canViewCrmReports,
-      canUseHr,
-      canViewAllHr,
-      canUseIshop,
-      temaEnabled,
-      temaPetVisible,
-      !temaEnabled || !temaPetAllowed,
-      setTemaPetVisible,
-      openEnquiryDesk,
-      crmAllEnquiriesQuery.data,
-      crmOverviewQuery.data?.stats,
-      crmOptionsQuery.data?.statuses
-    ),
-    docsMenu(page, select)
-  ];
+  const allMenuItems = buildMenu(
+    page,
+    select,
+    superAdmin,
+    canUseCrm,
+    canCreateEnquiry,
+    canViewAllEnquiries,
+    canViewCrmReports,
+    canUseHr,
+    canViewAllHr,
+    canUseIshop,
+    temaEnabled,
+    temaPetVisible,
+    !temaEnabled || !temaPetAllowed,
+    setTemaPetVisible,
+    openEnquiryDesk,
+    crmAllEnquiriesQuery.data,
+    crmOverviewQuery.data?.stats,
+    crmOptionsQuery.data?.statuses
+  );
+  const bottomMenuItems = allMenuItems.filter((item) =>
+    ["TEMA AI", "Docs", "Settings"].includes(item.title)
+  );
+  const menuItems = allMenuItems.filter((item) => !bottomMenuItems.includes(item));
 
   useEffect(() => {
     if (page !== requestedPage) {
@@ -355,6 +363,7 @@ export function AppDesk() {
       <>
         <ApplicationLayout
           brand={{ subtitle: "", title: "Tech Media" }}
+          bottomMenuItems={bottomMenuItems}
           globalSearchPlaceholder="Search CRM enquiries"
           globalSearchValue={globalSearch}
           headerTitle={titleFor(page)}
@@ -544,6 +553,7 @@ function renderPage(
       />
     );
   }
+  if (page === "hr.duties") return <HrDutyWorkspace />;
   if (page === "crm.overview") {
     return <CrmOverview userName={claims.name} />;
   }
@@ -687,6 +697,30 @@ function buildMenu(
         title: "LogicX iShop"
       },
       messagesMenu(page, item),
+      ...(canUseHr
+        ? [
+            {
+              icon: CalendarDaysIcon,
+              isActive: page === "hr.duties",
+              onSelect: () => select("hr.duties"),
+              title: "Duties"
+            }
+          ]
+        : []),
+      ...(temaEnabled || superAdmin
+        ? [
+            temaMenu(
+              page,
+              item,
+              superAdmin,
+              temaEnabled,
+              temaPetVisible,
+              temaPetToggleDisabled,
+              onTemaPetVisibleChange
+            )
+          ]
+        : []),
+      docsMenu(page, select),
       notificationSettings
     ];
   }
@@ -729,6 +763,12 @@ function buildMenu(
         ? [
             {
               icon: CalendarDaysIcon,
+              isActive: page === "hr.duties",
+              onSelect: () => select("hr.duties"),
+              title: "Duties"
+            },
+            {
+              icon: ClipboardListIcon,
               isActive: page.startsWith("hr."),
               items: [
                 item("My requests", "hr.my"),
@@ -738,7 +778,6 @@ function buildMenu(
             }
           ]
         : []),
-      notificationSettings,
       ...(temaEnabled || superAdmin
         ? [
             temaMenu(
@@ -751,10 +790,34 @@ function buildMenu(
               onTemaPetVisibleChange
             )
           ]
-        : [])
+        : []),
+      docsMenu(page, select),
+      notificationSettings
     ];
   }
   return [
+    messagesMenu(page, item),
+    ...(canUseHr
+      ? [
+          {
+            icon: CalendarDaysIcon,
+            isActive: page === "hr.duties",
+            onSelect: () => select("hr.duties"),
+            title: "Duties"
+          }
+        ]
+      : []),
+    {
+      icon: ShieldCheckIcon,
+      isActive: page.startsWith("identity."),
+      items: [
+        item("Users", "identity.users"),
+        item("Roles", "identity.roles"),
+        item("Permissions", "identity.permissions"),
+        item("Access controls", "identity.access")
+      ],
+      title: "Identity"
+    },
     ...(temaEnabled || superAdmin
       ? [
           temaMenu(
@@ -768,18 +831,7 @@ function buildMenu(
           )
         ]
       : []),
-    messagesMenu(page, item),
-    {
-      icon: ShieldCheckIcon,
-      isActive: page.startsWith("identity."),
-      items: [
-        item("Users", "identity.users"),
-        item("Roles", "identity.roles"),
-        item("Permissions", "identity.permissions"),
-        item("Access controls", "identity.access")
-      ],
-      title: "Identity"
-    },
+    docsMenu(page, select),
     notificationSettings
   ];
 }
@@ -957,6 +1009,7 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "settings.notifications",
     "hr.my",
     "hr.all",
+    "hr.duties",
     "crm.overview",
     "crm.assigned",
     "crm.all",
@@ -998,6 +1051,7 @@ function titleFor(page: Page) {
     "crm.reports": "Enquiry reports",
     "hr.my": "My requests",
     "hr.all": "All requests",
+    "hr.duties": "Duties",
     "estimate.list": "Estimate",
     "settings.frappe.overview": "Frappe connection",
     "settings.frappe.users": "Frappe Users",

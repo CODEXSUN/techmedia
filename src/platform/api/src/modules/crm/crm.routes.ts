@@ -1,6 +1,7 @@
 import { registerContractRoute } from "@codexsun/framework/http";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { AppError } from "@codexsun/framework/errors";
 import { identityContext } from "../../auth/identity-context.js";
 import type { PlatformModuleDependencies } from "../../module-dependencies.js";
 import { CrmService } from "./crm.service.js";
@@ -74,10 +75,10 @@ const record = z.object({
   workspace: z.string()
 });
 const payload = z.object({
-  assignedToUserId: z.string().trim().min(1).nullable(),
+  assignedToUserId: z.string().trim().min(1).nullable().optional().default(null),
   customer: z.string().trim().max(140),
   enquiryDate: z.iso.date().nullable(),
-  enquiryGroup: z.string().trim().max(80),
+  enquiryGroup: z.string().trim().max(80).optional().default(""),
   messages: z
     .array(
       z.object({
@@ -124,6 +125,7 @@ const jobPayload = z
   });
 const query = z.object({
   assignedToEmployee: z.string().trim().min(1).max(140).optional(),
+  createdByEmployee: z.string().trim().min(1).max(140).optional(),
   enquiryId: z.string().trim().min(1).max(140).optional(),
   enquiryGroup: z.string().trim().min(1).max(140).optional(),
   fromDate: z.iso.date().optional(),
@@ -140,12 +142,15 @@ const mobileCommentPayload = z.object({
   comment: z.string().trim().min(1).max(10_000)
 });
 const mobileCallCapturePayload = z.object({
+  assignedToUserId: z.string().trim().min(1).nullable(),
   customerName: z.string().trim().max(220),
   direction: z.enum(["incoming", "outgoing"]),
   durationSeconds: z.number().int().nonnegative().max(86_400),
+  enquiryGroup: z.string().trim().max(80),
   message: z.string().trim().min(1).max(10_000),
   mobile: z.string().regex(/^\d{10}$/u, "Mobile must contain exactly 10 numeric digits."),
-  occurredAt: z.iso.datetime()
+  occurredAt: z.iso.datetime(),
+  title: z.string().trim().max(220).optional().default("")
 });
 const customerReferenceQuery = z.object({
   search: z.string().trim().max(140).optional()
@@ -202,6 +207,12 @@ const report = z.object({
   columns: z.array(z.object({ fieldname: z.string(), label: z.string() })),
   rows: z.array(z.record(z.string(), z.union([z.number(), z.string(), z.null()])))
 });
+const contributorReportRow = z.object({
+  count: z.number().int().nonnegative(),
+  employee: z.string(),
+  name: z.string()
+});
+const statusReportRow = z.object({ count: z.number().int().nonnegative(), status: z.string() });
 const enquiryOptions = z.object({
   groups: z.array(z.object({ label: z.string(), value: z.string() })),
   statuses: z.array(z.object({ group: statusGroup, label: z.string(), value: z.string() }))
@@ -227,6 +238,7 @@ export async function registerCrmRoutes(
       (await service(request)).list({
         view: query.view,
         ...(query.assignedToEmployee ? { assignedToEmployee: query.assignedToEmployee } : {}),
+        ...(query.createdByEmployee ? { createdByEmployee: query.createdByEmployee } : {}),
         ...(query.enquiryId ? { enquiryId: query.enquiryId } : {}),
         ...(query.enquiryGroup ? { enquiryGroup: query.enquiryGroup } : {}),
         ...(query.fromDate ? { fromDate: query.fromDate } : {}),
@@ -256,6 +268,26 @@ export async function registerCrmRoutes(
         from_date: query.fromDate ?? null,
         group: query.group ?? null,
         to_date: query.toDate ?? null
+      })
+  });
+  registerContractRoute(app, {
+    method: "GET",
+    url: `${path}/reports/contributors`,
+    schemas: { querystring: reportQuery, response: z.array(contributorReportRow) },
+    handler: async ({ query, request }) =>
+      (await service(request)).contributorsReport({
+        fromDate: query.fromDate ?? null,
+        toDate: query.toDate ?? null
+      })
+  });
+  registerContractRoute(app, {
+    method: "GET",
+    url: `${path}/reports/status`,
+    schemas: { querystring: reportQuery, response: z.array(statusReportRow) },
+    handler: async ({ query, request }) =>
+      (await service(request)).statusReport({
+        fromDate: query.fromDate ?? null,
+        toDate: query.toDate ?? null
       })
   });
   registerContractRoute(app, {
@@ -396,7 +428,10 @@ function registerMobileJobRoutes(
     method: "POST",
     url: "/mobile/crm/call-enquiries",
     schemas: { body: mobileCallCapturePayload, response: record },
-    handler: async ({ body, request }) => (await service(request)).captureMobileCall(body)
+    handler: async ({ body, request }) => {
+      await requireCallLogAdministrator(request);
+      return (await service(request)).captureMobileCall(body);
+    }
   });
   registerContractRoute(app, {
     method: "GET",
@@ -434,4 +469,11 @@ function registerMobileJobRoutes(
     handler: async ({ params, request }) =>
       (await service(request)).stopJob(params.id, params.jobName)
   });
+}
+
+async function requireCallLogAdministrator(request: Parameters<typeof identityContext>[0]) {
+  const actor = await identityContext(request).actorUser();
+  if (!actor || !["admin", "super-admin"].includes(actor.role)) {
+    throw AppError.forbidden("Administrator access is required for device call logs.");
+  }
 }
