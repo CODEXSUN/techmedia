@@ -17,9 +17,12 @@ class AppFooterDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: Theme.of(context).colorScheme.surface,
+    elevation: 0,
+    shadowColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
     child: DecoratedBox(
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFF0ECF2))),
+        border: Border(top: BorderSide(color: Color(0xFFF7F3F8))),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),

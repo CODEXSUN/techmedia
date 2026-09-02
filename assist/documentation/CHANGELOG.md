@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.101
+Current version: 1.0.103
 
-Release tag: v-1.0.101
+Release tag: v-1.0.103
 
-Changelog label: v 1.0.101
+Changelog label: v 1.0.103
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,35 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.103
+
+### [v 1.0.103] 2026-09-03 12:11 am - Light mobile dock separator
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.103.
+- Removed the dock Material shadow and surface tint.
+- Changed the dock separator to a near-background light color.
+
+## v-1.0.102
+
+### [v 1.0.102] 2026-09-02 11:59 pm - Notification delivery database and WebSocket fix
+
+#### Database Changes
+
+- Changed `notifications.uuid` from `VARCHAR(32)` to `VARCHAR(36)`.
+- Added a forward migration key for the notification UUID correction.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.102.
+- Added a dedicated WebSocket proxy for `/api/platform/ws/messaging`.
+- Forwarded WebSocket upgrade headers and increased the WebSocket read timeout.
 
 ## v-1.0.101
 

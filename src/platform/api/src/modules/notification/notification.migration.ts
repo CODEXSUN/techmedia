@@ -4,7 +4,8 @@ import type { TechMediaDatabase } from "../../database/schema.js";
 export const notificationMigrations = [
   { key: "notification.inbox.outbox-v1" },
   { key: "notification.inbox.fcm-device-tokens-v2" },
-  { key: "notification.inbox.fcm-device-token-uuid-v3" }
+  { key: "notification.inbox.fcm-device-token-uuid-v3" },
+  { key: "notification.inbox.notification-uuid-v4" }
 ] as const;
 
 export async function migrateNotificationModule(database: Kysely<TechMediaDatabase>) {
@@ -27,6 +28,9 @@ export async function migrateNotificationModule(database: Kysely<TechMediaDataba
         CONSTRAINT notifications_actor_user_fk FOREIGN KEY (actor_user_id) REFERENCES users(id)
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
     )
+    .execute(database);
+  await sql
+    .raw("ALTER TABLE notifications MODIFY COLUMN uuid VARCHAR(36) NOT NULL")
     .execute(database);
   await sql
     .raw(
