@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/api/techmedia_api.dart';
 import '../../core/platform/mobile_actions.dart';
+import 'call_log_enquiry_form_page.dart';
 import 'call_log_notes_page.dart';
 
 class AdminCallLogPage extends StatefulWidget {
@@ -82,6 +83,12 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
                             itemBuilder: (context, index) => _CallLogCard(
                               entry: calls[index],
                               onOpen: () => _openComments(calls[index]),
+                              onCreateEnquiry:
+                                  isCallLogAdministrator(
+                                    widget.session.profile.role,
+                                  )
+                                  ? () => _openEnquiryForm(calls[index])
+                                  : null,
                               onCall: () =>
                                   MobileActions.call(calls[index].number),
                             ),
@@ -128,6 +135,18 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (context) => CallLogNotesPage(
+          api: widget.api,
+          session: widget.session,
+          entry: entry,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openEnquiryForm(CallLogEntry entry) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) => CallLogEnquiryFormPage(
           api: widget.api,
           session: widget.session,
           entry: entry,
@@ -184,11 +203,13 @@ class _CallLogCard extends StatelessWidget {
   const _CallLogCard({
     required this.entry,
     required this.onOpen,
+    required this.onCreateEnquiry,
     required this.onCall,
   });
 
   final CallLogEntry entry;
   final VoidCallback onOpen;
+  final VoidCallback? onCreateEnquiry;
   final VoidCallback onCall;
 
   @override
@@ -196,19 +217,26 @@ class _CallLogCard extends StatelessWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       color: Colors.white,
-      elevation: 2,
+      elevation: 1,
+      shadowColor: const Color(0x24251B2A),
       surfaceTintColor: Colors.transparent,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFD3CBD7), width: 1.2),
+      ),
       child: InkWell(
         onTap: onOpen,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
+          padding: const EdgeInsets.fromLTRB(12, 12, 10, 10),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               CircleAvatar(
+                radius: 20,
                 backgroundColor: entry.color.withValues(alpha: 0.13),
                 foregroundColor: entry.color,
-                child: Icon(entry.icon),
+                child: Icon(entry.icon, size: 21),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -232,12 +260,20 @@ class _CallLogCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Column(
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton.filledTonal(
+                  if (onCreateEnquiry case final onCreateEnquiry?)
+                    _CallLogActionButton(
+                      tooltip: 'Create enquiry for ${entry.displayName}',
+                      onTap: onCreateEnquiry,
+                      icon: Icons.add_rounded,
+                    ),
+                  if (onCreateEnquiry != null) const SizedBox(width: 4),
+                  _CallLogActionButton(
                     tooltip: 'Call ${entry.displayName}',
-                    onPressed: onCall,
-                    icon: const Icon(Icons.call_rounded),
+                    onTap: onCall,
+                    icon: Icons.call_rounded,
                   ),
                 ],
               ),
@@ -247,6 +283,33 @@ class _CallLogCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CallLogActionButton extends StatelessWidget {
+  const _CallLogActionButton({
+    required this.tooltip,
+    required this.onTap,
+    required this.icon,
+  });
+
+  final String tooltip;
+  final VoidCallback onTap;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: IconButton.filledTonal(
+      onPressed: onTap,
+      icon: Icon(icon),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(40),
+        minimumSize: const Size.square(40),
+        padding: EdgeInsets.zero,
+        shape: const CircleBorder(),
+      ),
+    ),
+  );
 }
 
 class _DurationBadge extends StatelessWidget {

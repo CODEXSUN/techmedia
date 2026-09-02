@@ -49,6 +49,19 @@ void main() {
     );
   });
 
+  test('uses the other member as a direct conversation title', () {
+    final conversation = MessagingConversation.fromJson({
+      'id': 44,
+      'members': [
+        {'email': 'vijay@techmedia.in', 'userName': 'Vijay'},
+        {'email': 'meera@techmedia.in', 'userName': 'Meera'},
+      ],
+      'updatedAt': '2026-09-02T10:00:00.000Z',
+    }, 'vijay@techmedia.in');
+
+    expect(conversation.title, 'Meera');
+  });
+
   test('converts Frappe rich-text comments to readable mobile text', () {
     final comment = CrmComment.fromJson({
       'id': 'message-1',

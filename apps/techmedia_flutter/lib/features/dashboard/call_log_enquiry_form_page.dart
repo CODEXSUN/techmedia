@@ -23,10 +23,12 @@ class CallLogEnquiryFormPage extends StatefulWidget {
 
 class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
   final _messageController = TextEditingController();
+  final _messageFocus = FocusNode();
   Future<CrmCallEnquiryFormData>? _formData;
   String? _group;
   String? _assignee;
   var _isSaving = false;
+  var _requestedMessageFocus = false;
 
   @override
   void initState() {
@@ -38,6 +40,7 @@ class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
   @override
   void dispose() {
     _messageController.dispose();
+    _messageFocus.dispose();
     super.dispose();
   }
 
@@ -61,6 +64,7 @@ class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
           }
           if (!snapshot.hasData)
             return const Center(child: CircularProgressIndicator());
+          _focusMessage();
           final formData = snapshot.data!;
           _group ??= formData.groups
               .firstWhere(
@@ -105,15 +109,14 @@ class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
                   const SizedBox(height: 20),
                 ],
                 TextField(
-                  autofocus: true,
                   controller: _messageController,
+                  focusNode: _messageFocus,
                   minLines: 5,
                   maxLines: 8,
                   textCapitalization: TextCapitalization.sentences,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     alignLabelWithHint: true,
-                    hintText: 'Describe the enquiry and next step.',
                     labelText: 'Message',
                     border: _messageBorder(),
                     enabledBorder: _messageBorder(),
@@ -163,10 +166,18 @@ class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
     );
   }
 
-  void _reload() => setState(
-    () =>
-        _formData = widget.api.callEnquiryFormData(widget.session.accessToken),
-  );
+  void _reload() => setState(() {
+    _requestedMessageFocus = false;
+    _formData = widget.api.callEnquiryFormData(widget.session.accessToken);
+  });
+
+  void _focusMessage() {
+    if (_requestedMessageFocus) return;
+    _requestedMessageFocus = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _messageFocus.requestFocus();
+    });
+  }
 
   Future<void> _save(CrmCallEnquiryFormData formData) async {
     final message = _messageController.text.trim();

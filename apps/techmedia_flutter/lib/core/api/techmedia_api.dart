@@ -59,6 +59,20 @@ class TechMediaApi {
     return data.whereType<Map<String, dynamic>>().map(CrmJob.fromJson).toList();
   }
 
+  Future<List<CrmJob>> createdEnquiries(String accessToken) async {
+    final data = await _request(
+      '/crm/enquiries',
+      accessToken: accessToken,
+      query: const {'view': 'created'},
+    );
+    if (data is! List) {
+      throw const TechMediaApiException(
+        'Unexpected created enquiries response.',
+      );
+    }
+    return data.whereType<Map<String, dynamic>>().map(CrmJob.fromJson).toList();
+  }
+
   Future<List<CrmJob>> assignedJobDetails(String accessToken) async {
     final jobs = await assignedJobs(accessToken);
     return Future.wait(jobs.map((item) => job(accessToken, item.sourceId)));
@@ -202,7 +216,10 @@ class TechMediaApi {
     return CrmJob.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<List<MessagingConversation>> conversations(String accessToken) async {
+  Future<List<MessagingConversation>> conversations({
+    required String accessToken,
+    required String currentEmail,
+  }) async {
     final data = await _request(
       '/messaging/conversations',
       accessToken: accessToken,
@@ -212,8 +229,46 @@ class TechMediaApi {
     }
     return data
         .whereType<Map<String, dynamic>>()
-        .map(MessagingConversation.fromJson)
+        .map((item) => MessagingConversation.fromJson(item, currentEmail))
         .toList();
+  }
+
+  Future<List<MessagingContact>> messagingContacts({
+    required String accessToken,
+    String search = '',
+  }) async {
+    final data = await _request(
+      '/messaging/contacts',
+      accessToken: accessToken,
+      query: {'search': search},
+    );
+    if (data is! List) {
+      throw const TechMediaApiException('Unexpected contacts response.');
+    }
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(MessagingContact.fromJson)
+        .toList();
+  }
+
+  Future<MessagingConversation> openDirectConversation({
+    required String accessToken,
+    required String currentEmail,
+    required MessagingContact contact,
+  }) async {
+    final data = await _request(
+      '/messaging/conversations',
+      accessToken: accessToken,
+      method: 'POST',
+      body: {
+        'memberIds': [contact.id],
+        'type': 'DIRECT',
+      },
+    );
+    return MessagingConversation.fromJson(
+      data as Map<String, dynamic>,
+      currentEmail,
+    );
   }
 
   Future<List<MessagingMessage>> messages(
@@ -715,7 +770,10 @@ class MessagingConversation {
   final DateTime updatedAt;
   final int unreadCount;
 
-  factory MessagingConversation.fromJson(Map<String, dynamic> json) {
+  factory MessagingConversation.fromJson(
+    Map<String, dynamic> json,
+    String currentEmail,
+  ) {
     final last = json['lastMessage'] as Map<String, dynamic>?;
     final members = (json['members'] as List? ?? [])
         .whereType<Map<String, dynamic>>()
@@ -726,7 +784,7 @@ class MessagingConversation {
           json['title'] as String? ??
           (members.isEmpty
               ? 'Conversation'
-              : members.first['userName'] as String? ?? 'Conversation'),
+              : _otherMemberName(members, currentEmail)),
       preview: last?['content'] as String? ?? 'No messages yet',
       updatedAt:
           DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
@@ -734,6 +792,25 @@ class MessagingConversation {
       unreadCount: json['unreadCount'] as int? ?? 0,
     );
   }
+}
+
+class MessagingContact {
+  const MessagingContact({
+    required this.id,
+    required this.name,
+    required this.email,
+  });
+
+  final int id;
+  final String name;
+  final String email;
+
+  factory MessagingContact.fromJson(Map<String, dynamic> json) =>
+      MessagingContact(
+        id: json['id'] as int,
+        name: json['name'] as String? ?? 'TechMedia user',
+        email: json['email'] as String? ?? '',
+      );
 }
 
 class MessagingMessage {
@@ -771,6 +848,18 @@ String _dateLabel(String? value) {
   final date = DateTime.tryParse(value);
   if (date == null) return value;
   return '${date.day.toString().padLeft(2, '0')} ${_months[date.month - 1]}';
+}
+
+String _otherMemberName(
+  List<Map<String, dynamic>> members,
+  String currentEmail,
+) {
+  final member = members.cast<Map<String, dynamic>?>().firstWhere(
+    (item) =>
+        item?['email']?.toString().toLowerCase() != currentEmail.toLowerCase(),
+    orElse: () => members.isEmpty ? null : members.first,
+  );
+  return member?['userName'] as String? ?? 'Conversation';
 }
 
 const _months = [

@@ -14,6 +14,7 @@ class DashboardHome extends StatelessWidget {
     required this.api,
     required this.session,
     required this.onOpenList,
+    required this.onOpenMyEnquiries,
     required this.jobsFeed,
     super.key,
   });
@@ -21,6 +22,7 @@ class DashboardHome extends StatelessWidget {
   final TechMediaApi api;
   final UserSession session;
   final ValueChanged<int> onOpenList;
+  final Future<void> Function() onOpenMyEnquiries;
   final DashboardJobsFeed jobsFeed;
 
   @override
@@ -61,7 +63,13 @@ class DashboardHome extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            _StatsRow(jobCount: jobs.length, onOpenList: onOpenList),
+            _StatsRow(
+              jobCount: jobs.length,
+              onOpenList: onOpenList,
+              api: api,
+              session: session,
+              onOpenMyEnquiries: onOpenMyEnquiries,
+            ),
             if (runningJob != null) ...[
               const SizedBox(height: 18),
               _RunningJobCard(
@@ -274,10 +282,19 @@ class _RunningJobCardState extends State<_RunningJobCard> {
 }
 
 class _StatsRow extends StatelessWidget {
-  const _StatsRow({required this.jobCount, required this.onOpenList});
+  const _StatsRow({
+    required this.jobCount,
+    required this.onOpenList,
+    required this.api,
+    required this.session,
+    required this.onOpenMyEnquiries,
+  });
 
   final int jobCount;
   final ValueChanged<int> onOpenList;
+  final TechMediaApi api;
+  final UserSession session;
+  final Future<void> Function() onOpenMyEnquiries;
 
   @override
   Widget build(BuildContext context) {
@@ -293,25 +310,60 @@ class _StatsRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _StatCard(
+          child: _LiveStatCard(
             icon: Icons.calendar_month_outlined,
             label: 'Duty',
-            value: 'Soon',
-            onTap: () => onOpenList(2),
+            count: () =>
+                api.duties(session.accessToken).then((duties) => duties.length),
+            onTap: () async => onOpenList(2),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _StatCard(
-            icon: Icons.bolt_outlined,
-            label: 'Actions',
-            value: 'Soon',
-            onTap: () => onOpenList(3),
+          child: _LiveStatCard(
+            icon: Icons.assignment_outlined,
+            label: 'My Enquiries',
+            count: () => api
+                .createdEnquiries(session.accessToken)
+                .then((enquiries) => enquiries.length),
+            onTap: onOpenMyEnquiries,
           ),
         ),
       ],
     );
   }
+}
+
+class _LiveStatCard extends StatefulWidget {
+  const _LiveStatCard({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Future<int> Function() count;
+  final Future<void> Function() onTap;
+
+  @override
+  State<_LiveStatCard> createState() => _LiveStatCardState();
+}
+
+class _LiveStatCardState extends State<_LiveStatCard> {
+  late final Future<int> _count = widget.count();
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<int>(
+    future: _count,
+    builder: (context, snapshot) => _StatCard(
+      icon: widget.icon,
+      label: widget.label,
+      value: snapshot.hasData ? '${snapshot.data}' : '—',
+      onTap: () => widget.onTap(),
+    ),
+  );
 }
 
 class _StatCard extends StatelessWidget {

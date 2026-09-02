@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.93
+Current version: 1.0.94
 
-Release tag: v-1.0.93
+Release tag: v-1.0.94
 
-Changelog label: v 1.0.93
+Changelog label: v 1.0.94
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,23 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.94
+
+### [v 1.0.94] 2026-09-02 10:01 am - Live mobile home statistics
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.94.
+- Replaced the Home Actions placeholder with live My Enquiries and Duty counts.
+- Added a My Enquiries page that uses the CRM created view for the signed-in employee only.
+- Added direct enquiry creation from compact Call Log cards and Call Notes.
+- Refined Call Log cards with clear borders and fixed-size circular action buttons.
+- Removed the enquiry message placeholder and focus the message field when the form opens.
 
 ## v-1.0.93
 

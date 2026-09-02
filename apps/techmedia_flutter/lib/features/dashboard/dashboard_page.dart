@@ -15,6 +15,7 @@ import 'duty_page.dart';
 import 'job_start_countdown.dart';
 import 'job_start_store.dart';
 import 'messages_sample_page.dart';
+import 'my_enquiries_page.dart';
 
 const _dockVerticalPadding = 8.0;
 
@@ -44,6 +45,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   var _selectedIndex = 0;
+  final _messagesPageKey = GlobalKey<MessagesPageState>();
   late final LiveMessageNotifications _messageNotifications;
   late final DashboardJobsFeed _jobsFeed;
   late final JobStartStore _jobStartStore;
@@ -107,54 +109,57 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ],
         ),
-        actions: _selectedIndex == 0
-            ? [
-                PopupMenuButton<_HomeMenuAction>(
-                  tooltip: 'Account options',
-                  icon: const Icon(Icons.more_vert_rounded),
-                  onSelected: _handleHomeMenuAction,
-                  itemBuilder: (context) => [
-                    PopupMenuItem<_HomeMenuAction>(
-                      enabled: false,
-                      child: _AccountMenuHeader(
-                        profile: widget.session.profile,
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: _HomeMenuAction.resetPin,
-                      child: _HomeMenuItem(
-                        icon: Icons.pin_outlined,
-                        label: 'Reset PIN',
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _HomeMenuAction.changePassword,
-                      child: _HomeMenuItem(
-                        icon: Icons.lock_reset_outlined,
-                        label: 'Change password',
-                      ),
-                    ),
-                    PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: _HomeMenuAction.checkForUpdates,
-                      child: _HomeMenuItem(
-                        icon: Icons.system_update_alt_rounded,
-                        label: 'Check for updates',
-                      ),
-                    ),
-                    PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: _HomeMenuAction.signOut,
-                      child: _HomeMenuItem(
-                        icon: Icons.logout,
-                        label: 'Sign out',
-                      ),
-                    ),
-                  ],
+        actions: switch (_selectedIndex) {
+          0 => [
+            PopupMenuButton<_HomeMenuAction>(
+              tooltip: 'Account options',
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: _handleHomeMenuAction,
+              itemBuilder: (context) => [
+                PopupMenuItem<_HomeMenuAction>(
+                  enabled: false,
+                  child: _AccountMenuHeader(profile: widget.session.profile),
                 ),
-              ]
-            : const [],
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: _HomeMenuAction.resetPin,
+                  child: _HomeMenuItem(
+                    icon: Icons.pin_outlined,
+                    label: 'Reset PIN',
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _HomeMenuAction.changePassword,
+                  child: _HomeMenuItem(
+                    icon: Icons.lock_reset_outlined,
+                    label: 'Change password',
+                  ),
+                ),
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: _HomeMenuAction.checkForUpdates,
+                  child: _HomeMenuItem(
+                    icon: Icons.system_update_alt_rounded,
+                    label: 'Check for updates',
+                  ),
+                ),
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: _HomeMenuAction.signOut,
+                  child: _HomeMenuItem(icon: Icons.logout, label: 'Sign out'),
+                ),
+              ],
+            ),
+          ],
+          3 => [
+            IconButton(
+              tooltip: 'New chat',
+              onPressed: () => _messagesPageKey.currentState?.openNewChat(),
+              icon: const Icon(Icons.add_rounded),
+            ),
+          ],
+          _ => const [],
+        },
       ),
       body: SafeArea(top: false, child: _buildBody()),
       bottomNavigationBar: SafeArea(
@@ -174,6 +179,7 @@ class _DashboardPageState extends State<DashboardPage> {
         session: widget.session,
         jobsFeed: _jobsFeed,
         onOpenList: _selectDestination,
+        onOpenMyEnquiries: _openMyEnquiries,
       );
     }
     if (_selectedIndex == 2) {
@@ -181,6 +187,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     if (_selectedIndex == 3) {
       return MessagesPage(
+        key: _messagesPageKey,
         api: widget.api,
         session: widget.session,
         embedded: true,
@@ -203,6 +210,24 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _selectDestination(int index) => setState(() => _selectedIndex = index);
+
+  Future<void> _openCallLogs() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) =>
+            AdminCallLogPage(api: widget.api, session: widget.session),
+      ),
+    );
+  }
+
+  Future<void> _openMyEnquiries() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) =>
+            MyEnquiriesPage(api: widget.api, session: widget.session),
+      ),
+    );
+  }
 
   void _handleHomeMenuAction(_HomeMenuAction action) {
     if (action == _HomeMenuAction.signOut) {
@@ -248,14 +273,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     subtitle: const Text('Admin device calls and CRM logging.'),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.of(context).push<void>(
-                        MaterialPageRoute(
-                          builder: (context) => AdminCallLogPage(
-                            api: widget.api,
-                            session: widget.session,
-                          ),
-                        ),
-                      );
+                      _openCallLogs();
                     },
                   ),
                 ListTile(

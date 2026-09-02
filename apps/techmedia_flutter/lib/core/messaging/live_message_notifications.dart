@@ -30,7 +30,10 @@ class LiveMessageNotifications extends ChangeNotifier {
 
   Future<void> refresh() async {
     try {
-      final conversations = await api.conversations(session.accessToken);
+      final conversations = await api.conversations(
+        accessToken: session.accessToken,
+        currentEmail: session.profile.email,
+      );
       _conversationIds = conversations.map((item) => item.id).toList();
       final count = conversations.fold<int>(
         0,

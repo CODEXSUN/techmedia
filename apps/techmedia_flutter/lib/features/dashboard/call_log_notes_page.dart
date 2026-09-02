@@ -87,9 +87,7 @@ class _CallLogNotesPageState extends State<CallLogNotesPage> {
                     controller: _controller,
                     focusNode: _composerFocus,
                     isSaving: _isSaving,
-                    onConvertLatest: _notes.isEmpty
-                        ? null
-                        : () => _convert(_notes.first),
+                    onCreateEnquiry: () => _openEnquiry(_notes.firstOrNull),
                     onSave: _saveNote,
                   ),
                 ),
@@ -127,18 +125,18 @@ class _CallLogNotesPageState extends State<CallLogNotesPage> {
     if (mounted) setState(() => _isSaving = false);
   }
 
-  Future<void> _convert(CallLogNote note) async {
+  Future<void> _openEnquiry(CallLogNote? note) async {
     final posted = await Navigator.of(context).push<CrmJob>(
       MaterialPageRoute(
         builder: (context) => CallLogEnquiryFormPage(
           api: widget.api,
           session: widget.session,
           entry: widget.entry,
-          initialMessage: note.content,
+          initialMessage: note?.content ?? '',
         ),
       ),
     );
-    if (posted == null) return;
+    if (posted == null || note == null) return;
     await _store.remove(note.id);
     await _load();
     if (mounted) {
@@ -170,14 +168,14 @@ class _CommentComposer extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.isSaving,
-    required this.onConvertLatest,
+    required this.onCreateEnquiry,
     required this.onSave,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isSaving;
-  final VoidCallback? onConvertLatest;
+  final VoidCallback onCreateEnquiry;
   final VoidCallback onSave;
 
   @override
@@ -194,8 +192,8 @@ class _CommentComposer extends StatelessWidget {
               offset: const Offset(0, -8),
               child: FloatingActionButton.small(
                 elevation: 4,
-                tooltip: 'Convert latest comment to enquiry',
-                onPressed: onConvertLatest,
+                tooltip: 'Create enquiry',
+                onPressed: onCreateEnquiry,
                 child: const Icon(Icons.add_rounded),
               ),
             ),

@@ -44,24 +44,39 @@ class MessagesPage extends StatefulWidget {
   final bool embedded;
 
   @override
-  State<MessagesPage> createState() => _MessagesPageState();
+  MessagesPageState createState() => MessagesPageState();
 }
 
-class _MessagesPageState extends State<MessagesPage> {
+class MessagesPageState extends State<MessagesPage> {
   late Future<List<MessagingConversation>> _conversations;
 
   @override
   void initState() {
     super.initState();
-    _conversations = widget.api.conversations(widget.session.accessToken);
+    _conversations = _loadConversations();
   }
 
+  Future<List<MessagingConversation>> _loadConversations() =>
+      widget.api.conversations(
+        accessToken: widget.session.accessToken,
+        currentEmail: widget.session.profile.email,
+      );
+
   Future<void> _reload() async {
-    setState(
-      () =>
-          _conversations = widget.api.conversations(widget.session.accessToken),
-    );
+    setState(() => _conversations = _loadConversations());
     await _conversations;
+  }
+
+  Future<void> openNewChat() async {
+    final conversation = await Navigator.of(context)
+        .push<MessagingConversation>(
+          MaterialPageRoute(
+            builder: (context) =>
+                _NewChatPage(api: widget.api, session: widget.session),
+          ),
+        );
+    if (!mounted || conversation == null) return;
+    await _openConversation(conversation);
   }
 
   @override
@@ -118,7 +133,16 @@ class _MessagesPageState extends State<MessagesPage> {
     );
     if (widget.embedded) return content;
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
+      appBar: AppBar(
+        title: const Text('Messages'),
+        actions: [
+          IconButton(
+            tooltip: 'New chat',
+            onPressed: openNewChat,
+            icon: const Icon(Icons.add_rounded),
+          ),
+        ],
+      ),
       body: content,
     );
   }
@@ -135,6 +159,137 @@ class _MessagesPageState extends State<MessagesPage> {
     );
     await _reload();
   }
+}
+
+class _NewChatPage extends StatefulWidget {
+  const _NewChatPage({required this.api, required this.session});
+
+  final TechMediaApi api;
+  final UserSession session;
+
+  @override
+  State<_NewChatPage> createState() => _NewChatPageState();
+}
+
+class _NewChatPageState extends State<_NewChatPage> {
+  final _search = TextEditingController();
+  late Future<List<MessagingContact>> _contacts;
+  int? _openingContactId;
+
+  @override
+  void initState() {
+    super.initState();
+    _contacts = _loadContacts();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<List<MessagingContact>> _loadContacts([String search = '']) =>
+      widget.api.messagingContacts(
+        accessToken: widget.session.accessToken,
+        search: search,
+      );
+
+  void _searchContacts(String value) {
+    setState(() => _contacts = _loadContacts(value.trim()));
+  }
+
+  Future<void> _openContact(MessagingContact contact) async {
+    if (_openingContactId != null) return;
+    setState(() => _openingContactId = contact.id);
+    try {
+      final conversation = await widget.api.openDirectConversation(
+        accessToken: widget.session.accessToken,
+        currentEmail: widget.session.profile.email,
+        contact: contact,
+      );
+      if (mounted) Navigator.of(context).pop(conversation);
+    } on TechMediaApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _openingContactId = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('New chat')),
+    body: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+          child: TextField(
+            controller: _search,
+            autofocus: true,
+            onChanged: _searchContacts,
+            decoration: const InputDecoration(
+              hintText: 'Search people in TechMedia',
+              prefixIcon: Icon(Icons.search_rounded),
+            ),
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<MessagingContact>>(
+            future: _contacts,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(
+                  child: Text('Could not load active users.'),
+                );
+              }
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final contacts = snapshot.data!;
+              if (contacts.isEmpty) {
+                return const Center(child: Text('No active users found.'));
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                itemCount: contacts.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final contact = contacts[index];
+                  return ListTile(
+                    enabled: _openingContactId == null,
+                    onTap: () => _openContact(contact),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                    leading: CircleAvatar(
+                      backgroundColor: _palePurple,
+                      foregroundColor: _brandPurple,
+                      child: Text(
+                        _initials(contact.name),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    title: Text(
+                      contact.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(contact.email),
+                    trailing: _openingContactId == contact.id
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.chevron_right_rounded),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ConversationTile extends StatelessWidget {
