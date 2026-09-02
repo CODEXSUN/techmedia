@@ -1,12 +1,13 @@
 import type { Kysely } from "kysely";
 import type { TechMediaDatabase } from "../../database/schema.js";
 
-export type NotificationEventType = "assignment" | "comment" | "reply" | "status";
+export type NotificationEventType = "assignment" | "chat" | "comment" | "reply" | "status";
 
 export type NotificationEvent = {
   actorUserId: number;
   body: string;
-  recipientEmployeeCode: string | null;
+  recipientEmployeeCode?: string | null;
+  recipientUserId?: number;
   resourceId: string;
   title: string;
   type: NotificationEventType;

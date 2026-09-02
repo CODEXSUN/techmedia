@@ -11,9 +11,10 @@ const item = z.object({
   id: z.number().int().positive(),
   resourceId: z.string(),
   title: z.string(),
-  type: z.enum(["assignment", "comment", "reply", "status"])
+  type: z.enum(["assignment", "chat", "comment", "reply", "status"])
 });
 const params = z.object({ id: z.coerce.number().int().positive() });
+const deviceBody = z.object({ token: z.string().trim().min(20).max(512) }).strict();
 
 export function registerNotificationRoutes(app: FastifyInstance) {
   registerContractRoute(app, {
@@ -26,6 +27,16 @@ export function registerNotificationRoutes(app: FastifyInstance) {
     method: "PUT",
     url: `${path}/:id/read`,
     schemas: { params, response: item },
-    handler: ({ params, request }) => new NotificationService(identityContext(request)).markRead(params.id)
+    handler: ({ params, request }) =>
+      new NotificationService(identityContext(request)).markRead(params.id)
+  });
+  registerContractRoute(app, {
+    method: "POST",
+    url: `${path}/devices`,
+    schemas: { body: deviceBody, response: z.object({ registered: z.literal(true) }) },
+    handler: async ({ body, request }) => {
+      await new NotificationService(identityContext(request)).registerDevice(body.token);
+      return { registered: true as const };
+    }
   });
 }

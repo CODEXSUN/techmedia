@@ -1,7 +1,10 @@
 import { sql, type Kysely } from "kysely";
 import type { TechMediaDatabase } from "../../database/schema.js";
 
-export const notificationMigrations = [{ key: "notification.inbox.outbox-v1" }] as const;
+export const notificationMigrations = [
+  { key: "notification.inbox.outbox-v1" },
+  { key: "notification.inbox.fcm-device-tokens-v2" }
+] as const;
 
 export async function migrateNotificationModule(database: Kysely<TechMediaDatabase>) {
   await sql
@@ -21,6 +24,20 @@ export async function migrateNotificationModule(database: Kysely<TechMediaDataba
         INDEX notifications_recipient_status_created (recipient_user_id, status, created_at),
         CONSTRAINT notifications_recipient_user_fk FOREIGN KEY (recipient_user_id) REFERENCES users(id),
         CONSTRAINT notifications_actor_user_fk FOREIGN KEY (actor_user_id) REFERENCES users(id)
+      ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    )
+    .execute(database);
+  await sql
+    .raw(
+      `CREATE TABLE IF NOT EXISTS notification_device_tokens (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        uuid VARCHAR(32) NOT NULL UNIQUE,
+        user_id INT NOT NULL,
+        token VARCHAR(512) NOT NULL UNIQUE,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX notification_device_tokens_user_updated (user_id, updated_at),
+        CONSTRAINT notification_device_tokens_user_fk FOREIGN KEY (user_id) REFERENCES users(id)
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
     )
     .execute(database);

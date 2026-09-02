@@ -8,15 +8,21 @@ import '../api/techmedia_api.dart';
 import '../config/app_config.dart';
 
 class LiveMessageNotifications extends ChangeNotifier {
-  LiveMessageNotifications({required this.api, required this.session});
+  LiveMessageNotifications({
+    required this.api,
+    required this.session,
+    this.onNewUnreadMessages,
+  });
 
   final TechMediaApi api;
   final UserSession session;
+  final ValueChanged<int>? onNewUnreadMessages;
 
   WebSocketChannel? _channel;
   Timer? _reconnectTimer;
   var _closed = false;
   var _authenticated = false;
+  var _hasInitialSnapshot = false;
   var _eventId = 0;
   var _conversationIds = <int>[];
   int _unreadCount = 0;
@@ -40,9 +46,12 @@ class LiveMessageNotifications extends ChangeNotifier {
         (total, item) => total + item.unreadCount,
       );
       if (_unreadCount != count) {
+        final hasNewMessages = _hasInitialSnapshot && count > _unreadCount;
         _unreadCount = count;
         notifyListeners();
+        if (hasNewMessages) onNewUnreadMessages?.call(count);
       }
+      _hasInitialSnapshot = true;
       if (_authenticated) _subscribeToConversations();
     } on Exception {
       // Keep the last confirmed count until the API becomes available again.

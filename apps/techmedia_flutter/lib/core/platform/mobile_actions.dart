@@ -12,8 +12,8 @@ class MobileActions {
 
   static Future<bool> sms(String mobile) => _invoke('sms', {'mobile': mobile});
 
-  static Future<bool> whatsApp(String mobile, {required String message}) =>
-      _invoke('whatsApp', {'mobile': mobile, 'message': message});
+  static Future<bool> whatsApp(String mobile) =>
+      _invoke('whatsApp', {'mobile': mobile});
 
   static Future<bool> location(String query) =>
       _invoke('location', {'query': query});

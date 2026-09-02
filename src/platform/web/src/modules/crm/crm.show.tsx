@@ -1502,14 +1502,12 @@ function truncateHeadingTitle(value: string, maximumLength = 56) {
   return `${title.slice(0, maximumLength - 3).trimEnd()}...`;
 }
 
-function buildWhatsAppTargets(record: Pick<CrmEnquiry, "id" | "mobile" | "title" | "workspace">) {
+function buildWhatsAppTargets(record: Pick<CrmEnquiry, "mobile">) {
   const phone = normalizeWhatsAppPhone(record.mobile);
   if (!phone) return null;
 
-  const message = `Hello, regarding enquiry #${record.id}: ${enquiryDisplayTitle(record)}`;
-  const encodedMessage = encodeURIComponent(message);
   return {
-    web: `https://wa.me/${phone}?text=${encodedMessage}`
+    web: `https://wa.me/${phone}`
   };
 }
 

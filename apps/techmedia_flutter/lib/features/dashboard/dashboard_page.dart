@@ -7,6 +7,7 @@ import '../../core/api/techmedia_api.dart';
 import '../../core/auth/secure_session_store.dart';
 import '../../core/config/app_config.dart';
 import '../../core/messaging/live_message_notifications.dart';
+import '../../core/notifications/mobile_notification_service.dart';
 import '../../app/dashboard_navigation.dart';
 import 'action_activity_page.dart';
 import 'admin_call_log_page.dart';
@@ -50,23 +51,33 @@ class _DashboardPageState extends State<DashboardPage> {
   var _homeRefreshKey = 0;
   final _messagesPageKey = GlobalKey<MessagesPageState>();
   late final LiveMessageNotifications _messageNotifications;
+  late final MobileNotificationService _mobileNotifications;
   late final DashboardJobsFeed _jobsFeed;
   late final JobStartStore _jobStartStore;
 
   @override
   void initState() {
     super.initState();
+    _mobileNotifications = MobileNotificationService(
+      api: widget.api,
+      session: widget.session,
+    );
     _messageNotifications = LiveMessageNotifications(
       api: widget.api,
       session: widget.session,
+      onNewUnreadMessages: (count) =>
+          unawaited(_mobileNotifications.showChatAlert(count)),
     );
     _jobsFeed = DashboardJobsFeed(api: widget.api, session: widget.session)
       ..start();
     widget.navigation.addListener(_onNavigationChanged);
+    _messageNotifications.addListener(_updateBadges);
+    _mobileNotifications.addListener(_updateBadges);
     _jobStartStore = JobStartStore(SecureSessionStore());
     unawaited(_restorePendingJobStarts());
     if (widget.enableLiveNotifications) {
       unawaited(_messageNotifications.start());
+      unawaited(_mobileNotifications.start());
     }
   }
 
@@ -86,98 +97,109 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void dispose() {
     widget.navigation.removeListener(_onNavigationChanged);
+    _messageNotifications.removeListener(_updateBadges);
+    _mobileNotifications.removeListener(_updateBadges);
     _messageNotifications.dispose();
+    _mobileNotifications.dispose();
     _jobsFeed.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 56,
-        titleSpacing: 20,
-        title: Row(
-          children: [
-            SvgPicture.asset('assets/logo.svg', height: 28, width: 34),
-            const SizedBox(width: 9),
-            const Text('Tech Media'),
-            if (_selectedIndex == 1 || _selectedIndex == 3) ...[
-              const SizedBox(width: 12),
-              Container(height: 28, width: 1, color: const Color(0xFFD7D1DA)),
-              const SizedBox(width: 12),
-              Text(
-                _selectedIndex == 1 ? 'My Jobs' : 'Chat',
-                style: Theme.of(context).textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ],
-        ),
-        actions: switch (_selectedIndex) {
-          0 => [
-            PopupMenuButton<_HomeMenuAction>(
-              tooltip: 'Account options',
-              icon: const Icon(Icons.more_vert_rounded),
-              onSelected: _handleHomeMenuAction,
-              itemBuilder: (context) => [
-                PopupMenuItem<_HomeMenuAction>(
-                  enabled: false,
-                  child: _AccountMenuHeader(profile: widget.session.profile),
-                ),
-                const PopupMenuDivider(),
-                PopupMenuItem(
-                  value: _HomeMenuAction.resetPin,
-                  child: _HomeMenuItem(
-                    icon: Icons.pin_outlined,
-                    label: 'Reset PIN',
-                  ),
-                ),
-                PopupMenuItem(
-                  value: _HomeMenuAction.changePassword,
-                  child: _HomeMenuItem(
-                    icon: Icons.lock_reset_outlined,
-                    label: 'Change password',
-                  ),
-                ),
-                PopupMenuDivider(),
-                PopupMenuItem<_HomeMenuAction>(
-                  enabled: false,
-                  child: _CurrentVersionMenuItem(version: AppConfig.appVersion),
-                ),
-                PopupMenuItem(
-                  value: _HomeMenuAction.checkForUpdates,
-                  child: _HomeMenuItem(
-                    icon: Icons.system_update_alt_rounded,
-                    label: 'Check for updates',
-                  ),
-                ),
-                PopupMenuDivider(),
-                PopupMenuItem(
-                  value: _HomeMenuAction.signOut,
-                  child: _HomeMenuItem(icon: Icons.logout, label: 'Sign out'),
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        _messageNotifications,
+        _mobileNotifications,
+      ]),
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(
+          toolbarHeight: 56,
+          titleSpacing: 20,
+          title: Row(
+            children: [
+              SvgPicture.asset('assets/logo.svg', height: 28, width: 34),
+              const SizedBox(width: 9),
+              const Text('Tech Media'),
+              if (_selectedIndex == 1 || _selectedIndex == 3) ...[
+                const SizedBox(width: 12),
+                Container(height: 28, width: 1, color: const Color(0xFFD7D1DA)),
+                const SizedBox(width: 12),
+                Text(
+                  _selectedIndex == 1 ? 'My Jobs' : 'Chat',
+                  style: Theme.of(context).textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
-            ),
-          ],
-          3 => [
-            IconButton(
-              tooltip: 'New chat',
-              onPressed: () => _messagesPageKey.currentState?.openNewChat(),
-              icon: const Icon(Icons.add_rounded),
-            ),
-          ],
-          _ => const [],
-        },
+            ],
+          ),
+          actions: switch (_selectedIndex) {
+            0 => [
+              PopupMenuButton<_HomeMenuAction>(
+                tooltip: 'Account options',
+                icon: const Icon(Icons.more_vert_rounded),
+                onSelected: _handleHomeMenuAction,
+                itemBuilder: (context) => [
+                  PopupMenuItem<_HomeMenuAction>(
+                    enabled: false,
+                    child: _AccountMenuHeader(profile: widget.session.profile),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: _HomeMenuAction.resetPin,
+                    child: _HomeMenuItem(
+                      icon: Icons.pin_outlined,
+                      label: 'Reset PIN',
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _HomeMenuAction.changePassword,
+                    child: _HomeMenuItem(
+                      icon: Icons.lock_reset_outlined,
+                      label: 'Change password',
+                    ),
+                  ),
+                  PopupMenuDivider(),
+                  PopupMenuItem<_HomeMenuAction>(
+                    enabled: false,
+                    child: _CurrentVersionMenuItem(
+                      version: AppConfig.appVersion,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _HomeMenuAction.checkForUpdates,
+                    child: _HomeMenuItem(
+                      icon: Icons.system_update_alt_rounded,
+                      label: 'Check for updates',
+                    ),
+                  ),
+                  PopupMenuDivider(),
+                  PopupMenuItem(
+                    value: _HomeMenuAction.signOut,
+                    child: _HomeMenuItem(icon: Icons.logout, label: 'Sign out'),
+                  ),
+                ],
+              ),
+            ],
+            3 => [
+              IconButton(
+                tooltip: 'New chat',
+                onPressed: () => _messagesPageKey.currentState?.openNewChat(),
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ],
+            _ => const [],
+          },
+        ),
+        body: SafeArea(top: false, child: _buildBody()),
+        floatingActionButton: _selectedIndex == 0
+            ? FloatingActionButton(
+                tooltip: 'Add',
+                onPressed: _showHomeAddMenu,
+                child: const Icon(Icons.add_rounded),
+              )
+            : null,
       ),
-      body: SafeArea(top: false, child: _buildBody()),
-      floatingActionButton: _selectedIndex == 0
-          ? FloatingActionButton(
-              tooltip: 'Add',
-              onPressed: _showHomeAddMenu,
-              child: const Icon(Icons.add_rounded),
-            )
-          : null,
     );
   }
 
@@ -222,6 +244,11 @@ class _DashboardPageState extends State<DashboardPage> {
       });
     }
   }
+
+  void _updateBadges() => widget.navigation.updateBadges(
+    jobs: _mobileNotifications.assignmentCount,
+    chat: _messageNotifications.unreadCount,
+  );
 
   void _selectDestination(int index) => widget.navigation.selectContent(index);
 

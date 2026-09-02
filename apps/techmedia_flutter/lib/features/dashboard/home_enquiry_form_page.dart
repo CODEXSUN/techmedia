@@ -31,6 +31,7 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
   String? _group;
   String? _assignee;
   String? _customerId;
+  String _partyName = '';
   var _isSaving = false;
   var _focusRequested = false;
   var _showPreview = true;
@@ -39,6 +40,7 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
   void initState() {
     super.initState();
     _customer.text = widget.initialCustomer;
+    _partyName = widget.initialCustomer;
     _mobile.text = widget.initialMobile;
     _message.text = widget.initialMessage;
     _formData = _loadFormData();
@@ -115,6 +117,7 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
                 title: _titleFromMessage(_message.text),
                 list: selectedGroup?.label ?? 'Choose a list',
                 allocated: selectedAssignee?.name ?? 'Not allocated',
+                customer: _partyName,
               ),
               const SizedBox(height: 16),
             ],
@@ -130,13 +133,6 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
                   icon: const Icon(Icons.person_search_outlined),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _customer,
-              textCapitalization: TextCapitalization.words,
-              onChanged: (_) => setState(() => _customerId = null),
-              decoration: const InputDecoration(labelText: 'Customer'),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -210,13 +206,8 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
     final message = _message.text.trim();
     final customer = _customer.text.trim();
     final mobile = _mobile.text.replaceAll(RegExp(r'\D'), '');
-    if (message.isEmpty ||
-        customer.isEmpty ||
-        mobile.length != 10 ||
-        _group == null) {
-      _showMessage(
-        'Add a message, customer, 10-digit mobile number, and list.',
-      );
+    if (message.isEmpty || mobile.length != 10 || _group == null) {
+      _showMessage('Add a message, 10-digit mobile number, and list.');
       return;
     }
     setState(() => _isSaving = true);
@@ -244,12 +235,12 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
       _showMessage('Enter the 10-digit phone number to search.');
       return;
     }
-    final lookup = _findContact(mobile);
+    final lookup = _findParties(mobile);
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: FutureBuilder<_ContactLookup?>(
+        child: FutureBuilder<List<_PartyLookup>>(
           future: lookup,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
@@ -271,28 +262,44 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
                 ),
               );
             }
-            final contact = snapshot.data;
-            if (contact == null) {
+            final parties = snapshot.data ?? [];
+            if (parties.isEmpty) {
               return SizedBox(
                 height: 152,
                 child: Center(child: Text('No contact found for $mobile.')),
               );
             }
-            return ListTile(
-              contentPadding: const EdgeInsets.fromLTRB(24, 12, 16, 20),
-              leading: const Icon(Icons.person_outline_rounded),
-              title: Text(contact.customer),
-              subtitle: Text('Contact found for $mobile'),
-              trailing: TextButton(
-                onPressed: () {
-                  setState(() {
-                    _customer.text = contact.customer;
-                    _customerId = contact.customerId;
-                  });
-                  Navigator.pop(context);
-                },
-                child: const Text('Use customer'),
-              ),
+            return ListView(
+              shrinkWrap: true,
+              children: parties
+                  .map(
+                    (party) => ListTile(
+                      contentPadding: const EdgeInsets.fromLTRB(24, 8, 16, 8),
+                      leading: Icon(
+                        party.type == 'Customer'
+                            ? Icons.person_outline_rounded
+                            : Icons.local_shipping_outlined,
+                      ),
+                      title: Text(party.name),
+                      subtitle: Text('${party.type} found for $mobile'),
+                      trailing: TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _partyName = party.name;
+                            _customer.text = party.type == 'Customer'
+                                ? party.name
+                                : '';
+                            _customerId = party.type == 'Customer'
+                                ? party.id
+                                : null;
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: const Text('Select'),
+                      ),
+                    ),
+                  )
+                  .toList(),
             );
           },
         ),
@@ -300,13 +307,17 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
     );
   }
 
-  Future<_ContactLookup?> _findContact(String mobile) async {
-    final customer = await widget.api.customerByMobile(
+  Future<List<_PartyLookup>> _findParties(String mobile) async {
+    final parties = await widget.api.partiesByMobile(
       accessToken: widget.session.accessToken,
       mobile: mobile,
     );
-    if (customer == null) return null;
-    return _ContactLookup(customer: customer.name, customerId: customer.id);
+    return parties
+        .map(
+          (party) =>
+              _PartyLookup(name: party.name, id: party.id, type: party.type),
+        )
+        .toList();
   }
 
   void _showMessage(String message) =>
@@ -314,11 +325,16 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
           .showSnackBar(SnackBar(content: Text(message)));
 }
 
-class _ContactLookup {
-  const _ContactLookup({required this.customer, required this.customerId});
+class _PartyLookup {
+  const _PartyLookup({
+    required this.name,
+    required this.id,
+    required this.type,
+  });
 
-  final String customer;
-  final String customerId;
+  final String name;
+  final String id;
+  final String type;
 }
 
 class _EnquiryPreview extends StatelessWidget {
@@ -326,11 +342,13 @@ class _EnquiryPreview extends StatelessWidget {
     required this.title,
     required this.list,
     required this.allocated,
+    required this.customer,
   });
 
   final String title;
   final String list;
   final String allocated;
+  final String customer;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -338,7 +356,11 @@ class _EnquiryPreview extends StatelessWidget {
     child: ListTile(
       leading: const Icon(Icons.preview_outlined),
       title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('$list · $allocated'),
+      subtitle: Text(
+        customer.isEmpty
+            ? '$list · $allocated'
+            : '$customer\n$list · $allocated',
+      ),
     ),
   );
 }

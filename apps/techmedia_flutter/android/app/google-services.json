@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "512179340397",
+    "project_id": "tech-media-44450",
+    "storage_bucket": "tech-media-44450.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:512179340397:android:de7b711b9d25c60c6c6b64",
+        "android_client_info": {
+          "package_name": "in.techmedia.techmedia_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOhziPI-qBWKw3U3VK4u0-EqhVkbLBI90"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

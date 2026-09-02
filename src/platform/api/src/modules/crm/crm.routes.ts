@@ -159,6 +159,7 @@ const customerReference = z.object({
   id: z.string().min(1).max(140),
   name: z.string().min(1).max(220)
 });
+const partyReference = customerReference.extend({ type: z.enum(["Customer", "Supplier"]) });
 const customerMobileMatch = z.object({
   mobile: z.string().regex(/^\d{10}$/u, "Mobile must contain exactly 10 numeric digits.")
 });
@@ -235,9 +236,9 @@ export async function registerCrmRoutes(
   });
   registerContractRoute(app, {
     method: "GET",
-    url: `${path}/customer-by-mobile`,
-    schemas: { querystring: customerMobileMatch, response: customerReference.nullable() },
-    handler: async ({ query, request }) => (await service(request)).customerByMobile(query.mobile)
+    url: `${path}/party-by-mobile`,
+    schemas: { querystring: customerMobileMatch, response: z.array(partyReference) },
+    handler: async ({ query, request }) => (await service(request)).partiesByMobile(query.mobile)
   });
   registerContractRoute(app, {
     method: "GET",

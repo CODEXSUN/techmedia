@@ -1,6 +1,6 @@
 {
   "name": "@techmedia/platform-api",
-  "version": "1.0.97",
+  "version": "1.0.100",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,12 +10,13 @@
     "test": "tsx --test test/*.test.ts"
   },
   "dependencies": {
-    "@codexsun/framework": "1.0.97",
-    "@fastify/websocket": "^11.3.0",
-    "@fastify/multipart": "^10.1.1",
     "@aws-sdk/client-s3": "^3.864.0",
+    "@codexsun/framework": "1.0.100",
+    "@fastify/multipart": "^10.1.1",
+    "@fastify/websocket": "^11.3.0",
     "@openai/codex": "^0.149.1",
     "fastify": "^5.12.1",
+    "firebase-admin": "^14.3.0",
     "kysely": "^0.29.5",
     "mysql2": "^3.24.0",
     "ws": "^8.21.3",

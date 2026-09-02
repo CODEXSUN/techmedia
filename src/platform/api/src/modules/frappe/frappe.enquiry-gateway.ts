@@ -179,28 +179,27 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       });
   }
 
-  async function loadCustomerByMobile(mobile: string) {
+  async function loadPartiesByMobile(mobile: string) {
     const target = await connection();
-    const query = new URLSearchParams({
-      fields: JSON.stringify(["name"]),
-      filters: JSON.stringify([["mobile_no", "=", mobile]]),
-      limit_page_length: "1"
-    });
-    const response = await frappeRequest<{ data?: Array<{ name?: string }> }>(
-      target,
-      `/api/resource/Contact?${query}`
+    const parties = await Promise.all(
+      (["Customer", "Supplier"] as const).map(async (type) => {
+        const query = new URLSearchParams({
+          fields: JSON.stringify(["name", type === "Customer" ? "customer_name" : "supplier_name"]),
+          filters: JSON.stringify([["mobile_no", "=", mobile]]),
+          limit_page_length: "20"
+        });
+        const response = await frappeRequest<{ data?: FrappePartyDocument[] }>(
+          target,
+          `/api/resource/${type}?${query}`
+        );
+        return (response.data ?? []).flatMap((document) => {
+          const id = document.name?.trim();
+          const name = (document.customer_name ?? document.supplier_name)?.trim() || id;
+          return id && name ? [{ id, name, type }] : [];
+        });
+      })
     );
-    const contactName = response.data?.[0]?.name?.trim();
-    if (!contactName) return null;
-    const contact = await frappeRequest<{ data?: { links?: Array<{ link_doctype?: string; link_name?: string }> } }>(
-      target,
-      `/api/resource/Contact/${encodeURIComponent(contactName)}`
-    );
-    const customerId = contact.data?.links
-      ?.find((link) => link.link_doctype === "Customer")
-      ?.link_name?.trim();
-    if (!customerId) return null;
-    return (await loadCustomersByIds([customerId]))[0] ?? null;
+    return parties.flat().sort((left, right) => left.name.localeCompare(right.name));
   }
 
   async function loadEnquiryOptions(
@@ -239,8 +238,8 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       return loadCustomersByIds(ids);
     },
 
-    async customerByMobile(mobile) {
-      return loadCustomerByMobile(mobile);
+    async partiesByMobile(mobile) {
+      return loadPartiesByMobile(mobile);
     },
 
     async list(input) {
@@ -1037,6 +1036,10 @@ type FrappeEmployeeDocument = {
 type FrappeCustomerDocument = {
   customer_name?: string;
   name?: string;
+};
+
+type FrappePartyDocument = FrappeCustomerDocument & {
+  supplier_name?: string;
 };
 
 type FrappeEnquiryGroupDocument = {

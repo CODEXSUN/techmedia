@@ -423,6 +423,8 @@ class _AuthenticatedAppShell extends StatelessWidget {
                   top: false,
                   child: AppFooterDock(
                     selectedIndex: navigation.selectedIndex,
+                    jobBadgeCount: navigation.jobBadgeCount,
+                    chatBadgeCount: navigation.chatBadgeCount,
                     onDestinationSelected: (index) {
                       navigatorKey.currentState?.popUntil(
                         (route) => route.isFirst,

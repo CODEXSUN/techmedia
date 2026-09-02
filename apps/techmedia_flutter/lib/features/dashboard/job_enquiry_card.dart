@@ -268,14 +268,7 @@ class _JobEnquiryCardState extends State<JobEnquiryCard> {
       _showUnavailable('WhatsApp number');
       return;
     }
-    final enquiry = DashboardListItem.fromCrmJob(_job);
-    final message = [
-      'Job #${enquiry.enquiryNumber} - ${_statusLabel(enquiry.status)}',
-      enquiry.title,
-      if (enquiry.customer.trim().isNotEmpty) 'Customer: ${enquiry.customer}',
-      'Created by ${enquiry.createdBy} on ${enquiry.createdDate}',
-    ].join('\n');
-    final opened = await MobileActions.whatsApp(_job.mobile, message: message);
+    final opened = await MobileActions.whatsApp(_job.mobile);
     if (!opened) _showUnavailable('WhatsApp');
   }
 

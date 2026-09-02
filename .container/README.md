@@ -6,12 +6,12 @@ This folder contains the Docker Compose deployment for TechMedia.
 
 Use one public origin for the web application, API, mobile client, and WebSocket.
 
-| Consumer | Public endpoint | Container target |
-| --- | --- | --- |
-| Web application | `https://app.techmedia.in/` | Web port `7060` |
-| HTTP API | `https://app.techmedia.in/api/platform` | API port `7050` through the web proxy |
-| Messenger WebSocket | `wss://app.techmedia.in/api/platform/ws/messaging` | API port `7050` through the web proxy |
-| Flutter release manifest | `https://app.techmedia.in/mobile/update/latest.json` | API release storage |
+| Consumer                 | Public endpoint                                      | Container target                      |
+| ------------------------ | ---------------------------------------------------- | ------------------------------------- |
+| Web application          | `https://app.techmedia.in/`                          | Web port `7060`                       |
+| HTTP API                 | `https://app.techmedia.in/api/platform`              | API port `7050` through the web proxy |
+| Messenger WebSocket      | `wss://app.techmedia.in/api/platform/ws/messaging`   | API port `7050` through the web proxy |
+| Flutter release manifest | `https://app.techmedia.in/mobile/update/latest.json` | API release storage                   |
 
 Do not publish the API port directly to the internet. Keep `TECHMEDIA_BIND_ADDRESS=127.0.0.1`.
 Route public HTTPS traffic to `TECHMEDIA_WEB_HOST_PORT`.
@@ -65,6 +65,12 @@ VITE_PLATFORM_API_URL=/api/platform
 Do not add native WebView origins. Flutter calls the API through its HTTP client.
 
 Also configure the database, Frappe, token, email, and storage values from `.container/.env.example`. Keep all secrets out of Git.
+
+## Firebase mobile notifications
+
+The API needs a Firebase service account before it can deliver FCM notifications. Create a service-account key in the Firebase project that owns the Android app. Set the complete escaped JSON object as `FIREBASE_SERVICE_ACCOUNT_JSON` in the protected runtime environment. Do not add this key to Git or a release APK.
+
+After deployment, the API creates `notification_device_tokens` and the mobile app registers its token after sign-in. The API sends notifications for job allocations and new chat messages. Test with two user accounts and a physical Android device or a Google Play-enabled emulator.
 
 ## Production verification
 

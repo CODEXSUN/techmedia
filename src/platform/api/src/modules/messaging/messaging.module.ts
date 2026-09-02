@@ -15,10 +15,13 @@ import type { MessagingActor } from "./messaging.types.js";
 export const messagingModule = defineModule<PlatformModuleDependencies>({
   key: "messaging",
   label: "Business Messaging",
-  register: async ({ app }) => {
+  register: async ({ app, notificationPublisher }) => {
     const database = getTechMediaDatabase();
     const repository = new KyselyMessagingRepository(database);
-    const media = new LocalMessageMediaStorage(env.MESSAGE_MEDIA_STORAGE_ROOT, env.MESSAGE_MEDIA_MAX_UPLOAD_BYTES);
+    const media = new LocalMessageMediaStorage(
+      env.MESSAGE_MEDIA_STORAGE_ROOT,
+      env.MESSAGE_MEDIA_MAX_UPLOAD_BYTES
+    );
     const manager = new ConnectionManager();
     const bus = new InMemoryRealtimeBus(manager);
     const gateway = new RealtimeGateway({
@@ -41,6 +44,6 @@ export const messagingModule = defineModule<PlatformModuleDependencies>({
       repository
     });
     await registerMessagingWebSocket(app, { gateway, manager });
-    registerMessagingRoutes(app, repository, bus, media);
+    registerMessagingRoutes(app, repository, bus, media, notificationPublisher);
   }
 });

@@ -66,6 +66,10 @@ export type FrappeLiveCustomerReference = {
   name: string;
 };
 
+export type FrappeLivePartyReference = FrappeLiveCustomerReference & {
+  type: "Customer" | "Supplier";
+};
+
 export type FrappeLiveEnquiryOptions = {
   groups: Array<{ name: string }>;
   statuses: Array<{
@@ -167,7 +171,7 @@ export type FrappeLiveEnquiryGateway = {
   countComments: (input: FrappeLiveEnquiryCommentMetricInput) => Promise<number | null>;
   customers: (search?: string) => Promise<FrappeLiveCustomerReference[]>;
   customersByIds: (ids: string[]) => Promise<FrappeLiveCustomerReference[]>;
-  customerByMobile: (mobile: string) => Promise<FrappeLiveCustomerReference | null>;
+  partiesByMobile: (mobile: string) => Promise<FrappeLivePartyReference[]>;
   delete: (name: string) => Promise<void>;
   employees: () => Promise<FrappeLiveEmployee[]>;
   get: (name: string) => Promise<FrappeLiveEnquiry>;

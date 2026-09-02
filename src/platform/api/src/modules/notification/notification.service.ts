@@ -8,9 +8,16 @@ import type {
   NotificationInboxItem,
   NotificationPublisher
 } from "./notification.types.js";
+import { FirebasePushGateway } from "./firebase-push-gateway.js";
+import { env } from "../../env.js";
 
-export function createNotificationPublisher(database: Kysely<TechMediaDatabase>): NotificationPublisher {
-  return new DatabaseNotificationPublisher(database);
+export function createNotificationPublisher(
+  database: Kysely<TechMediaDatabase>
+): NotificationPublisher {
+  return new DatabaseNotificationPublisher(
+    database,
+    FirebasePushGateway.fromServiceAccountJson(env.FIREBASE_SERVICE_ACCOUNT_JSON)
+  );
 }
 
 export class NotificationService {
@@ -26,14 +33,6 @@ export class NotificationService {
       .orderBy("created_at", "desc")
       .limit(50)
       .execute();
-    if (records.length) {
-      await this.context.database
-        .updateTable("notification_outbox")
-        .set({ attempts: sql`attempts + 1`, delivered_at: new Date(), status: "delivered" })
-        .where("notification_id", "in", records.map((record) => record.id))
-        .where("status", "=", "pending")
-        .execute();
-    }
     return records.map(toInboxItem);
   }
 
@@ -54,6 +53,15 @@ export class NotificationService {
     return toInboxItem(record);
   }
 
+  async registerDevice(token: string): Promise<void> {
+    const actor = await this.requireActor();
+    await this.context.database
+      .insertInto("notification_device_tokens")
+      .values({ token, user_id: actor.id, uuid: randomUUID() })
+      .onDuplicateKeyUpdate({ updated_at: new Date(), user_id: actor.id })
+      .execute();
+  }
+
   private async requireActor() {
     const actor = await this.context.actorUser();
     if (!actor) throw AppError.unauthorized("An active user is required.");
@@ -62,33 +70,32 @@ export class NotificationService {
 }
 
 class DatabaseNotificationPublisher implements NotificationPublisher {
-  constructor(private readonly database: Kysely<TechMediaDatabase>) {}
+  constructor(
+    private readonly database: Kysely<TechMediaDatabase>,
+    private readonly push: FirebasePushGateway
+  ) {}
 
   async enqueue(input: NotificationEvent) {
-    if (!input.recipientEmployeeCode?.trim()) return;
-    const recipient = await this.database
-      .selectFrom("users")
-      .select("id")
-      .where("frappe_employee_code", "=", input.recipientEmployeeCode.trim())
-      .where("status", "=", "active")
-      .executeTakeFirst();
-    if (!recipient || recipient.id === input.actorUserId) return;
+    const recipientId = await this.recipientId(input);
+    if (!recipientId || recipientId === input.actorUserId) return;
     const inserted = await this.database
       .insertInto("notifications")
       .values({
         actor_user_id: input.actorUserId,
         body: input.body.slice(0, 1000),
         event_type: input.type,
-        recipient_user_id: recipient.id,
+        recipient_user_id: recipientId,
         resource_id: input.resourceId,
         title: input.title.slice(0, 220),
         uuid: randomUUID()
       })
       .executeTakeFirstOrThrow();
+    const notificationId = Number(inserted.insertId);
     await this.database
       .insertInto("notification_outbox")
-      .values({ notification_id: Number(inserted.insertId), uuid: randomUUID() })
+      .values({ notification_id: notificationId, uuid: randomUUID() })
       .execute();
+    await this.deliver(notificationId, recipientId, input);
   }
 
   async unreadAssignmentResourceIds(recipientUserId: number): Promise<Set<string>> {
@@ -125,7 +132,10 @@ class DatabaseNotificationPublisher implements NotificationPublisher {
     return claimed;
   }
 
-  async restoreUnreadAssignments(recipientUserId: number, notificationIds: number[]): Promise<void> {
+  async restoreUnreadAssignments(
+    recipientUserId: number,
+    notificationIds: number[]
+  ): Promise<void> {
     if (!notificationIds.length) return;
     await this.database
       .updateTable("notifications")
@@ -133,6 +143,76 @@ class DatabaseNotificationPublisher implements NotificationPublisher {
       .where("id", "in", notificationIds)
       .where("recipient_user_id", "=", recipientUserId)
       .where("event_type", "=", "assignment")
+      .execute();
+  }
+
+  private async recipientId(input: NotificationEvent): Promise<number | undefined> {
+    if (input.recipientUserId) return input.recipientUserId;
+    if (!input.recipientEmployeeCode?.trim()) return undefined;
+    const recipient = await this.database
+      .selectFrom("users")
+      .select("id")
+      .where("frappe_employee_code", "=", input.recipientEmployeeCode.trim())
+      .where("status", "=", "active")
+      .executeTakeFirst();
+    return recipient?.id;
+  }
+
+  private async deliver(
+    notificationId: number,
+    recipientId: number,
+    input: NotificationEvent
+  ): Promise<void> {
+    if (!this.push.isConfigured) return;
+    const tokens = await this.database
+      .selectFrom("notification_device_tokens")
+      .select("token")
+      .where("user_id", "=", recipientId)
+      .execute();
+    if (!tokens.length) return;
+
+    try {
+      const result = await this.push.send(
+        tokens.map((record) => record.token),
+        {
+          body: input.body.slice(0, 1000),
+          data: {
+            notificationId: String(notificationId),
+            resourceId: input.resourceId,
+            type: input.type
+          },
+          title: input.title.slice(0, 220)
+        }
+      );
+      if (result.invalidTokens.length) {
+        await this.database
+          .deleteFrom("notification_device_tokens")
+          .where("token", "in", result.invalidTokens)
+          .execute();
+      }
+      if (result.sent) await this.markDelivered(notificationId);
+    } catch (error) {
+      console.warn(
+        "[notifications.fcm] delivery failed",
+        error instanceof Error ? error.message : "unknown error"
+      );
+      await this.markDeliveryAttempt(notificationId);
+    }
+  }
+
+  private async markDelivered(notificationId: number): Promise<void> {
+    await this.database
+      .updateTable("notification_outbox")
+      .set({ attempts: sql`attempts + 1`, delivered_at: new Date(), status: "delivered" })
+      .where("notification_id", "=", notificationId)
+      .execute();
+  }
+
+  private async markDeliveryAttempt(notificationId: number): Promise<void> {
+    await this.database
+      .updateTable("notification_outbox")
+      .set({ attempts: sql`attempts + 1` })
+      .where("notification_id", "=", notificationId)
       .execute();
   }
 }

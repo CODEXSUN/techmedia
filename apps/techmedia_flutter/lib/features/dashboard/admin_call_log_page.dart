@@ -149,7 +149,6 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
         builder: (context) => HomeEnquiryFormPage(
           api: widget.api,
           session: widget.session,
-          initialCustomer: entry.savedName,
           initialMobile: entry.mobile,
         ),
       ),

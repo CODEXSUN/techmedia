@@ -124,6 +124,10 @@ export type CrmCustomerReference = {
   name: string;
 };
 
+export type CrmPartyReference = CrmCustomerReference & {
+  type: "Customer" | "Supplier";
+};
+
 export type CrmEnquiryOptions = {
   groups: Array<{ label: string; value: string }>;
   statuses: Array<{

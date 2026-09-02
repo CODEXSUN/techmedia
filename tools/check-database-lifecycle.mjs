@@ -35,6 +35,7 @@ const expectedTables = [
   "message_reactions",
   "message_receipts",
   "messages",
+  "notification_device_tokens",
   "notification_outbox",
   "notifications",
   "permissions",

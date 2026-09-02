@@ -5,6 +5,7 @@ import type {
   CrmContext,
   CrmContributorReportRow,
   CrmCustomerReference,
+  CrmPartyReference,
   CrmEnquiry,
   CrmEnquiryListFilters,
   CrmMobileCallCapturePayload,
@@ -423,9 +424,9 @@ export class CrmService {
     return this.gateway.customers(search);
   }
 
-  async customerByMobile(mobile: string): Promise<CrmCustomerReference | null> {
+  async partiesByMobile(mobile: string): Promise<CrmPartyReference[]> {
     await this.requireAnyView();
-    return this.gateway.customerByMobile(mobile);
+    return this.gateway.partiesByMobile(mobile);
   }
 
   async enquiryReferences() {

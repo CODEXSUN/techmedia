@@ -102,7 +102,7 @@ export type NotificationsTable = {
   actor_user_id: number | null;
   body: string;
   created_at: TimestampColumn;
-  event_type: "assignment" | "comment" | "reply" | "status";
+  event_type: "assignment" | "chat" | "comment" | "reply" | "status";
   id: Generated<number>;
   read_at: NullableTimestampColumn;
   recipient_user_id: number;
@@ -119,6 +119,15 @@ export type NotificationOutboxTable = {
   id: Generated<number>;
   notification_id: number;
   status: DefaultedStringColumn<"delivered" | "pending">;
+  uuid: string;
+};
+
+export type NotificationDeviceTokensTable = {
+  created_at: TimestampColumn;
+  id: Generated<number>;
+  token: string;
+  updated_at: TimestampColumn;
+  user_id: number;
   uuid: string;
 };
 
@@ -158,7 +167,8 @@ export type AiHoneySettingsTable = {
   updated_at: TimestampColumn;
 };
 
-export type ConversationType = "DIRECT" | "GROUP" | "TEAM" | "PROJECT" | "CUSTOMER" | "SUPPORT" | "SYSTEM";
+export type ConversationType =
+  "DIRECT" | "GROUP" | "TEAM" | "PROJECT" | "CUSTOMER" | "SUPPORT" | "SYSTEM";
 export type ConversationStatus = "active" | "archived" | "deleted";
 export type ConversationMemberRole = "ADMIN" | "MEMBER" | "OWNER" | "VIEWER";
 export type MessageType =
@@ -251,6 +261,7 @@ export type TechMediaDatabase = {
   message_reactions: MessageReactionsTable;
   message_receipts: MessageReceiptsTable;
   notification_outbox: NotificationOutboxTable;
+  notification_device_tokens: NotificationDeviceTokensTable;
   notifications: NotificationsTable;
   permissions: PermissionsTable;
   role_permissions: RolePermissionsTable;

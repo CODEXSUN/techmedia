@@ -59,6 +59,29 @@ class TechMediaApi {
     return data.whereType<Map<String, dynamic>>().map(CrmJob.fromJson).toList();
   }
 
+  Future<List<AppNotification>> notifications(String accessToken) async {
+    final data = await _request('/notifications', accessToken: accessToken);
+    if (data is! List) {
+      throw const TechMediaApiException('Unexpected notifications response.');
+    }
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(AppNotification.fromJson)
+        .toList();
+  }
+
+  Future<void> registerNotificationDevice({
+    required String accessToken,
+    required String token,
+  }) async {
+    await _request(
+      '/notifications/devices',
+      accessToken: accessToken,
+      method: 'POST',
+      body: {'token': token},
+    );
+  }
+
   Future<List<CrmJob>> createdEnquiries(String accessToken) async {
     final data = await _request(
       '/crm/enquiries',
@@ -96,20 +119,22 @@ class TechMediaApi {
         .toList();
   }
 
-  Future<CrmCustomerReference?> customerByMobile({
+  Future<List<CrmPartyReference>> partiesByMobile({
     required String accessToken,
     required String mobile,
   }) async {
     final data = await _request(
-      '/crm/enquiries/customer-by-mobile',
+      '/crm/enquiries/party-by-mobile',
       accessToken: accessToken,
       query: {'mobile': mobile},
     );
-    if (data == null) return null;
-    if (data is! Map<String, dynamic>) {
+    if (data is! List) {
       throw const TechMediaApiException('Unexpected contact lookup response.');
     }
-    return CrmCustomerReference.fromJson(data);
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(CrmPartyReference.fromJson)
+        .toList();
   }
 
   Future<CrmJob> job(String accessToken, String id) async {
@@ -445,6 +470,28 @@ class UserSession {
   }
 }
 
+class AppNotification {
+  const AppNotification({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.type,
+  });
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) =>
+      AppNotification(
+        id: json['id'] as int? ?? 0,
+        title: json['title'] as String? ?? 'Tech Media',
+        body: json['body'] as String? ?? '',
+        type: json['type'] as String? ?? '',
+      );
+
+  final int id;
+  final String title;
+  final String body;
+  final String type;
+}
+
 class CrmCustomerReference {
   const CrmCustomerReference({required this.id, required this.name});
 
@@ -456,6 +503,23 @@ class CrmCustomerReference {
 
   final String id;
   final String name;
+}
+
+class CrmPartyReference extends CrmCustomerReference {
+  const CrmPartyReference({
+    required super.id,
+    required super.name,
+    required this.type,
+  });
+
+  factory CrmPartyReference.fromJson(Map<String, dynamic> json) =>
+      CrmPartyReference(
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        type: json['type'] as String? ?? '',
+      );
+
+  final String type;
 }
 
 class UserProfile {

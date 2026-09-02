@@ -131,7 +131,6 @@ class _CallLogNotesPageState extends State<CallLogNotesPage> {
         builder: (context) => HomeEnquiryFormPage(
           api: widget.api,
           session: widget.session,
-          initialCustomer: widget.entry.savedName,
           initialMobile: widget.entry.mobile,
           initialMessage: note?.content ?? '',
         ),

@@ -210,8 +210,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     private fun whatsAppUri(call: MethodCall): Uri {
         val number = whatsAppNumber(call)
-        val message = call.argument<String>("message").orEmpty()
-        return Uri.parse("https://wa.me/$number?text=${Uri.encode(message)}")
+        return Uri.parse("https://wa.me/$number")
     }
 
     private fun handleUpdateCall(call: MethodCall, result: MethodChannel.Result) {

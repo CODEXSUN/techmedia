@@ -4,11 +4,15 @@ class AppFooterDock extends StatelessWidget {
   const AppFooterDock({
     required this.selectedIndex,
     required this.onDestinationSelected,
+    this.jobBadgeCount = 0,
+    this.chatBadgeCount = 0,
     super.key,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
+  final int jobBadgeCount;
+  final int chatBadgeCount;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -27,6 +31,11 @@ class AppFooterDock extends StatelessWidget {
                 destination: _destinations[index],
                 isSelected: index == _selectedDockIndex,
                 onTap: () => onDestinationSelected(index),
+                badgeCount: switch (index) {
+                  1 => jobBadgeCount,
+                  2 => chatBadgeCount,
+                  _ => 0,
+                },
               ),
             ),
           ),
@@ -43,11 +52,13 @@ class _DockItem extends StatelessWidget {
     required this.destination,
     required this.isSelected,
     required this.onTap,
+    required this.badgeCount,
   });
 
   final _Destination destination;
   final bool isSelected;
   final VoidCallback onTap;
+  final int badgeCount;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -73,10 +84,14 @@ class _DockItem extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(
-                isSelected ? destination.selectedIcon : destination.icon,
-                color: _Destination.iconColor,
-                size: 24,
+              child: Badge(
+                isLabelVisible: badgeCount > 0,
+                label: Text(badgeCount > 99 ? '99+' : '$badgeCount'),
+                child: Icon(
+                  isSelected ? destination.selectedIcon : destination.icon,
+                  color: _Destination.iconColor,
+                  size: 24,
+                ),
               ),
             ),
             const SizedBox(height: 4),

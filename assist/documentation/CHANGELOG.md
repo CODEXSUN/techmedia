@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.97
+Current version: 1.0.100
 
-Release tag: v-1.0.97
+Release tag: v-1.0.100
 
-Changelog label: v 1.0.97
+Changelog label: v 1.0.100
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,60 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.100
+
+### [v 1.0.100] 2026-09-02 9:57 pm - Firebase cloud notifications
+
+#### Database Changes
+
+- Added device-token storage for authenticated mobile users.
+- Added a forward migration for Firebase Cloud Messaging token registration.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.100.
+- Registered Firebase device tokens after mobile sign-in and token refresh.
+- Added cloud FCM delivery for assigned enquiries and new chat messages.
+- Removed expired FCM device tokens after Firebase rejects them.
+- Added the protected `FIREBASE_SERVICE_ACCOUNT_JSON` cloud setting and deployment guidance.
+
+## v-1.0.99
+
+### [v 1.0.99] 2026-09-02 9:31 pm - Firebase mobile notifications
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.99.
+- Added the Firebase Android configuration for the TechMedia app package.
+- Added Firebase Core and Firebase Messaging startup and background-message initialization.
+- Added Android notification permission handling and a high-priority TechMedia notification channel.
+- Show foreground system notifications for live chat messages and unread job assignments.
+- Show unread Job and Chat counts in the persistent mobile dock.
+- Retained API notification polling as the current assignment source while server-side FCM delivery is prepared.
+
+## v-1.0.98
+
+### [v 1.0.98] 2026-09-02 8:53 pm - Mobile party lookup and optional customer mapping
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.98.
+- Removed the required Customer field from the unified mobile enquiry form.
+- Added an optional exact-mobile lookup that searches live ERPNext Customer and Supplier records.
+- Show every matching party in the mobile selection drawer with its Customer or Supplier type.
+- Save a selected Customer to the ERPNext enquiry Customer field.
+- Show a selected Supplier in the preview without writing it to the Customer-only ERPNext field.
+- Replaced the Contact-based lookup API with the live CRM party-by-mobile contract.
+- Updated the Flutter fallback version so the lock screen and account menu report the current release.
 
 ## v-1.0.97
 
