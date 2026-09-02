@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:techmedia_flutter/core/api/techmedia_api.dart';
 import 'package:techmedia_flutter/core/auth/secure_session_store.dart';
 import 'package:techmedia_flutter/core/update/app_update_service.dart';
+import 'package:techmedia_flutter/app/app_footer_dock.dart';
+import 'package:techmedia_flutter/app/dashboard_navigation.dart';
 import 'package:techmedia_flutter/features/auth/login_page.dart';
 import 'package:techmedia_flutter/features/auth/pin_auth_pages.dart';
 import 'package:techmedia_flutter/features/dashboard/dashboard_list_page.dart';
@@ -355,20 +357,33 @@ void main() {
   testWidgets('shows the dashboard dock destinations', (
     WidgetTester tester,
   ) async {
+    final navigation = DashboardNavigation();
     await tester.pumpWidget(
       MaterialApp(
-        home: DashboardPage(
-          api: TechMediaApi('https://app.techmedia.in/api/platform'),
-          session: const UserSession(
-            accessToken: 'test-token',
-            profile: UserProfile(
-              name: 'Vijay Anand',
-              email: 'vijay@techmedia.in',
-              role: 'admin',
+        home: Stack(
+          children: [
+            DashboardPage(
+              api: TechMediaApi('https://app.techmedia.in/api/platform'),
+              session: const UserSession(
+                accessToken: 'test-token',
+                profile: UserProfile(
+                  name: 'Vijay Anand',
+                  email: 'vijay@techmedia.in',
+                  role: 'admin',
+                ),
+              ),
+              navigation: navigation,
+              onSignOut: () {},
+              enableLiveNotifications: false,
             ),
-          ),
-          onSignOut: () {},
-          enableLiveNotifications: false,
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: AppFooterDock(
+                selectedIndex: navigation.selectedIndex,
+                onDestinationSelected: navigation.selectDockDestination,
+              ),
+            ),
+          ],
         ),
       ),
     );

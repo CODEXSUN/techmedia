@@ -78,6 +78,40 @@ class TechMediaApi {
     return Future.wait(jobs.map((item) => job(accessToken, item.sourceId)));
   }
 
+  Future<List<CrmCustomerReference>> customerReferences({
+    required String accessToken,
+    String search = '',
+  }) async {
+    final data = await _request(
+      '/crm/enquiries/customer-references',
+      accessToken: accessToken,
+      query: search.trim().isEmpty ? const {} : {'search': search.trim()},
+    );
+    if (data is! List) {
+      throw const TechMediaApiException('Unexpected customer lookup response.');
+    }
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(CrmCustomerReference.fromJson)
+        .toList();
+  }
+
+  Future<CrmCustomerReference?> customerByMobile({
+    required String accessToken,
+    required String mobile,
+  }) async {
+    final data = await _request(
+      '/crm/enquiries/customer-by-mobile',
+      accessToken: accessToken,
+      query: {'mobile': mobile},
+    );
+    if (data == null) return null;
+    if (data is! Map<String, dynamic>) {
+      throw const TechMediaApiException('Unexpected contact lookup response.');
+    }
+    return CrmCustomerReference.fromJson(data);
+  }
+
   Future<CrmJob> job(String accessToken, String id) async {
     final data = await _request(
       '/crm/enquiries/${Uri.encodeComponent(id)}',
@@ -163,6 +197,38 @@ class TechMediaApi {
         'mobile': mobile,
         'occurredAt': occurredAt.toUtc().toIso8601String(),
         'title': title,
+      },
+    );
+    return CrmJob.fromJson(data as Map<String, dynamic>);
+  }
+
+  Future<CrmJob> createEnquiry({
+    required String accessToken,
+    required String customer,
+    required String mobile,
+    required String title,
+    required String enquiryGroup,
+    required String? assignedToUserId,
+    required String message,
+  }) async {
+    final data = await _request(
+      '/crm/enquiries',
+      accessToken: accessToken,
+      method: 'POST',
+      body: {
+        'assignedToUserId': assignedToUserId,
+        'customer': customer,
+        'enquiryDate': null,
+        'enquiryGroup': enquiryGroup,
+        'messages': [
+          {'comment': message, 'mode': 'comment'},
+        ],
+        'mobile': mobile,
+        'priority': 'normal',
+        'schedules': const [],
+        'status': 'new',
+        'title': title,
+        'workspace': message,
       },
     );
     return CrmJob.fromJson(data as Map<String, dynamic>);
@@ -377,6 +443,19 @@ class UserSession {
       profile: UserProfile.fromJson(json),
     );
   }
+}
+
+class CrmCustomerReference {
+  const CrmCustomerReference({required this.id, required this.name});
+
+  factory CrmCustomerReference.fromJson(Map<String, dynamic> json) =>
+      CrmCustomerReference(
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+      );
+
+  final String id;
+  final String name;
 }
 
 class UserProfile {

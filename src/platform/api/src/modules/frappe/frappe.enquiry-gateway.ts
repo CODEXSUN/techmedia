@@ -179,6 +179,30 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
       });
   }
 
+  async function loadCustomerByMobile(mobile: string) {
+    const target = await connection();
+    const query = new URLSearchParams({
+      fields: JSON.stringify(["name"]),
+      filters: JSON.stringify([["mobile_no", "=", mobile]]),
+      limit_page_length: "1"
+    });
+    const response = await frappeRequest<{ data?: Array<{ name?: string }> }>(
+      target,
+      `/api/resource/Contact?${query}`
+    );
+    const contactName = response.data?.[0]?.name?.trim();
+    if (!contactName) return null;
+    const contact = await frappeRequest<{ data?: { links?: Array<{ link_doctype?: string; link_name?: string }> } }>(
+      target,
+      `/api/resource/Contact/${encodeURIComponent(contactName)}`
+    );
+    const customerId = contact.data?.links
+      ?.find((link) => link.link_doctype === "Customer")
+      ?.link_name?.trim();
+    if (!customerId) return null;
+    return (await loadCustomersByIds([customerId]))[0] ?? null;
+  }
+
   async function loadEnquiryOptions(
     suppliedTarget?: FrappeConnectionCredentials
   ): Promise<FrappeLiveEnquiryOptions> {
@@ -213,6 +237,10 @@ export const frappeLiveEnquiryGatewayContract: FrappeLiveEnquiryGatewayFactory =
 
     async customersByIds(ids) {
       return loadCustomersByIds(ids);
+    },
+
+    async customerByMobile(mobile) {
+      return loadCustomerByMobile(mobile);
     },
 
     async list(input) {

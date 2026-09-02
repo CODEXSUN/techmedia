@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/config/app_config.dart';
+
 class PinSetupPage extends StatefulWidget {
   const PinSetupPage({
     super.key,
@@ -212,62 +214,79 @@ class _PinUnlockPageState extends State<PinUnlockPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(Icons.lock_rounded, size: 54),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Unlock TechMedia',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(widget.email, textAlign: TextAlign.center),
-                  const SizedBox(height: 24),
-                  _PinField(
-                    controller: _pin,
-                    focusNode: _pinFocus,
-                    label: 'PIN',
-                    autofocus: true,
-                    onCompleted: (_) {
-                      if (!_checking) _unlock();
-                    },
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+        child: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Icon(Icons.lock_rounded, size: 54),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Unlock TechMedia',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineSmall,
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  FilledButton(
-                    onPressed: _checking ? null : _unlock,
-                    child: const Text('Unlock'),
+                      const SizedBox(height: 6),
+                      Text(widget.email, textAlign: TextAlign.center),
+                      const SizedBox(height: 24),
+                      _PinField(
+                        controller: _pin,
+                        focusNode: _pinFocus,
+                        label: 'PIN',
+                        autofocus: true,
+                        onCompleted: (_) {
+                          if (!_checking) _unlock();
+                        },
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      FilledButton(
+                        onPressed: _checking ? null : _unlock,
+                        child: const Text('Unlock'),
+                      ),
+                      if (widget.biometricEnabled)
+                        TextButton.icon(
+                          onPressed: _checking ? null : _useBiometric,
+                          icon: const Icon(Icons.fingerprint),
+                          label: const Text('Use biometric'),
+                        ),
+                      TextButton(
+                        onPressed: widget.onUsePassword,
+                        child: const Text('Use email and password'),
+                      ),
+                    ],
                   ),
-                  if (widget.biometricEnabled)
-                    TextButton.icon(
-                      onPressed: _checking ? null : _useBiometric,
-                      icon: const Icon(Icons.fingerprint),
-                      label: const Text('Use biometric'),
-                    ),
-                  TextButton(
-                    onPressed: widget.onUsePassword,
-                    child: const Text('Use email and password'),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  'v${AppConfig.appVersion}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: const Color(0xFF968D9F),
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

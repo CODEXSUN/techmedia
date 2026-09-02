@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/techmedia_api.dart';
 import '../../core/auth/secure_session_store.dart';
 import 'admin_call_log_page.dart';
-import 'call_log_enquiry_form_page.dart';
+import 'home_enquiry_form_page.dart';
 import 'call_log_note_store.dart';
 
 class CallLogNotesPage extends StatefulWidget {
@@ -128,10 +128,11 @@ class _CallLogNotesPageState extends State<CallLogNotesPage> {
   Future<void> _openEnquiry(CallLogNote? note) async {
     final posted = await Navigator.of(context).push<CrmJob>(
       MaterialPageRoute(
-        builder: (context) => CallLogEnquiryFormPage(
+        builder: (context) => HomeEnquiryFormPage(
           api: widget.api,
           session: widget.session,
-          entry: widget.entry,
+          initialCustomer: widget.entry.savedName,
+          initialMobile: widget.entry.mobile,
           initialMessage: note?.content ?? '',
         ),
       ),

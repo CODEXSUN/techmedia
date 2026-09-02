@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/api/techmedia_api.dart';
 import '../../core/platform/mobile_actions.dart';
-import 'call_log_enquiry_form_page.dart';
+import 'home_enquiry_form_page.dart';
 import 'call_log_notes_page.dart';
 
 class AdminCallLogPage extends StatefulWidget {
@@ -146,10 +146,11 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
   Future<void> _openEnquiryForm(CallLogEntry entry) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (context) => CallLogEnquiryFormPage(
+        builder: (context) => HomeEnquiryFormPage(
           api: widget.api,
           session: widget.session,
-          entry: entry,
+          initialCustomer: entry.savedName,
+          initialMobile: entry.mobile,
         ),
       ),
     );

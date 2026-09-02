@@ -10,6 +10,8 @@ import '../features/auth/login_page.dart';
 import '../features/auth/change_password_dialog.dart';
 import '../features/auth/pin_auth_pages.dart';
 import '../features/dashboard/dashboard_page.dart';
+import 'app_footer_dock.dart';
+import 'dashboard_navigation.dart';
 
 class TechMediaFlutterApp extends StatefulWidget {
   const TechMediaFlutterApp({super.key});
@@ -24,6 +26,7 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
   final _updates = AppUpdateService();
   final _secureSession = SecureSessionStore();
   final _navigatorKey = GlobalKey<NavigatorState>();
+  final _dashboardNavigation = DashboardNavigation();
   UserSession? _session;
   StoredSession? _storedSession;
   String _lastEmail = '';
@@ -41,6 +44,7 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _dashboardNavigation.dispose();
     super.dispose();
   }
 
@@ -330,6 +334,12 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
         scaffoldBackgroundColor: const Color(0xFFF9F7FC),
         useMaterial3: true,
       ),
+      builder: (context, child) => _AuthenticatedAppShell(
+        navigation: _dashboardNavigation,
+        navigatorKey: _navigatorKey,
+        showDock: _stage == _AuthStage.dashboard,
+        child: child ?? const SizedBox.shrink(),
+      ),
       home: _buildHome(),
     );
   }
@@ -365,6 +375,7 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
         return DashboardPage(
           api: _api,
           session: _session!,
+          navigation: _dashboardNavigation,
           onResetPin: _resetPin,
           onChangePassword: _changePassword,
           onCheckForUpdate: () => _checkForUpdate(reportCurrent: true),
@@ -375,6 +386,58 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
 }
 
 enum _AuthStage { loading, login, setupPin, unlock, dashboard }
+
+class _AuthenticatedAppShell extends StatelessWidget {
+  const _AuthenticatedAppShell({
+    required this.navigation,
+    required this.navigatorKey,
+    required this.showDock,
+    required this.child,
+  });
+
+  final DashboardNavigation navigation;
+  final GlobalKey<NavigatorState> navigatorKey;
+  final bool showDock;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!showDock) return child;
+    return AnimatedBuilder(
+      animation: navigation,
+      builder: (context, _) {
+        final keyboardIsVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+        final dockIsVisible = !keyboardIsVisible;
+        return Stack(
+          children: [
+            Padding(
+              padding: EdgeInsets.only(bottom: dockIsVisible ? 82 : 0),
+              child: child,
+            ),
+            if (dockIsVisible)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  child: AppFooterDock(
+                    selectedIndex: navigation.selectedIndex,
+                    onDestinationSelected: (index) {
+                      navigatorKey.currentState?.popUntil(
+                        (route) => route.isFirst,
+                      );
+                      navigation.selectDockDestination(index);
+                    },
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
 
 class _AppUpdateDialog extends StatelessWidget {
   const _AppUpdateDialog({required this.release, required this.onInstall});

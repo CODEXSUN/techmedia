@@ -25,6 +25,7 @@ class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
   final _messageController = TextEditingController();
   final _messageFocus = FocusNode();
   Future<CrmCallEnquiryFormData>? _formData;
+  CrmCallEnquiryFormData? _loadedFormData;
   String? _group;
   String? _assignee;
   var _isSaving = false;
@@ -52,7 +53,22 @@ class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('New enquiry')),
+      appBar: AppBar(
+        title: const Text('New enquiry'),
+        actions: [
+          TextButton(
+            onPressed: _loadedFormData == null || _isSaving
+                ? null
+                : () => _save(_loadedFormData!),
+            child: _isSaving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Save'),
+          ),
+        ],
+      ),
       body: FutureBuilder<CrmCallEnquiryFormData>(
         future: _formData,
         builder: (context, snapshot) {
@@ -66,6 +82,7 @@ class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
             return const Center(child: CircularProgressIndicator());
           _focusMessage();
           final formData = snapshot.data!;
+          _loadedFormData = formData;
           _group ??= formData.groups
               .firstWhere(
                 (group) => group.value.toLowerCase() == 'calls',
@@ -80,86 +97,71 @@ class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
           final selectedAssignee = formData.assignees
               .where((assignee) => assignee.id == _assignee)
               .firstOrNull;
-          return Scaffold(
-            bottomNavigationBar: SafeArea(
-              minimum: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-              child: FilledButton.icon(
-                onPressed: _isSaving ? null : () => _save(formData),
-                icon: _isSaving
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add_rounded),
-                label: Text(_isSaving ? 'Posting enquiry…' : 'Post enquiry'),
-              ),
-            ),
-            body: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-              children: [
-                _ContactHeader(entry: widget.entry),
-                const SizedBox(height: 20),
-                if (_messageController.text.trim().isNotEmpty) ...[
-                  _EnquiryPreviewCard(
-                    title: _titleFromMessage(_messageController.text),
-                    message: _messageController.text,
-                    list: selectedGroup?.label ?? 'Choose a list',
-                    allocatedTo: selectedAssignee?.name ?? 'Not allocated',
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                TextField(
-                  controller: _messageController,
-                  focusNode: _messageFocus,
-                  minLines: 5,
-                  maxLines: 8,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    alignLabelWithHint: true,
-                    labelText: 'Message',
-                    border: _messageBorder(),
-                    enabledBorder: _messageBorder(),
-                    focusedBorder: _messageBorder(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: _group,
-                  decoration: const InputDecoration(labelText: 'List'),
-                  items: formData.groups
-                      .map(
-                        (group) => DropdownMenuItem(
-                          value: group.value,
-                          child: Text(group.label),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => _group = value),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String?>(
-                  initialValue: _assignee,
-                  decoration: const InputDecoration(labelText: 'Allocated'),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('Not allocated'),
-                    ),
-                    ...formData.assignees.map(
-                      (user) => DropdownMenuItem<String?>(
-                        value: user.id,
-                        child: Text(user.name),
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            children: [
+              _ContactHeader(entry: widget.entry),
+              const SizedBox(height: 20),
+              DropdownButtonFormField<String>(
+                initialValue: _group,
+                decoration: const InputDecoration(labelText: 'List'),
+                items: formData.groups
+                    .map(
+                      (group) => DropdownMenuItem(
+                        value: group.value,
+                        child: Text(group.label),
                       ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _group = value),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String?>(
+                initialValue: _assignee,
+                decoration: const InputDecoration(labelText: 'Allocated'),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Not allocated'),
+                  ),
+                  ...formData.assignees.map(
+                    (user) => DropdownMenuItem<String?>(
+                      value: user.id,
+                      child: Text(user.name),
                     ),
-                  ],
-                  onChanged: (value) => setState(() => _assignee = value),
+                  ),
+                ],
+                onChanged: (value) => setState(() => _assignee = value),
+              ),
+              const SizedBox(height: 20),
+              if (_messageController.text.trim().isNotEmpty) ...[
+                _EnquiryPreviewCard(
+                  title: _titleFromMessage(_messageController.text),
+                  message: _messageController.text,
+                  list: selectedGroup?.label ?? 'Choose a list',
+                  allocatedTo: selectedAssignee?.name ?? 'Not allocated',
                 ),
+                const SizedBox(height: 20),
               ],
-            ),
+              TextField(
+                controller: _messageController,
+                focusNode: _messageFocus,
+                minLines: 5,
+                maxLines: 8,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  alignLabelWithHint: true,
+                  labelText: 'Message',
+                  border: _messageBorder(),
+                  enabledBorder: _messageBorder(),
+                  focusedBorder: _messageBorder(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -168,6 +170,7 @@ class _CallLogEnquiryFormPageState extends State<CallLogEnquiryFormPage> {
 
   void _reload() => setState(() {
     _requestedMessageFocus = false;
+    _loadedFormData = null;
     _formData = widget.api.callEnquiryFormData(widget.session.accessToken);
   });
 

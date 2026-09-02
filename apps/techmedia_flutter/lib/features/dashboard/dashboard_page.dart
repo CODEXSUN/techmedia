@@ -5,7 +5,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/techmedia_api.dart';
 import '../../core/auth/secure_session_store.dart';
+import '../../core/config/app_config.dart';
 import '../../core/messaging/live_message_notifications.dart';
+import '../../app/dashboard_navigation.dart';
 import 'action_activity_page.dart';
 import 'admin_call_log_page.dart';
 import 'dashboard_home.dart';
@@ -16,14 +18,14 @@ import 'job_start_countdown.dart';
 import 'job_start_store.dart';
 import 'messages_sample_page.dart';
 import 'my_enquiries_page.dart';
-
-const _dockVerticalPadding = 8.0;
+import 'home_enquiry_form_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({
     super.key,
     required this.api,
     required this.session,
+    required this.navigation,
     required this.onSignOut,
     this.onResetPin,
     this.onCheckForUpdate,
@@ -33,6 +35,7 @@ class DashboardPage extends StatefulWidget {
 
   final TechMediaApi api;
   final UserSession session;
+  final DashboardNavigation navigation;
   final VoidCallback onSignOut;
   final Future<void> Function()? onResetPin;
   final Future<void> Function()? onCheckForUpdate;
@@ -44,7 +47,7 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  var _selectedIndex = 0;
+  var _homeRefreshKey = 0;
   final _messagesPageKey = GlobalKey<MessagesPageState>();
   late final LiveMessageNotifications _messageNotifications;
   late final DashboardJobsFeed _jobsFeed;
@@ -59,6 +62,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
     _jobsFeed = DashboardJobsFeed(api: widget.api, session: widget.session)
       ..start();
+    widget.navigation.addListener(_onNavigationChanged);
     _jobStartStore = JobStartStore(SecureSessionStore());
     unawaited(_restorePendingJobStarts());
     if (widget.enableLiveNotifications) {
@@ -81,6 +85,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   void dispose() {
+    widget.navigation.removeListener(_onNavigationChanged);
     _messageNotifications.dispose();
     _jobsFeed.dispose();
     super.dispose();
@@ -136,6 +141,10 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                 ),
                 PopupMenuDivider(),
+                PopupMenuItem<_HomeMenuAction>(
+                  enabled: false,
+                  child: _CurrentVersionMenuItem(version: AppConfig.appVersion),
+                ),
                 PopupMenuItem(
                   value: _HomeMenuAction.checkForUpdates,
                   child: _HomeMenuItem(
@@ -162,19 +171,22 @@ class _DashboardPageState extends State<DashboardPage> {
         },
       ),
       body: SafeArea(top: false, child: _buildBody()),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: _BottomDock(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: _onDestinationSelected,
-        ),
-      ),
+      floatingActionButton: _selectedIndex == 0
+          ? FloatingActionButton(
+              tooltip: 'Add',
+              onPressed: _showHomeAddMenu,
+              child: const Icon(Icons.add_rounded),
+            )
+          : null,
     );
   }
+
+  int get _selectedIndex => widget.navigation.selectedIndex;
 
   Widget _buildBody() {
     if (_selectedIndex == 0) {
       return DashboardHome(
+        key: ValueKey(_homeRefreshKey),
         api: widget.api,
         session: widget.session,
         jobsFeed: _jobsFeed,
@@ -201,15 +213,17 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  void _onDestinationSelected(int index) {
-    if (index == 3) {
-      _showMenu();
-      return;
+  void _onNavigationChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (widget.navigation.takeMenuRequest()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showMenu();
+      });
     }
-    _selectDestination(index == 2 ? 3 : index);
   }
 
-  void _selectDestination(int index) => setState(() => _selectedIndex = index);
+  void _selectDestination(int index) => widget.navigation.selectContent(index);
 
   Future<void> _openCallLogs() async {
     await Navigator.of(context).push<void>(
@@ -227,6 +241,30 @@ class _DashboardPageState extends State<DashboardPage> {
             MyEnquiriesPage(api: widget.api, session: widget.session),
       ),
     );
+  }
+
+  Future<void> _showHomeAddMenu() async {
+    final action = await showModalBottomSheet<_HomeAddAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListTile(
+          leading: const Icon(Icons.note_add_outlined),
+          title: const Text('New enquiry'),
+          subtitle: const Text('Create a new CRM enquiry.'),
+          onTap: () => Navigator.pop(context, _HomeAddAction.newEnquiry),
+        ),
+      ),
+    );
+    if (action == _HomeAddAction.newEnquiry && mounted) {
+      final created = await Navigator.of(context).push<CrmJob>(
+        MaterialPageRoute(
+          builder: (context) =>
+              HomeEnquiryFormPage(api: widget.api, session: widget.session),
+        ),
+      );
+      if (created != null && mounted) setState(() => _homeRefreshKey += 1);
+    }
   }
 
   void _handleHomeMenuAction(_HomeMenuAction action) {
@@ -315,6 +353,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
 enum _HomeMenuAction { resetPin, changePassword, checkForUpdates, signOut }
 
+enum _HomeAddAction { newEnquiry }
+
 class _HomeMenuItem extends StatelessWidget {
   const _HomeMenuItem({required this.icon, required this.label});
 
@@ -349,132 +389,17 @@ class _AccountMenuHeader extends StatelessWidget {
   );
 }
 
-class _BottomDock extends StatelessWidget {
-  const _BottomDock({
-    required this.selectedIndex,
-    required this.onDestinationSelected,
-  });
+class _CurrentVersionMenuItem extends StatelessWidget {
+  const _CurrentVersionMenuItem({required this.version});
 
-  final int selectedIndex;
-  final ValueChanged<int> onDestinationSelected;
+  final String version;
 
   @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: const Border(top: BorderSide(color: Color(0xFFF0ECF2))),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, _dockVerticalPadding, 10, 8),
-        child: Row(
-          children: List.generate(
-            _destinations.length,
-            (index) => Expanded(
-              child: _DockItem(
-                destination: _destinations[index],
-                isSelected: index == _dockSelectedIndex,
-                onTap: () => onDestinationSelected(index),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  int get _dockSelectedIndex => selectedIndex == 3 ? 2 : selectedIndex;
+  Widget build(BuildContext context) => Row(
+    children: [
+      const Icon(Icons.info_outline_rounded, size: 20),
+      const SizedBox(width: 12),
+      Expanded(child: Text('Current version $version')),
+    ],
+  );
 }
-
-class _DockItem extends StatelessWidget {
-  const _DockItem({
-    required this.destination,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final _Destination destination;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      label: destination.label,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 54),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                height: 42,
-                width: 42,
-                decoration: BoxDecoration(
-                  color: _Destination.backgroundColor.withValues(
-                    alpha: isSelected ? 1 : 0.55,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  isSelected ? destination.selectedIcon : destination.icon,
-                  color: _Destination.iconColor,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                destination.label,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: isSelected ? _Destination.iconColor : null,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Destination {
-  const _Destination({
-    required this.label,
-    required this.icon,
-    required this.selectedIcon,
-  });
-
-  final String label;
-  final IconData icon;
-  final IconData selectedIcon;
-
-  static const iconColor = Color(0xFF662C90);
-  static const backgroundColor = Color(0xFFF2E5FA);
-}
-
-const _destinations = [
-  _Destination(
-    label: 'Home',
-    icon: Icons.home_outlined,
-    selectedIcon: Icons.home,
-  ),
-  _Destination(
-    label: 'Job',
-    icon: Icons.business_center_outlined,
-    selectedIcon: Icons.business_center,
-  ),
-  _Destination(
-    label: 'Chat',
-    icon: Icons.forum_outlined,
-    selectedIcon: Icons.forum,
-  ),
-  _Destination(label: 'Menu', icon: Icons.menu, selectedIcon: Icons.menu),
-];

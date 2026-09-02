@@ -167,6 +167,7 @@ export type FrappeLiveEnquiryGateway = {
   countComments: (input: FrappeLiveEnquiryCommentMetricInput) => Promise<number | null>;
   customers: (search?: string) => Promise<FrappeLiveCustomerReference[]>;
   customersByIds: (ids: string[]) => Promise<FrappeLiveCustomerReference[]>;
+  customerByMobile: (mobile: string) => Promise<FrappeLiveCustomerReference | null>;
   delete: (name: string) => Promise<void>;
   employees: () => Promise<FrappeLiveEmployee[]>;
   get: (name: string) => Promise<FrappeLiveEnquiry>;

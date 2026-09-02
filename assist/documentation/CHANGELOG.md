@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.94
+Current version: 1.0.97
 
-Release tag: v-1.0.94
+Release tag: v-1.0.97
 
-Changelog label: v 1.0.94
+Changelog label: v 1.0.97
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,55 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.97
+
+### [v 1.0.97] 2026-09-02 3:17 pm - Mobile contact lookup and enquiry refinements
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.97.
+- Added a session-only preview visibility toggle and a dark Save action with white text to the shared mobile enquiry form.
+- Added a contact drawer that shows loading, an exact-number match with a Use customer action, or a clear no-contact result.
+- Added the live CRM customer-by-mobile API contract, resolving ERPNext Contact.mobile_no through its linked Customer record.
+- Displayed the configured app version in both the account menu and subtly at the bottom of the mobile unlock screen.
+
+## v-1.0.96
+
+### [v 1.0.96] 2026-09-02 2:32 pm - Unified mobile enquiry form
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.96.
+- Routed Home, My Enquiries, Call Log, and Call Notes creation actions to one New Enquiry form.
+- Added a bordered Save control in the top-right app bar and removed the duplicate bottom creation action.
+- Standardized the form order as preview, phone number, customer, list, allocated employee, and message.
+- Prefilled call-derived phone number, contact name, and rough call note text in the shared form.
+
+## v-1.0.95
+
+### [v 1.0.95] 2026-09-02 2:17 pm - Mobile enquiry workflow and persistent dock
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.95.
+- Made the Home, Job, Chat, and Menu dock persistent across authenticated mobile pages and return each destination to its main workspace.
+- Hide the dock only while the Android keyboard is open, so it never covers message or form entry.
+- Moved the call-based enquiry Save action to the top app bar and ordered List, Allocated, preview, then Message.
+- Added Home and My Enquiries creation entry points, list filtering, and creator-only enquiry browsing.
+- Corrected My Enquiries refresh state handling so it does not pass asynchronous work to `setState`.
 
 ## v-1.0.94
 

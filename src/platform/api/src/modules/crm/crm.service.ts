@@ -423,6 +423,11 @@ export class CrmService {
     return this.gateway.customers(search);
   }
 
+  async customerByMobile(mobile: string): Promise<CrmCustomerReference | null> {
+    await this.requireAnyView();
+    return this.gateway.customerByMobile(mobile);
+  }
+
   async enquiryReferences() {
     await this.requireAnyView();
     const records = await this.gateway.list({ employee: this.employee(), view: "created" });
