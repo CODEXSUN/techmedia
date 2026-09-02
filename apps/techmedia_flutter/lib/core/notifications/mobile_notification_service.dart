@@ -21,6 +21,24 @@ class MobileNotificationService extends ChangeNotifier {
 
   int get assignmentCount => _assignmentCount;
 
+  /// Registers this device as soon as an authenticated session is restored.
+  ///
+  /// This intentionally does not request notification permission. Android can
+  /// create an FCM registration token before a user reaches the unlocked app;
+  /// the normal service startup asks for display permission later.
+  static Future<void> registerDeviceForSession({
+    required TechMediaApi api,
+    required String accessToken,
+    String? token,
+  }) async {
+    final registrationToken = token ?? await FirebaseMessaging.instance.getToken();
+    if (registrationToken == null || registrationToken.trim().isEmpty) return;
+    await api.registerNotificationDevice(
+      accessToken: accessToken,
+      token: registrationToken,
+    );
+  }
+
   Future<void> start() async {
     await _initialize();
     _foregroundMessages = FirebaseMessaging.onMessage.listen(
@@ -62,12 +80,14 @@ class MobileNotificationService extends ChangeNotifier {
   Future<void> _registerDeviceToken(String? token) async {
     if (token == null || token.trim().isEmpty) return;
     try {
-      await api.registerNotificationDevice(
+      await registerDeviceForSession(
+        api: api,
         accessToken: session.accessToken,
         token: token,
       );
-    } on Exception {
-      // The next sign-in refreshes the device token if the API was unavailable.
+    } on Exception catch (error) {
+      // Never include the token in diagnostics.
+      debugPrint('Could not register this device for notifications: $error');
     }
   }
 

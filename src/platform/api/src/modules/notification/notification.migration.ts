@@ -3,7 +3,8 @@ import type { TechMediaDatabase } from "../../database/schema.js";
 
 export const notificationMigrations = [
   { key: "notification.inbox.outbox-v1" },
-  { key: "notification.inbox.fcm-device-tokens-v2" }
+  { key: "notification.inbox.fcm-device-tokens-v2" },
+  { key: "notification.inbox.fcm-device-token-uuid-v3" }
 ] as const;
 
 export async function migrateNotificationModule(database: Kysely<TechMediaDatabase>) {
@@ -39,6 +40,11 @@ export async function migrateNotificationModule(database: Kysely<TechMediaDataba
         INDEX notification_device_tokens_user_updated (user_id, updated_at),
         CONSTRAINT notification_device_tokens_user_fk FOREIGN KEY (user_id) REFERENCES users(id)
       ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    )
+    .execute(database);
+  await sql
+    .raw(
+      "ALTER TABLE notification_device_tokens MODIFY COLUMN uuid VARCHAR(36) NOT NULL"
     )
     .execute(database);
   await sql

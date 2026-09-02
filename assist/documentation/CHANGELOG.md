@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.100
+Current version: 1.0.101
 
-Release tag: v-1.0.100
+Release tag: v-1.0.101
 
-Changelog label: v 1.0.100
+Changelog label: v 1.0.101
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,21 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.101
+
+### [v 1.0.101] 2026-09-02 11:25 pm - Firebase device-token registration fix
+
+#### Database Changes
+
+- Changed `notification_device_tokens.uuid` from `VARCHAR(32)` to `VARCHAR(36)`.
+- Added a forward migration key for the UUID column correction.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.101.
+- Recorded the live device-token registration failure without storing an FCM device token in the changelog.
+- Retried device registration after a saved session is restored.
 
 ## v-1.0.100
 
