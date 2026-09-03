@@ -54,6 +54,7 @@ import { QuotationEnquiryTab } from "../quotation";
 import { useCrmEnquiryChildMutations, useCrmEnquiryMutations, useCrmUsersQuery } from "./crm.hooks";
 import { CrmJobForm } from "./crm.job-form";
 import { useCrmOptionLists } from "./crm.options";
+import { enquiryPropertyPayload } from "./crm.property-payload";
 import type {
   CrmEnquiry,
   CrmEnquirySavePayload,
@@ -146,7 +147,7 @@ export function CrmShow({
     try {
       const saved = await enquiryMutations.update.mutateAsync({
         id: record.frappeName,
-        payload: enquiryPayload(record, patch)
+        payload: enquiryPropertyPayload(record, patch)
       });
       onRecordChange(saved);
       toast.success("Enquiry properties updated", {
@@ -1461,28 +1462,6 @@ function plainText(value: string) {
     .replace(/&amp;/gu, "&")
     .replace(/\s+/gu, " ")
     .trim();
-}
-
-function enquiryPayload(
-  record: CrmEnquiry,
-  patch: Partial<
-    Pick<CrmEnquirySavePayload, "assignedToUserId" | "enquiryGroup" | "priority" | "status">
-  >
-): CrmEnquirySavePayload {
-  return {
-    assignedToUserId: record.assignedToUserId,
-    customer: record.customer,
-    enquiryDate: record.enquiryDate,
-    enquiryGroup: record.enquiryGroup,
-    messages: record.messages.map(({ comment }) => ({ comment })),
-    mobile: record.mobile,
-    priority: record.priority,
-    schedules: record.schedules.map(({ scheduledOn }) => ({ scheduledOn })),
-    status: record.status,
-    title: record.title,
-    workspace: record.workspace,
-    ...patch
-  };
 }
 
 function enquiryDisplayTitle(record: Pick<CrmEnquiry, "title" | "workspace">) {

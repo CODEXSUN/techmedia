@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/techmedia_api.dart';
+import 'duty_report_history.dart';
 
 class DutyPage extends StatefulWidget {
   const DutyPage({required this.api, required this.session, super.key});
@@ -204,7 +205,7 @@ class _DutyReportSheetState extends State<_DutyReportSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => SingleChildScrollView(
     padding: EdgeInsets.fromLTRB(
       20,
       4,
@@ -212,13 +213,16 @@ class _DutyReportSheetState extends State<_DutyReportSheet> {
       MediaQuery.viewInsetsOf(context).bottom + 24,
     ),
     child: Column(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
           widget.duty.sopName,
           style: Theme.of(context).textTheme.titleMedium,
         ),
+        if (widget.duty.reports.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          DutyReportHistory(reports: widget.duty.reports),
+        ],
         const SizedBox(height: 12),
         TextField(
           controller: _controller,

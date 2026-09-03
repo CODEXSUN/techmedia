@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/techmedia_api.dart';
+import 'assignee_picker.dart';
 
 class HomeEnquiryFormPage extends StatefulWidget {
   const HomeEnquiryFormPage({
@@ -31,16 +32,17 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
   String? _group;
   String? _assignee;
   String? _customerId;
-  String _partyName = '';
+  String? _matchedPartyName;
   var _isSaving = false;
   var _focusRequested = false;
-  var _showPreview = true;
 
   @override
   void initState() {
     super.initState();
     _customer.text = widget.initialCustomer;
-    _partyName = widget.initialCustomer;
+    _matchedPartyName = widget.initialCustomer.trim().isEmpty
+        ? null
+        : widget.initialCustomer.trim();
     _mobile.text = widget.initialMobile;
     _message.text = widget.initialMessage;
     _formData = _loadFormData();
@@ -60,17 +62,6 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
     appBar: AppBar(
       title: const Text('New enquiry'),
       actions: [
-        IconButton(
-          tooltip: _showPreview
-              ? 'Hide preview for this session'
-              : 'Show preview',
-          onPressed: () => setState(() => _showPreview = !_showPreview),
-          icon: Icon(
-            _showPreview
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
-          ),
-        ),
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: FilledButton(
@@ -103,28 +94,13 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
         final formData = snapshot.data!;
         _group ??= formData.groups.firstOrNull?.value;
         _focusMessage();
-        final selectedGroup = formData.groups
-            .where((group) => group.value == _group)
-            .firstOrNull;
-        final selectedAssignee = formData.assignees
-            .where((user) => user.id == _assignee)
-            .firstOrNull;
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
           children: [
-            if (_showPreview) ...[
-              _EnquiryPreview(
-                title: _titleFromMessage(_message.text),
-                list: selectedGroup?.label ?? 'Choose a list',
-                allocated: selectedAssignee?.name ?? 'Not allocated',
-                customer: _partyName,
-              ),
-              const SizedBox(height: 16),
-            ],
             TextField(
               controller: _mobile,
               keyboardType: TextInputType.phone,
-              onChanged: (_) => setState(() {}),
+              onChanged: _clearMatchedParty,
               decoration: InputDecoration(
                 labelText: 'Phone number',
                 suffixIcon: IconButton(
@@ -134,6 +110,10 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
                 ),
               ),
             ),
+            if (_matchedPartyName case final name?) ...[
+              const SizedBox(height: 6),
+              _MatchedPartyLabel(name: name),
+            ],
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _group,
@@ -149,21 +129,9 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
               onChanged: (value) => setState(() => _group = value),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<String?>(
-              initialValue: _assignee,
-              decoration: const InputDecoration(labelText: 'Allocated'),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Not allocated'),
-                ),
-                ...formData.assignees.map(
-                  (user) => DropdownMenuItem<String?>(
-                    value: user.id,
-                    child: Text(user.name),
-                  ),
-                ),
-              ],
+            AssigneePicker(
+              assignees: formData.assignees,
+              value: _assignee,
               onChanged: (value) => setState(() => _assignee = value),
             ),
             const SizedBox(height: 20),
@@ -173,7 +141,6 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
               minLines: 5,
               maxLines: 8,
               textCapitalization: TextCapitalization.sentences,
-              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 alignLabelWithHint: true,
                 border: OutlineInputBorder(),
@@ -227,6 +194,15 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  void _clearMatchedParty(String _) {
+    if (_customerId == null && _matchedPartyName == null) return;
+    setState(() {
+      _customerId = null;
+      _matchedPartyName = null;
+      _customer.clear();
+    });
   }
 
   Future<void> _lookupContact() async {
@@ -285,7 +261,7 @@ class _HomeEnquiryFormPageState extends State<HomeEnquiryFormPage> {
                       trailing: TextButton(
                         onPressed: () {
                           setState(() {
-                            _partyName = party.name;
+                            _matchedPartyName = party.name;
                             _customer.text = party.type == 'Customer'
                                 ? party.name
                                 : '';
@@ -337,31 +313,32 @@ class _PartyLookup {
   final String type;
 }
 
-class _EnquiryPreview extends StatelessWidget {
-  const _EnquiryPreview({
-    required this.title,
-    required this.list,
-    required this.allocated,
-    required this.customer,
-  });
+class _MatchedPartyLabel extends StatelessWidget {
+  const _MatchedPartyLabel({required this.name});
 
-  final String title;
-  final String list;
-  final String allocated;
-  final String customer;
+  final String name;
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: ListTile(
-      leading: const Icon(Icons.preview_outlined),
-      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        customer.isEmpty
-            ? '$list · $allocated'
-            : '$customer\n$list · $allocated',
+  Widget build(BuildContext context) => Row(
+    children: [
+      const Icon(
+        Icons.check_circle_outline_rounded,
+        color: Color(0xFF23824E),
+        size: 16,
       ),
-    ),
+      const SizedBox(width: 6),
+      Expanded(
+        child: Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: const Color(0xFF23824E),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    ],
   );
 }
 

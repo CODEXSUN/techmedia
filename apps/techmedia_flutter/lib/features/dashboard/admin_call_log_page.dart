@@ -32,7 +32,16 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
   Widget build(BuildContext context) {
     final callsRequest = _calls;
     return Scaffold(
-      appBar: AppBar(title: const Text('Call Logs')),
+      appBar: AppBar(
+        title: const Text('Call Logs'),
+        actions: [
+          _CallLogFilterMenu(
+            filter: _filter,
+            onSelected: (filter) => setState(() => _filter = filter),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: _checkingSavedAccess
           ? const Center(child: CircularProgressIndicator())
           : callsRequest == null
@@ -60,9 +69,6 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
                     slivers: [
                       SliverToBoxAdapter(
                         child: _CallLogControls(
-                          filter: _filter,
-                          onFilterChanged: (filter) =>
-                              setState(() => _filter = filter),
                           onSearchChanged: (value) => setState(
                             () => _query = value.trim().toLowerCase(),
                           ),
@@ -157,14 +163,8 @@ class _AdminCallLogPageState extends State<AdminCallLogPage> {
 }
 
 class _CallLogControls extends StatelessWidget {
-  const _CallLogControls({
-    required this.filter,
-    required this.onFilterChanged,
-    required this.onSearchChanged,
-  });
+  const _CallLogControls({required this.onSearchChanged});
 
-  final _CallFilter filter;
-  final ValueChanged<_CallFilter> onFilterChanged;
   final ValueChanged<String> onSearchChanged;
 
   @override
@@ -178,25 +178,40 @@ class _CallLogControls extends StatelessWidget {
             leading: const Icon(Icons.search),
             onChanged: onSearchChanged,
           ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SegmentedButton<_CallFilter>(
-              segments: _CallFilter.values
-                  .map(
-                    (item) =>
-                        ButtonSegment(value: item, label: Text(item.label)),
-                  )
-                  .toList(),
-              selected: {filter},
-              showSelectedIcon: false,
-              onSelectionChanged: (value) => onFilterChanged(value.first),
-            ),
-          ),
         ],
       ),
     );
   }
+}
+
+class _CallLogFilterMenu extends StatelessWidget {
+  const _CallLogFilterMenu({
+    required this.filter,
+    required this.onSelected,
+  });
+
+  final _CallFilter filter;
+  final ValueChanged<_CallFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<_CallFilter>(
+    tooltip: 'Filter calls: ${filter.menuLabel}',
+    icon: Icon(
+      filter == _CallFilter.all
+          ? Icons.filter_list_rounded
+          : Icons.filter_alt_rounded,
+    ),
+    onSelected: onSelected,
+    itemBuilder: (context) => _CallFilter.values
+        .map(
+          (item) => CheckedPopupMenuItem<_CallFilter>(
+            value: item,
+            checked: item == filter,
+            child: Text(item.menuLabel),
+          ),
+        )
+        .toList(),
+  );
 }
 
 class _CallLogCard extends StatelessWidget {
@@ -478,13 +493,13 @@ class CallLogEntry {
 }
 
 enum _CallFilter {
-  all('ALL'),
-  incoming('INCOMING'),
-  outgoing('OUTGOING'),
-  missed('MISSED');
+  all('All calls'),
+  incoming('Incoming'),
+  outgoing('Outgoing'),
+  missed('Missed');
 
-  const _CallFilter(this.label);
-  final String label;
+  const _CallFilter(this.menuLabel);
+  final String menuLabel;
 
   bool includes(CallLogEntry entry) => switch (this) {
     _CallFilter.all => true,

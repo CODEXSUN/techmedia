@@ -375,10 +375,10 @@ class _ConversationThreadState extends State<_ConversationThread> {
       await widget.api.markConversationRead(
         accessToken: widget.session.accessToken,
         conversationId: widget.conversation.id,
-        messageId: messages.last.id,
+        messageId: messages.first.id,
       );
     }
-    return messages;
+    return messages.reversed.toList(growable: false);
   }
 
   void _refresh() => setState(() => _messages = _loadMessages());
@@ -429,16 +429,14 @@ class _ConversationThreadState extends State<_ConversationThread> {
                 }
                 final messages = snapshot.data!;
                 return ListView.separated(
-                  reverse: true,
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
                   itemCount: messages.length,
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 8),
                   itemBuilder: (context, index) => _MessageBubble(
-                    message: messages[messages.length - index - 1],
+                    message: messages[index],
                     mine:
-                        messages[messages.length - index - 1].senderEmail
-                            .toLowerCase() ==
+                        messages[index].senderEmail.toLowerCase() ==
                         widget.session.profile.email.toLowerCase(),
                   ),
                 );

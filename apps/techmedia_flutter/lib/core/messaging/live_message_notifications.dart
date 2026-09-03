@@ -19,6 +19,7 @@ class LiveMessageNotifications extends ChangeNotifier {
   final ValueChanged<int>? onNewUnreadMessages;
 
   WebSocketChannel? _channel;
+  Timer? _poller;
   Timer? _reconnectTimer;
   var _closed = false;
   var _authenticated = false;
@@ -31,6 +32,10 @@ class LiveMessageNotifications extends ChangeNotifier {
 
   Future<void> start() async {
     await refresh();
+    _poller = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => unawaited(refresh()),
+    );
     await _connect();
   }
 
@@ -117,6 +122,7 @@ class LiveMessageNotifications extends ChangeNotifier {
   @override
   void dispose() {
     _closed = true;
+    _poller?.cancel();
     _reconnectTimer?.cancel();
     unawaited(_channel?.sink.close());
     super.dispose();

@@ -87,14 +87,24 @@ class _DockItem extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Badge(
-                isLabelVisible: badgeCount > 0,
-                label: Text(badgeCount > 99 ? '99+' : '$badgeCount'),
-                child: Icon(
-                  isSelected ? destination.selectedIcon : destination.icon,
-                  color: _Destination.iconColor,
-                  size: 24,
-                ),
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    isSelected ? destination.selectedIcon : destination.icon,
+                    color: _Destination.iconColor,
+                    size: 24,
+                  ),
+                  if (badgeCount > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: _DockBadge(
+                        label: badgeCount > 99 ? '99+' : '$badgeCount',
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 4),
@@ -108,6 +118,32 @@ class _DockItem extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    ),
+  );
+}
+
+class _DockBadge extends StatelessWidget {
+  const _DockBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minHeight: 16, minWidth: 16),
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    alignment: Alignment.center,
+    decoration: const BoxDecoration(
+      color: Color(0xFFC62828),
+      borderRadius: BorderRadius.all(Radius.circular(9)),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        height: 1,
       ),
     ),
   );

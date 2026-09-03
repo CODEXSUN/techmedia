@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.103
+Current version: 1.0.106
 
-Release tag: v-1.0.103
+Release tag: v-1.0.106
 
-Changelog label: v 1.0.103
+Changelog label: v 1.0.106
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,53 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.106
+
+### [v 1.0.106] 2026-09-03 10:48 pm - CRM enquiry status edit fix
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.106.
+- Updated the Flutter application version to 1.0.106+106.
+- Fixed enquiry property saves when existing comments are blank or exceed new-comment limits.
+- Kept comment history out of property update requests and preserved existing status details.
+- Added regression tests for New-to-Closed edits, large comment histories, and live status values.
+
+## v-1.0.105
+
+### [v 1.0.105] 2026-09-03 12:26 am - Ascending chat order and notification fallback
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.105.
+- Rendered mobile conversation messages from oldest to newest.
+- Marked the newest loaded message as read.
+- Kept local unread-chat notification fallback active while WebSocket reconnects.
+
+## v-1.0.104
+
+### [v 1.0.104] 2026-09-03 12:18 am - Centered dock badges and chat notification fallback
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.104.
+- Kept each dock icon centered when a notification badge is visible.
+- Replaced the Material badge layout with a positioned badge overlay.
+- Added a 20-second unread-chat refresh fallback when the WebSocket is unavailable.
+- Kept FCM foreground chat alerts and Android notification permission support enabled.
 
 ## v-1.0.103
 
