@@ -228,7 +228,7 @@ class _PinUnlockPageState extends State<PinUnlockPage> {
                       const Icon(Icons.lock_rounded, size: 54),
                       const SizedBox(height: 18),
                       Text(
-                        'Unlock TechMedia',
+                        'Unlock ${AppConfig.brandName}',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),

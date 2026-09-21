@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
 const appRoot = join(root, "apps", "techmedia_flutter");
+const appBrandName = loadAppBrandName();
 const command = process.argv[2];
 const extraArgs = process.argv.slice(3);
 const supported = new Set(["build-debug", "build-release", "release", "run"]);
@@ -17,7 +18,9 @@ if (!command || !supported.has(command)) {
   );
 }
 
-if (command === "run") runFlutter(["run", ...extraArgs]);
+if (command === "run") {
+  runFlutter(["run", `--dart-define=TECHMEDIA_APP_BRAND=${appBrandName}`, ...extraArgs]);
+}
 if (command === "build-debug") buildApk("debug");
 if (command === "build-release") buildApk("release");
 if (command === "release") {
@@ -31,7 +34,13 @@ if (command === "release") {
 
 function buildApk(mode) {
   const version = repositoryVersion();
-  runFlutter(["build", "apk", `--${mode}`, `--dart-define=TECHMEDIA_APP_VERSION=${version}`]);
+  runFlutter([
+    "build",
+    "apk",
+    `--${mode}`,
+    `--dart-define=TECHMEDIA_APP_VERSION=${version}`,
+    `--dart-define=TECHMEDIA_APP_BRAND=${appBrandName}`
+  ]);
   if (mode === "release") copyVersionedRelease(version);
 }
 
@@ -50,9 +59,14 @@ function runFlutter(args) {
     platform() === "win32"
       ? spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", executable, ...args], {
           cwd: appRoot,
+          env: { ...process.env, APP_BRAND_NAME: appBrandName },
           stdio: "inherit"
         })
-      : spawnSync(executable, args, { cwd: appRoot, stdio: "inherit" });
+      : spawnSync(executable, args, {
+          cwd: appRoot,
+          env: { ...process.env, APP_BRAND_NAME: appBrandName },
+          stdio: "inherit"
+        });
   if (result.error) fail(result.error.message);
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
@@ -78,6 +92,15 @@ function repositoryVersion() {
   if (typeof value !== "string" || !/^\d+\.\d+\.\d+$/u.test(value))
     fail("Invalid repository version.");
   return value;
+}
+
+function loadAppBrandName() {
+  const environmentPath = join(root, ".env");
+  if (!existsSync(environmentPath)) return "Tech Media";
+  const source = readFileSync(environmentPath, "utf8");
+  const match = source.match(/^APP_BRAND_NAME\s*=\s*(.+?)\s*$/mu);
+  const value = match?.[1]?.replace(/^['"]|['"]$/gu, "").trim();
+  return value || "Tech Media";
 }
 
 function fail(message) {

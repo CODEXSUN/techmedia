@@ -1,9 +1,12 @@
 plugins {
     id("com.android.application")
-    id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val appBrandName = providers.environmentVariable("APP_BRAND_NAME")
+    .orElse("Tech Media")
+    .get()
 
 android {
     namespace = "in.techmedia.techmedia_flutter"
@@ -18,9 +21,13 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
+    buildFeatures {
+        resValues = true
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "in.techmedia.techmedia_flutter"
+        applicationId = "in.techmedia.tmapp"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -31,6 +38,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        resValue("string", "app_name", appBrandName)
     }
 
     buildTypes {

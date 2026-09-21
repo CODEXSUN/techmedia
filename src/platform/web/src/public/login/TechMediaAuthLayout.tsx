@@ -1,5 +1,6 @@
 import { Building2 } from "lucide-react";
 import type { ReactNode } from "react";
+import { appBrandDescription, appBrandName } from "../../shared/brand/app-brand";
 
 type TechMediaAuthLayoutProps = {
   children: ReactNode;
@@ -9,7 +10,7 @@ type TechMediaAuthLayoutProps = {
 
 export function TechMediaAuthLayout({ children, surface, title }: TechMediaAuthLayoutProps) {
   const Icon = Building2;
-  const description = "Access Tech Media with your registered credentials.";
+  const description = appBrandDescription;
 
   return (
     <main className="auth-page">
@@ -32,7 +33,7 @@ export function TechMediaAuthLayout({ children, surface, title }: TechMediaAuthL
               <Icon size={13} strokeWidth={2.25} />
             </span>
           </span>
-          <strong>Tech Media</strong>
+          <strong>{appBrandName}</strong>
         </div>
         <div className={`auth-card-frame auth-card-frame-${surface}`}>
           <div className="auth-card">

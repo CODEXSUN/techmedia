@@ -19,6 +19,7 @@ import {
 import { applicationEntryPath } from "../../desks/app/app-shell-access";
 import { TechMediaAuthLayout } from "./TechMediaAuthLayout";
 import { TechMediaLandingLayout } from "./TechMediaLandingLayout";
+import { appBrandName } from "../../shared/brand/app-brand";
 
 export function LoginPage() {
   return <LoginSurface landing={false} />;
@@ -152,7 +153,7 @@ function LoginSurface({ landing }: { landing: boolean }) {
   return landing ? (
     <TechMediaLandingLayout>{form}</TechMediaLandingLayout>
   ) : (
-    <TechMediaAuthLayout surface="app" title="Tech Media Login">
+    <TechMediaAuthLayout surface="app" title={`${appBrandName} Login`}>
       {form}
     </TechMediaAuthLayout>
   );

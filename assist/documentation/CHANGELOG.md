@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.106
+Current version: 1.0.107
 
-Release tag: v-1.0.106
+Release tag: v-1.0.107
 
-Changelog label: v 1.0.106
+Changelog label: v 1.0.107
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,24 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.107
+
+### [v 1.0.107] 2026-09-20 9:30 pm - Client branding and TMApp diagnostic
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.107.
+- Added `APP_BRAND_NAME` to the root environment configuration and example file.
+- Applied the configured brand to web login surfaces, sidebar branding, browser titles, Flutter authentication text, and Android launcher labels.
+- Removed Frappe wording from the login page.
+- Changed the diagnostic Android package to `in.techmedia.tmapp` so it can install beside TechMedia.
+- Removed Firebase Core, Firebase Messaging, FCM token registration, and the Google Services build plugin.
+- Kept local notifications, live messaging, and API polling available without Firebase.
 
 ## v-1.0.106
 

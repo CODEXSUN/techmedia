@@ -70,18 +70,6 @@ class TechMediaApi {
         .toList();
   }
 
-  Future<void> registerNotificationDevice({
-    required String accessToken,
-    required String token,
-  }) async {
-    await _request(
-      '/notifications/devices',
-      accessToken: accessToken,
-      method: 'POST',
-      body: {'token': token},
-    );
-  }
-
   Future<List<CrmJob>> createdEnquiries(String accessToken) async {
     final data = await _request(
       '/crm/enquiries',

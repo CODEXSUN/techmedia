@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/techmedia_api.dart';
+import '../../core/config/app_config.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -52,7 +53,7 @@ class _LoginPageState extends State<LoginPage> {
     } on TechMediaApiException catch (error) {
       setState(() => _error = error.message);
     } catch (_) {
-      setState(() => _error = 'Could not connect to TechMedia.');
+      setState(() => _error = 'Could not connect to ${AppConfig.brandName}.');
     } finally {
       if (mounted) setState(() => _isSigningIn = false);
     }

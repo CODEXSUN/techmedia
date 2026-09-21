@@ -1,6 +1,11 @@
 class AppConfig {
   const AppConfig._();
 
+  static const brandName = String.fromEnvironment(
+    'TECHMEDIA_APP_BRAND',
+    defaultValue: 'Tech Media',
+  );
+
   static const appVersion = String.fromEnvironment(
     'TECHMEDIA_APP_VERSION',
     defaultValue: '1.0.99',

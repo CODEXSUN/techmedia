@@ -1,5 +1,6 @@
 import { ArrowRight, Building2, CheckCircle2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { appBrandDescription, appBrandName } from "../../shared/brand/app-brand";
 
 export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
   const [slide, setSlide] = useState(0);
@@ -14,7 +15,7 @@ export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
 
   return (
     <main className="techmedia-login-page">
-      <section className="techmedia-login-shell" aria-label="Tech Media Login">
+      <section className="techmedia-login-shell" aria-label={`${appBrandName} Login`}>
         <div className="techmedia-login-story">
           <div className="techmedia-login-brand">
             <span className="auth-surface-mark" data-surface="app">
@@ -24,13 +25,13 @@ export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
               </span>
             </span>
             <span>
-              <strong>Tech Media</strong>
+              <strong>{appBrandName}</strong>
               <small>Live CRM workspace</small>
             </span>
           </div>
           <div className="techmedia-login-slider" aria-live="polite">
             <span className="techmedia-login-eyebrow">
-              <CheckCircle2 size={14} /> Connected to Frappe
+              <CheckCircle2 size={14} /> Connected workspace
             </span>
             <p key={messages[slide]}>{messages[slide]}</p>
             <div className="techmedia-login-dots" aria-hidden="true">
@@ -46,13 +47,13 @@ export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
         <div className="techmedia-login-panel">
           <div className="techmedia-login-panel-brand" aria-hidden="true">
             <Logo />
-            <span>Tech Media</span>
+            <span>{appBrandName}</span>
           </div>
           <div className="auth-card-frame auth-card-frame-app techmedia-login-card-frame">
             <div className="auth-card techmedia-login-card">
               <header className="auth-card-header">
                 <h1>Welcome back</h1>
-                <p>Access Tech Media with your registered credentials.</p>
+                <p>{appBrandDescription}</p>
               </header>
               {children}
             </div>
@@ -84,6 +85,6 @@ function Logo() {
 
 const messages = [
   "See every assigned enquiry without losing the next action.",
-  "Create and update estimates directly on the connected Frappe site.",
+  "Create and update estimates directly in your workspace.",
   "Keep customer follow-up clear, current, and accountable."
 ];

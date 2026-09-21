@@ -1,9 +1,9 @@
 ﻿import { useEffect } from "react";
 
-const applicationName = "Tech Media";
+import { appBrandName } from "../brand/app-brand";
 
 export function setPlatformDocumentTitle(pageTitle: string) {
-  document.title = `${applicationName} | ${pageTitle}`;
+  document.title = `${appBrandName} | ${pageTitle}`;
 }
 
 const pageTitles: Record<string, string> = {

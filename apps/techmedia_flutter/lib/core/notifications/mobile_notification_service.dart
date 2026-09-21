@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../api/techmedia_api.dart';
@@ -15,35 +14,12 @@ class MobileNotificationService extends ChangeNotifier {
       FlutterLocalNotificationsPlugin();
   final Set<int> _knownNotificationIds = {};
   Timer? _poller;
-  StreamSubscription<RemoteMessage>? _foregroundMessages;
-  StreamSubscription<String>? _tokenRefresh;
   var _assignmentCount = 0;
 
   int get assignmentCount => _assignmentCount;
 
-  /// Registers this device as soon as an authenticated session is restored.
-  ///
-  /// This intentionally does not request notification permission. Android can
-  /// create an FCM registration token before a user reaches the unlocked app;
-  /// the normal service startup asks for display permission later.
-  static Future<void> registerDeviceForSession({
-    required TechMediaApi api,
-    required String accessToken,
-    String? token,
-  }) async {
-    final registrationToken = token ?? await FirebaseMessaging.instance.getToken();
-    if (registrationToken == null || registrationToken.trim().isEmpty) return;
-    await api.registerNotificationDevice(
-      accessToken: accessToken,
-      token: registrationToken,
-    );
-  }
-
   Future<void> start() async {
     await _initialize();
-    _foregroundMessages = FirebaseMessaging.onMessage.listen(
-      _showRemoteMessage,
-    );
     await _refresh(isInitial: true);
     _poller = Timer.periodic(
       const Duration(seconds: 20),
@@ -69,36 +45,6 @@ class MobileNotificationService extends ChangeNotifier {
           AndroidFlutterLocalNotificationsPlugin
         >();
     await androidPlugin?.requestNotificationsPermission();
-    final messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission();
-    await _registerDeviceToken(await messaging.getToken());
-    _tokenRefresh = messaging.onTokenRefresh.listen(
-      (token) => unawaited(_registerDeviceToken(token)),
-    );
-  }
-
-  Future<void> _registerDeviceToken(String? token) async {
-    if (token == null || token.trim().isEmpty) return;
-    try {
-      await registerDeviceForSession(
-        api: api,
-        accessToken: session.accessToken,
-        token: token,
-      );
-    } on Exception catch (error) {
-      // Never include the token in diagnostics.
-      debugPrint('Could not register this device for notifications: $error');
-    }
-  }
-
-  void _showRemoteMessage(RemoteMessage message) {
-    final notification = message.notification;
-    final title =
-        notification?.title ??
-        message.data['title']?.toString() ??
-        'Tech Media';
-    final body = notification?.body ?? message.data['body']?.toString() ?? '';
-    unawaited(_show(id: message.hashCode, title: title, body: body));
   }
 
   Future<void> _refresh({bool isInitial = false}) async {
@@ -144,8 +90,6 @@ class MobileNotificationService extends ChangeNotifier {
   @override
   void dispose() {
     _poller?.cancel();
-    _foregroundMessages?.cancel();
-    _tokenRefresh?.cancel();
     super.dispose();
   }
 }

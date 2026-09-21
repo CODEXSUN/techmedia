@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { GlobalLoader } from "@codexsun/ui/components/global-loader";
 import { ApplicationLayout } from "@codexsun/ui/layouts/application-layout";
+import { appBrandName } from "../../shared/brand/app-brand";
 import type { SidemenuItem } from "@codexsun/ui/blocks/menu/sidemenu/sub/sidemenu-section";
 import { AuthGate } from "../../shared/auth/AuthGate";
 import { getToken } from "../../shared/api/platform-api";
@@ -362,7 +363,7 @@ export function AppDesk() {
     <AuthGate>
       <>
         <ApplicationLayout
-          brand={{ subtitle: "", title: "Tech Media" }}
+          brand={{ subtitle: "", title: appBrandName }}
           bottomMenuItems={bottomMenuItems}
           globalSearchPlaceholder="Search CRM enquiries"
           globalSearchValue={globalSearch}

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../core/api/techmedia_api.dart';
 import '../core/auth/secure_session_store.dart';
 import '../core/config/app_config.dart';
-import '../core/notifications/mobile_notification_service.dart';
 import '../core/update/app_update_service.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/change_password_dialog.dart';
@@ -33,7 +32,6 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
   String _lastEmail = '';
   _AuthStage _stage = _AuthStage.loading;
   var _checkingForUpdate = false;
-  Timer? _deviceRegistrationRetry;
 
   @override
   void initState() {
@@ -46,7 +44,6 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _deviceRegistrationRetry?.cancel();
     _dashboardNavigation.dispose();
     super.dispose();
   }
@@ -99,27 +96,6 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
       _storedSession = stored;
       _stage = _AuthStage.unlock;
     });
-    unawaited(_registerRestoredDevice(stored));
-  }
-
-  Future<void> _registerRestoredDevice(StoredSession stored) async {
-    try {
-      await MobileNotificationService.registerDeviceForSession(
-        api: _api,
-        accessToken: stored.accessToken,
-      );
-      _deviceRegistrationRetry?.cancel();
-      _deviceRegistrationRetry = null;
-    } on Exception catch (error) {
-      // The stored session remains private; diagnostics never include its token.
-      debugPrint('Device notification registration will retry: $error');
-      _deviceRegistrationRetry ??= Timer(const Duration(seconds: 15), () {
-        _deviceRegistrationRetry = null;
-        if (mounted && _storedSession?.accessToken == stored.accessToken) {
-          unawaited(_registerRestoredDevice(stored));
-        }
-      });
-    }
   }
 
   Future<void> _signedIn(UserSession session) async {
@@ -180,8 +156,6 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
   }
 
   Future<void> _requirePassword() async {
-    _deviceRegistrationRetry?.cancel();
-    _deviceRegistrationRetry = null;
     await _secureSession.clearSession();
     if (!mounted) return;
     setState(() {
@@ -192,8 +166,6 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
   }
 
   Future<void> _signOut() async {
-    _deviceRegistrationRetry?.cancel();
-    _deviceRegistrationRetry = null;
     await _secureSession.clearSession(forgetAccount: true);
     if (!mounted) return;
     setState(() {
@@ -303,7 +275,7 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
       if (release == null) {
         if (reportCurrent) {
           ScaffoldMessenger.of(appContext).showSnackBar(
-            const SnackBar(content: Text('TechMedia is up to date.')),
+            SnackBar(content: Text('${AppConfig.brandName} is up to date.')),
           );
         }
         return;
@@ -341,7 +313,7 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
       messenger.showSnackBar(
         const SnackBar(
           content: Text(
-            'Allow TechMedia to install updates, then choose Update again.',
+            'Allow ${AppConfig.brandName} to install updates, then choose Update again.',
           ),
         ),
       );
@@ -356,7 +328,7 @@ class _TechMediaFlutterAppState extends State<TechMediaFlutterApp>
     return MaterialApp(
       navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
-      title: 'TechMedia',
+      title: AppConfig.brandName,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF662C90)),
         scaffoldBackgroundColor: const Color(0xFFF9F7FC),
