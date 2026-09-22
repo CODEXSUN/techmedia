@@ -15,8 +15,7 @@ import type {
   FrappeUserPreview,
   FrappeUserVerificationResult
 } from "./frappe.types.js";
-import { updateFrappeEnvironment } from "./frappe.env-store.js";
-import { readFrappeConnection, readFrappeSettings, writeFrappeConnection } from "./frappe.connection-store.js";
+import { readFrappeSettings, recordFrappeVerification, writeFrappeConnection } from "./frappe.connection-store.js";
 
 const handshakePath = "/api/method/frappe.auth.get_logged_user";
 const maximumHandshakeResponseBytes = 64 * 1024;
@@ -63,11 +62,11 @@ export class FrappeService {
         baseUrl
       });
       if (matchesSavedConnection(input, baseUrl)) {
-        await saveVerificationState("live", result.checkedAt, result.checkedAt);
+        await saveVerificationState(this.context.database, "live", result.checkedAt, result.checkedAt);
       }
     } catch (error) {
       if (matchesSavedConnection(input, baseUrl)) {
-        await saveVerificationState("offline", new Date().toISOString());
+        await saveVerificationState(this.context.database, "offline", new Date().toISOString());
       }
       await recordAuditEvent({
         action: "verification_failed",
@@ -313,18 +312,12 @@ function matchesSavedConnection(input: FrappeConnectionVerificationPayload, base
 }
 
 async function saveVerificationState(
+  database: FrappeContext["database"],
   status: FrappeConnectionVerificationStatus,
   checkedAt: string,
-  verifiedAt = env.FRAPPE_LAST_VERIFIED_AT
+  verifiedAt: string | null = null
 ) {
-  const values = {
-    FRAPPE_LAST_CHECKED_AT: checkedAt,
-    FRAPPE_LAST_VERIFIED_AT: verifiedAt,
-    FRAPPE_UPDATED_AT: checkedAt,
-    FRAPPE_VERIFICATION_STATUS: status
-  };
-  await updateFrappeEnvironment(values);
-  Object.assign(env, values);
+  await recordFrappeVerification(database, status, checkedAt, verifiedAt);
 }
 
 function environmentConnection(): FrappeConnectionCredentials {

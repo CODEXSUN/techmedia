@@ -35,6 +35,10 @@ export async function writeFrappeConnection(database: Kysely<TechMediaDatabase>,
   return readFrappeSettings(database);
 }
 
+export async function recordFrappeVerification(database: Kysely<TechMediaDatabase>, status: FrappeConnectionVerificationStatus, checkedAt: string, verifiedAt: string | null = null) {
+  await database.updateTable("frappe_connection_settings").set({ verification_status: status, last_checked_at: new Date(checkedAt), last_verified_at: verifiedAt ? new Date(verifiedAt) : null }).where("id", "=", 1).execute();
+}
+
 function mapStored(row: StoredConnection) {
   const apiKey = row.api_key_ciphertext ? decryptIntegrationCredential(row.api_key_ciphertext, "frappe-application") : "";
   const apiSecret = row.api_secret_ciphertext ? decryptIntegrationCredential(row.api_secret_ciphertext, "frappe-application") : "";

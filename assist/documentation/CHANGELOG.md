@@ -27,6 +27,7 @@ New entries must keep database-facing work and application code work separate.
 
 - Bumped repository version to 1.0.119.
 - Added the database-owned Frappe application-connection record; its credentials are encrypted before storage and are never returned by the API.
+- Persisted Frappe verification results in that same record so the live/offline badge survives a browser refresh.
 - Changed fresh-install defaults to create `admin@admin.com` as the protected `super-admin` when `INITIAL_ADMIN_PASSWORD` is supplied.
 - Updated TechMedia and Rainbow deployment templates to use the same protected administrator account default.
 
