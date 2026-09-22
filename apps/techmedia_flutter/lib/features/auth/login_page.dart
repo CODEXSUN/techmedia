@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/techmedia_api.dart';
 import '../../core/config/app_config.dart';
+import '../../core/presentation/app_brand_logo.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
@@ -74,11 +74,9 @@ class _LoginPageState extends State<LoginPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: SvgPicture.asset(
-                      'assets/logo.svg',
+                    child: AppBrandLogo(
                       width: 58,
                       height: 52,
-                      fit: BoxFit.contain,
                     ),
                   ),
                   const SizedBox(height: 22),

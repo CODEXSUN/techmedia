@@ -59,3 +59,12 @@ test("property edits preserve the selected live status without pairing it", () =
   assert.equal(payload.assignedToUserId, null);
   assert.equal(payload.enquiryGroup, "Follow");
 });
+
+test("schedule date edits replace the live enquiry schedule", () => {
+  const payload = enquiryPropertyPayload(record, {
+    schedules: [{ scheduledOn: "2026-09-22" }]
+  });
+
+  assert.deepEqual(payload.schedules, [{ scheduledOn: "2026-09-22" }]);
+  assert.equal(payload.enquiryDate, record.enquiryDate);
+});

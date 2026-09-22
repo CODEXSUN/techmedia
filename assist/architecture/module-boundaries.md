@@ -9,6 +9,7 @@
 - `identity.permission`
 - `identity.user-role`
 - `identity.role-permission`
+- `app.branding`
 - `settings.frappe`
 - `notification.inbox`
 - `crm.enquiry`
@@ -30,6 +31,9 @@ delivery. Identity remains the source of truth for all contact users.
 Identity leaves own their routes, services, repositories, migrations, seeds, and types.
 Relationships use persisted IDs and database foreign keys. Settings has routes and services but no
 repository, migration, seed, or table because its application connection comes from `.env`.
+
+Branding owns the singleton application title and tagline. Its read contract is public for login
+surfaces. Its update contract requires the `super-admin` role.
 
 Notifications own recipient-scoped inbox and outbox records. They store delivery metadata and a
 live Frappe enquiry identifier, never a local CRM record.

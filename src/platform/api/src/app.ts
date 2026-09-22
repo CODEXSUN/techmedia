@@ -27,6 +27,7 @@ import { userModule } from "./modules/user/index.js";
 import { honeyModule } from "./modules/honey/index.js";
 import { ishopModule } from "./modules/ishop/index.js";
 import { messagingModule } from "./modules/messaging/index.js";
+import { brandingModule } from "./modules/branding/index.js";
 import { registerMobileReleaseRoutes } from "./mobile-release/mobile-release.routes.js";
 
 const modules = [
@@ -37,6 +38,7 @@ const modules = [
   rolePermissionModule,
   frappeModule,
   notificationModule,
+  brandingModule,
   crmModule,
   hrModule,
   estimateModule,

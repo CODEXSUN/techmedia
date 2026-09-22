@@ -167,6 +167,13 @@ export type AiHoneySettingsTable = {
   updated_at: TimestampColumn;
 };
 
+export type AppBrandingSettingsTable = {
+  id: number;
+  tagline: string;
+  title: string;
+  updated_at: TimestampColumn;
+};
+
 export type ConversationType =
   "DIRECT" | "GROUP" | "TEAM" | "PROJECT" | "CUSTOMER" | "SUPPORT" | "SYSTEM";
 export type ConversationStatus = "active" | "archived" | "deleted";
@@ -251,6 +258,7 @@ export type MessageReactionsTable = {
 };
 
 export type TechMediaDatabase = {
+  app_branding_settings: AppBrandingSettingsTable;
   ai_honey_messages: AiHoneyMessagesTable;
   ai_honey_settings: AiHoneySettingsTable;
   ai_honey_skills: AiHoneySkillsTable;

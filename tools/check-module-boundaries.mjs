@@ -5,6 +5,7 @@ const root = resolve(import.meta.dirname, "..");
 const apiModules = resolve(root, "src/platform/api/src/modules");
 const webModules = resolve(root, "src/platform/web/src/modules");
 const sharedModules = new Set([
+  "branding",
   "crm",
   "estimate",
   "frappe",

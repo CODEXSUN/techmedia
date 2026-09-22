@@ -5,8 +5,17 @@ plugins {
 }
 
 val appBrandName = providers.environmentVariable("APP_BRAND_NAME")
-    .orElse("Tech Media")
-    .get()
+    .orNull ?: error("APP_BRAND_NAME must be set in the root .env file.")
+
+val appApplicationId = providers.environmentVariable("ANDROID_APPLICATION_ID")
+    .orNull ?: error("ANDROID_APPLICATION_ID must be set in the root .env file.")
+
+val appAndroidBrandAsset = providers.environmentVariable("MOBILE_ANDROID_BRAND_ASSET")
+    .orNull ?: error("MOBILE_ANDROID_BRAND_ASSET must be set in the root .env file.")
+
+require(appAndroidBrandAsset.matches(Regex("[a-z][a-z0-9_]*"))) {
+    "MOBILE_ANDROID_BRAND_ASSET must be a lowercase Android resource profile name."
+}
 
 android {
     namespace = "in.techmedia.techmedia_flutter"
@@ -25,11 +34,12 @@ android {
         resValues = true
     }
 
+    sourceSets {
+        getByName("main").res.srcDir("src/main/branding/$appAndroidBrandAsset/res")
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "in.techmedia.tmapp"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        applicationId = appApplicationId
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
@@ -39,6 +49,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         resValue("string", "app_name", appBrandName)
+        resValue("string", "mobile_channel_prefix", appApplicationId)
     }
 
     buildTypes {

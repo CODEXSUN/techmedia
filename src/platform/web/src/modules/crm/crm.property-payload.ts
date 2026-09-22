@@ -3,7 +3,10 @@ import type { CrmEnquiry, CrmEnquirySavePayload } from "./crm.types";
 export function enquiryPropertyPayload(
   record: CrmEnquiry,
   patch: Partial<
-    Pick<CrmEnquirySavePayload, "assignedToUserId" | "enquiryGroup" | "priority" | "status">
+    Pick<
+      CrmEnquirySavePayload,
+      "assignedToUserId" | "enquiryGroup" | "priority" | "schedules" | "status"
+    >
   >
 ): CrmEnquirySavePayload {
   return {

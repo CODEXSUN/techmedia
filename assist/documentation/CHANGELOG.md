@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.107
+Current version: 1.0.118
 
-Release tag: v-1.0.107
+Release tag: v-1.0.118
 
-Changelog label: v 1.0.107
+Changelog label: v 1.0.118
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,172 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.118
+
+### [v 1.0.118] 2026-09-22 3:48 pm - Docker installation reliability
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.118.
+- Replaced Docker's global npm self-update with a temporary npm 12 execution so builds do not stall while replacing npm itself.
+- Reused the completed build stage for the API runtime to avoid a second package-manager installation during each client build.
+- Consolidated TechMedia and Rainbow Docker configuration around one private `.env` file and one tracked `.env.example` file per client.
+- Updated web, API, Flutter mobile, and both client deployment image-version references to 1.0.118.
+
+## v-1.0.117
+
+### [v 1.0.117] 2026-09-22 12:20 pm - Rainbow mobile branding and live profile
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository and Flutter mobile versions to 1.0.117.
+- Added environment-driven mobile display branding, Android native branding profiles, and image-format-aware Flutter logo rendering.
+- Configured the Rainbow profile for the live `rgm.tmnext.in` platform and mobile-update domains.
+- Added the Rainbow CRM launcher and splash branding, using the supplied circular mark.
+- Added isolated `techmedia` and `rainbow` mobile profiles so their package IDs, API and update domains, display brands, and logo assets cannot cross during a profile build.
+- Added separate Tech Media and Rainbow Docker deployment folders with isolated Compose resources and setup/update scripts.
+
+## v-1.0.116
+
+### [v 1.0.116] 2026-09-22 10:42 am - Generic client mobile environment keys
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.116.
+- Renamed all client-facing mobile profile keys and Dart build defines to generic names without the `TECHMEDIA_` prefix.
+- Kept internal deployment safety and database guard variables unchanged.
+
+## v-1.0.115
+
+### [v 1.0.115] 2026-09-22 10:34 am - Environment-driven client mobile profile
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.115.
+- Made Flutter brand, API URL, update URLs, Android application ID, native channel prefix, and release filename derive from the root `.env`.
+- Removed fixed client branding and endpoint fallbacks from the Flutter build and runtime configuration.
+- Required each client profile to define its own mobile values before build or release.
+- Removed client brand fallbacks from the API and web build, and made mobile release publishing use the profile-defined filename and release notes.
+
+## v-1.0.114
+
+### [v 1.0.114] 2026-09-22 10:12 am - Focused app launcher
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.114.
+- Removed the Account tile from the app launcher.
+- Kept account and profile access available through the user menu.
+
+## v-1.0.113
+
+### [v 1.0.113] 2026-09-22 10:08 am - Synchronized app branding environment
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.113.
+- Updated App branding saves to synchronize `APP_BRAND_NAME` and `APP_BRAND_TAGLINE` to the runtime `.env` file.
+- Updated the in-process runtime values immediately, preserving the chosen brand through API restarts and Docker deployments.
+- Reused one queued, allowlisted runtime environment writer for Branding and Frappe settings.
+
+## v-1.0.112
+
+### [v 1.0.112] 2026-09-22 10:00 am - Super-admin app branding
+
+#### Database Changes
+
+- Added the singleton `app_branding_settings` table.
+- Added the forward `app.branding.settings-v1` migration and repeatable default seed.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.112.
+- Added a super-admin-only App branding setting directly below Identity in the side menu.
+- Connected the persisted title and tagline to the login layouts and application sidebar.
+- Kept `.env` branding values as first-install defaults without overwriting saved client branding.
+
+## v-1.0.111
+
+### [v 1.0.111] 2026-09-22 9:44 am - Hide Messages navigation
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.111.
+- Removed Messages from all web side-menu layouts.
+- Kept messaging routes and direct-link access unchanged.
+
+## v-1.0.110
+
+### [v 1.0.110] 2026-09-22 9:43 am - Hide TEMA and Docs navigation
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.110.
+- Removed TEMA AI and Docs from the web side menu.
+- Disabled the shared web TEMA pet for all users.
+- Kept the hidden routes and their permissions unchanged.
+
+## v-1.0.109
+
+### [v 1.0.109] 2026-09-22 9:41 am - Focused app picker
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.109.
+- Removed Messaging, Docs, iShop, and TEMA from the application picker.
+- Kept the existing routes, permissions, and side-menu access unchanged.
+
+## v-1.0.108
+
+### [v 1.0.108] 2026-09-22 9:36 am - Schedule date property edit
+
+#### Database Changes
+
+- Database update: No.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.108.
+- Added a Schedule date editor to enquiry properties for users with CRM update permission.
+- Saved the selected Schedule date through the live enquiry update contract.
+- Renamed the enquiry detail label from Schedules to Schedule date.
 
 ## v-1.0.107
 

@@ -18,47 +18,31 @@ function envValues(source) {
   );
 }
 
-test("deployment sample locks source, image, and migration compatibility versions", async () => {
+test("each client deployment sample tracks the repository image version", async () => {
   const packageJson = JSON.parse(await read("package.json"));
-  const deployment = envValues(await read(".container/deploy.env.example"));
-
-  assert.equal(deployment.TECHMEDIA_VERSION, packageJson.version);
-  assert.equal(deployment.TECHMEDIA_IMAGE_TAG, packageJson.version);
-  assert.equal(deployment.TECHMEDIA_MIGRATION_COMPATIBLE_VERSION, packageJson.version);
-  assert.equal(deployment.TECHMEDIA_BACKUP_RETENTION, "10");
-  assert.equal(deployment.TECHMEDIA_UPDATE_MIN_BACKUP_FREE_MB, "1024");
-  assert.equal(deployment.TECHMEDIA_UPDATE_MIN_DOCKER_FREE_MB, "5120");
+  for (const client of ["techmedia", "rainbow"]) {
+    const deployment = envValues(await read(`.container/${client}/.env.example`));
+    assert.equal(deployment.CLIENT_IMAGE_TAG, packageJson.version);
+  }
 });
 
-test("guarded updates retain reproducible and recoverable deployment evidence", async () => {
-  const update = await read(".container/update.sh");
-
-  assert.match(update, /flock -n 9/u);
-  assert.match(update, /--allow-dirty/u);
-  assert.match(update, /TECHMEDIA_MIGRATION_COMPATIBLE_VERSION/u);
-  assert.match(update, /TECHMEDIA_UPDATE_MIN_DOCKER_FREE_MB/u);
-  assert.match(update, /sha256sum --check/u);
-  assert.match(update, /techmedia-deployment-\$timestamp\.json/u);
-  assert.match(update, /sourceCommit/u);
-  assert.match(update, /rolled-back/u);
+test("each client updater rebuilds only its app services and waits for health", async () => {
+  for (const client of ["techmedia", "rainbow"]) {
+    const update = await read(`.container/${client}/update.sh`);
+    assert.match(update, /compose build api web/u);
+    assert.match(update, /compose run --rm --no-deps api npm run db:migrate/u);
+    assert.match(update, /compose run --rm --no-deps api npm run db:seed/u);
+    assert.match(update, /compose up --detach --no-deps api web/u);
+    assert.match(update, /wait_for_healthy api/u);
+    assert.match(update, /wait_for_healthy web/u);
+    assert.match(update, /docker inspect/u);
+  }
 });
 
-test("setup initializes every guarded release setting from the repository version", async () => {
-  const setup = await read(".container/setup.sh");
-
-  assert.match(setup, /set_file_value "\$DEPLOY_ENV" TECHMEDIA_VERSION "\$version"/u);
-  assert.match(setup, /set_file_value "\$DEPLOY_ENV" TECHMEDIA_IMAGE_TAG "\$version"/u);
-  assert.match(
-    setup,
-    /set_file_value "\$DEPLOY_ENV" TECHMEDIA_MIGRATION_COMPATIBLE_VERSION "\$version"/u
-  );
-});
-
-test("version bumps keep the public deployment release contract synchronized", async () => {
+test("version bumps keep both deployment samples synchronized", async () => {
   const releaseTool = await read("tools/repository-release.mjs");
 
   assert.match(releaseTool, /updateDeploymentReleaseContract\(nextVersion\)/u);
-  assert.match(releaseTool, /"TECHMEDIA_VERSION"/u);
-  assert.match(releaseTool, /"TECHMEDIA_IMAGE_TAG"/u);
-  assert.match(releaseTool, /"TECHMEDIA_MIGRATION_COMPATIBLE_VERSION"/u);
+  assert.match(releaseTool, /\["techmedia", "rainbow"\]/u);
+  assert.match(releaseTool, /CLIENT_IMAGE_TAG/u);
 });

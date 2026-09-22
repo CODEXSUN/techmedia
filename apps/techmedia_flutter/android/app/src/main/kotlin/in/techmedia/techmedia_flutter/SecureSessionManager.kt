@@ -16,7 +16,7 @@ class SecureSessionManager(private val activity: FragmentActivity) {
             .build()
         EncryptedSharedPreferences.create(
             activity,
-            "techmedia_secure_session",
+            "${activity.packageName}_secure_session",
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
@@ -62,7 +62,7 @@ class SecureSessionManager(private val activity: FragmentActivity) {
         )
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Unlock TechMedia")
+                .setTitle(activity.getString(R.string.app_name))
                 .setSubtitle("Confirm your identity")
                 .setNegativeButtonText("Use PIN")
                 .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)

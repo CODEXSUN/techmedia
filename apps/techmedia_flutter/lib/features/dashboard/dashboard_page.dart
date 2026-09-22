@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/api/techmedia_api.dart';
 import '../../core/auth/secure_session_store.dart';
 import '../../core/config/app_config.dart';
+import '../../core/presentation/app_brand_logo.dart';
 import '../../core/messaging/live_message_notifications.dart';
 import '../../core/notifications/mobile_notification_service.dart';
 import '../../app/dashboard_navigation.dart';
@@ -118,9 +118,9 @@ class _DashboardPageState extends State<DashboardPage> {
           titleSpacing: 20,
           title: Row(
             children: [
-              SvgPicture.asset('assets/logo.svg', height: 28, width: 34),
+              const AppBrandLogo(height: 28, width: 34),
               const SizedBox(width: 9),
-              const Text('Tech Media'),
+              Text(AppConfig.brandName),
               if (_selectedIndex == 1 || _selectedIndex == 3) ...[
                 const SizedBox(width: 12),
                 Container(height: 28, width: 1, color: const Color(0xFFD7D1DA)),

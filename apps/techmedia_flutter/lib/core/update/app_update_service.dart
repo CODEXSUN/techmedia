@@ -10,9 +10,9 @@ import '../config/app_config.dart';
 class AppUpdateService {
   AppUpdateService({http.Client? client, MethodChannel? channel})
     : _client = client ?? http.Client(),
-      _channel = channel ?? const MethodChannel(_channelName);
+      _channel = channel ?? MethodChannel(_channelName);
 
-  static const _channelName = 'in.techmedia.techmedia_flutter/app-update';
+  static final _channelName = '${AppConfig.nativeChannelPrefix}/app-update';
 
   final http.Client _client;
   final MethodChannel _channel;
@@ -60,7 +60,7 @@ class AppUpdateService {
     }
 
     final file = File(
-      '$directory${Platform.pathSeparator}TechMedia-${release.versionName}.apk',
+      '$directory${Platform.pathSeparator}${AppConfig.releaseFilePrefix}-${release.versionName}.apk',
     );
     final sink = file.openWrite();
     await response.stream.pipe(sink);

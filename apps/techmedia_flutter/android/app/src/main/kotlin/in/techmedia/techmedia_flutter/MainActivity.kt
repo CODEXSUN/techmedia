@@ -23,10 +23,11 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : FlutterFragmentActivity() {
-    private val updateChannel = "in.techmedia.techmedia_flutter/app-update"
-    private val secureSessionChannel = "in.techmedia.techmedia_flutter/secure-session"
-    private val mobileActionsChannel = "in.techmedia.techmedia_flutter/mobile-actions"
-    private val callLogPreferences = "techmedia_call_log_access"
+    private val channelPrefix by lazy { getString(R.string.mobile_channel_prefix) }
+    private val updateChannel by lazy { "$channelPrefix/app-update" }
+    private val secureSessionChannel by lazy { "$channelPrefix/secure-session" }
+    private val mobileActionsChannel by lazy { "$channelPrefix/mobile-actions" }
+    private val callLogPreferences by lazy { "${packageName}_call_log_access" }
     private val callLogDisclosureKey = "disclosure_accepted"
     private val documentScanner by lazy { GmsDocumentScanning.getClient(
         GmsDocumentScannerOptions.Builder()

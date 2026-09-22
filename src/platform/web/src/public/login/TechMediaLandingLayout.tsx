@@ -1,9 +1,10 @@
 import { ArrowRight, Building2, CheckCircle2 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { appBrandDescription, appBrandName } from "../../shared/brand/app-brand";
+import { useAppBrand } from "../../shared/brand/app-brand";
 
 export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
   const [slide, setSlide] = useState(0);
+  const brand = useAppBrand();
 
   useEffect(() => {
     const timer = window.setInterval(
@@ -15,7 +16,7 @@ export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
 
   return (
     <main className="techmedia-login-page">
-      <section className="techmedia-login-shell" aria-label={`${appBrandName} Login`}>
+      <section className="techmedia-login-shell" aria-label={`${brand.title} Login`}>
         <div className="techmedia-login-story">
           <div className="techmedia-login-brand">
             <span className="auth-surface-mark" data-surface="app">
@@ -25,8 +26,8 @@ export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
               </span>
             </span>
             <span>
-              <strong>{appBrandName}</strong>
-              <small>Live CRM workspace</small>
+              <strong>{brand.title}</strong>
+              <small>{brand.tagline}</small>
             </span>
           </div>
           <div className="techmedia-login-slider" aria-live="polite">
@@ -47,13 +48,13 @@ export function TechMediaLandingLayout({ children }: { children: ReactNode }) {
         <div className="techmedia-login-panel">
           <div className="techmedia-login-panel-brand" aria-hidden="true">
             <Logo />
-            <span>{appBrandName}</span>
+            <span>{brand.title}</span>
           </div>
           <div className="auth-card-frame auth-card-frame-app techmedia-login-card-frame">
             <div className="auth-card techmedia-login-card">
               <header className="auth-card-header">
                 <h1>Welcome back</h1>
-                <p>{appBrandDescription}</p>
+                <p>{brand.tagline}</p>
               </header>
               {children}
             </div>

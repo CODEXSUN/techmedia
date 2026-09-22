@@ -289,19 +289,14 @@ function updateLockfile(currentVersion, nextVersion) {
 }
 
 function updateDeploymentReleaseContract(nextVersion) {
-  const file = join(root, ".container", "deploy.env.example");
-  if (!existsSync(file)) return;
-  let source = readFileSync(file, "utf8");
-  for (const key of [
-    "TECHMEDIA_VERSION",
-    "TECHMEDIA_IMAGE_TAG",
-    "TECHMEDIA_MIGRATION_COMPATIBLE_VERSION"
-  ]) {
-    const pattern = new RegExp(`^${key}=.*$`, "mu");
-    if (!pattern.test(source)) throw new Error(`Deployment sample is missing ${key}.`);
-    source = source.replace(pattern, `${key}=${nextVersion}`);
+  for (const client of ["techmedia", "rainbow"]) {
+    const file = join(root, ".container", client, ".env.example");
+    if (!existsSync(file)) throw new Error(`Deployment sample is missing for ${client}.`);
+    const source = readFileSync(file, "utf8");
+    const pattern = /^CLIENT_IMAGE_TAG=.*$/mu;
+    if (!pattern.test(source)) throw new Error(`Deployment sample is missing CLIENT_IMAGE_TAG for ${client}.`);
+    writeFileSync(file, source.replace(pattern, `CLIENT_IMAGE_TAG=${nextVersion}`), "utf8");
   }
-  writeFileSync(file, source, "utf8");
 }
 
 function updateFlutterVersion(nextVersion) {

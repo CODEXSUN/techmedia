@@ -19,7 +19,7 @@ import {
 import { applicationEntryPath } from "../../desks/app/app-shell-access";
 import { TechMediaAuthLayout } from "./TechMediaAuthLayout";
 import { TechMediaLandingLayout } from "./TechMediaLandingLayout";
-import { appBrandName } from "../../shared/brand/app-brand";
+import { useAppBrand } from "../../shared/brand/app-brand";
 
 export function LoginPage() {
   return <LoginSurface landing={false} />;
@@ -30,6 +30,7 @@ export function LandingLoginPage() {
 }
 
 function LoginSurface({ landing }: { landing: boolean }) {
+  const brand = useAppBrand();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -153,7 +154,7 @@ function LoginSurface({ landing }: { landing: boolean }) {
   return landing ? (
     <TechMediaLandingLayout>{form}</TechMediaLandingLayout>
   ) : (
-    <TechMediaAuthLayout surface="app" title={`${appBrandName} Login`}>
+    <TechMediaAuthLayout surface="app" title={`${brand.title} Login`}>
       {form}
     </TechMediaAuthLayout>
   );

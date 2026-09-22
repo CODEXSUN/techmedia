@@ -1,10 +1,12 @@
 import 'package:flutter/services.dart';
 
+import '../config/app_config.dart';
+
 class MobileActions {
   const MobileActions._();
 
-  static const _channel = MethodChannel(
-    'in.techmedia.techmedia_flutter/mobile-actions',
+  static final _channel = MethodChannel(
+    '${AppConfig.nativeChannelPrefix}/mobile-actions',
   );
 
   static Future<bool> call(String mobile) =>

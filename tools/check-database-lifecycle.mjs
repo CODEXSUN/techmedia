@@ -14,6 +14,7 @@ assertOrdered(databaseFile, database, [
   "migrateUserRoleModule(db)",
   "migrateRolePermissionModule(db)",
   "migrateNotificationModule(db)",
+  "migrateBrandingModule(db)",
   "migrateHoneyModule(db)",
   "migrateMessagingModule(db)"
 ]);
@@ -22,7 +23,8 @@ assertOrdered(databaseFile, database, [
   "seedPermissionModule(db)",
   "seedUserModule(db)",
   "seedUserRoleModule(db)",
-  "seedRolePermissionModule(db)"
+  "seedRolePermissionModule(db)",
+  "seedBrandingModule(db)"
 ]);
 
 const expectedTables = [
@@ -30,6 +32,7 @@ const expectedTables = [
   "ai_honey_settings",
   "ai_honey_skills",
   "ai_honey_threads",
+  "app_branding_settings",
   "conversation_members",
   "conversations",
   "message_reactions",

@@ -3,24 +3,22 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   CircleGaugeIcon,
-  BotIcon,
-  BookOpenIcon,
   CalendarDaysIcon,
   ClipboardListIcon,
   InboxIcon,
-  MessageCircleIcon,
   MessagesSquareIcon,
   PlugZapIcon,
   PlusIcon,
+  PaletteIcon,
   ShoppingBagIcon,
   Settings2Icon,
   ShieldCheckIcon,
-  UserRoundIcon,
   UserRoundPlusIcon
 } from "lucide-react";
 import { GlobalLoader } from "@codexsun/ui/components/global-loader";
 import { ApplicationLayout } from "@codexsun/ui/layouts/application-layout";
-import { appBrandName } from "../../shared/brand/app-brand";
+import { useAppBrand } from "../../shared/brand/app-brand";
+import { BrandingWorkspace } from "../../modules/branding";
 import type { SidemenuItem } from "@codexsun/ui/blocks/menu/sidemenu/sub/sidemenu-section";
 import { AuthGate } from "../../shared/auth/AuthGate";
 import { getToken } from "../../shared/api/platform-api";
@@ -44,12 +42,7 @@ import {
   enquiryFilterFromUrl,
   type CrmEnquiryListFilter
 } from "../../modules/crm/crm.enquiry-filters";
-import { getHoneyAvailability, getHoneyPetVisibility, TemaMascot } from "../../modules/honey";
-import {
-  currentTemaPetPlatform,
-  readTemaPetPreference,
-  saveTemaPetPreference
-} from "../../modules/honey/tema-pet-preference";
+import { getHoneyAvailability } from "../../modules/honey";
 
 const UserWorkspace = lazy(() =>
   import("../../modules/user").then((module) => ({ default: module.UserWorkspace }))
@@ -130,6 +123,7 @@ type Page =
   | "identity.permissions"
   | "identity.access"
   | "identity.profile"
+  | "app.branding"
   | "settings.frappe.overview"
   | "settings.frappe.users"
   | "settings.notifications"
@@ -178,6 +172,7 @@ function pagePath(page: Page) {
 }
 
 export function AppDesk() {
+  const brand = useAppBrand();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const claims = readClaims();
@@ -213,20 +208,6 @@ export function AppDesk() {
     queryKey: ["honey", "availability"]
   });
   const temaEnabled = temaAvailability.data?.enabled !== false;
-  const temaPetVisibility = useQuery({
-    enabled: Boolean(getToken()),
-    queryFn: getHoneyPetVisibility,
-    queryKey: ["honey", "pet-visibility"]
-  });
-  const temaPetPlatform = currentTemaPetPlatform();
-  const [temaPetPreferred, setTemaPetPreferred] = useState(() =>
-    readTemaPetPreference(temaPetPlatform)
-  );
-  const temaPetAllowed =
-    temaPetPlatform === "mobile"
-      ? temaPetVisibility.data?.mobileEnabled !== false
-      : temaPetVisibility.data?.webEnabled !== false;
-  const temaPetVisible = temaEnabled && temaPetAllowed && temaPetPreferred;
   const browserNotifications = useBrowserNotificationPermission();
   const notificationPreference = useCrmCallNotificationPreference();
   const inboxNotificationIds = useRef(new Set<number>());
@@ -279,10 +260,6 @@ export function AppDesk() {
     setMenuNavigationRevision((revision) => revision + 1);
     void navigate({ to: `/app/crm/enquiries?status=${status}` });
   };
-  const setTemaPetVisible = (visible: boolean) => {
-    saveTemaPetPreference(temaPetPlatform, visible);
-    setTemaPetPreferred(visible);
-  };
   const allMenuItems = buildMenu(
     page,
     select,
@@ -294,18 +271,12 @@ export function AppDesk() {
     canUseHr,
     canViewAllHr,
     canUseIshop,
-    temaEnabled,
-    temaPetVisible,
-    !temaEnabled || !temaPetAllowed,
-    setTemaPetVisible,
     openEnquiryDesk,
     crmAllEnquiriesQuery.data,
     crmOverviewQuery.data?.stats,
     crmOptionsQuery.data?.statuses
   );
-  const bottomMenuItems = allMenuItems.filter((item) =>
-    ["TEMA AI", "Docs", "Settings"].includes(item.title)
-  );
+  const bottomMenuItems = allMenuItems.filter((item) => item.title === "Settings");
   const menuItems = allMenuItems.filter((item) => !bottomMenuItems.includes(item));
 
   useEffect(() => {
@@ -363,7 +334,7 @@ export function AppDesk() {
     <AuthGate>
       <>
         <ApplicationLayout
-          brand={{ subtitle: "", title: appBrandName }}
+          brand={{ subtitle: brand.tagline, title: brand.title }}
           bottomMenuItems={bottomMenuItems}
           globalSearchPlaceholder="Search CRM enquiries"
           globalSearchValue={globalSearch}
@@ -390,28 +361,6 @@ export function AppDesk() {
           }}
           versionLabel={`v ${__APP_VERSION__}`}
           workspaceItems={[
-            {
-              active: page === "identity.profile",
-              avatar: true,
-              description: "Your TechMedia profile and Frappe credentials.",
-              icon: UserRoundIcon,
-              title: "Account",
-              url: "/app/identity/profile"
-            },
-            {
-              active: page === "messaging.inbox",
-              description: "Private business conversations.",
-              icon: MessagesSquareIcon,
-              title: "Messaging",
-              url: "/app/messaging/inbox"
-            },
-            {
-              active: page.startsWith("docs."),
-              description: "Application guides and release information.",
-              icon: BookOpenIcon,
-              title: "Docs",
-              url: "/app/docs"
-            },
             ...(canUseCrm
               ? [
                   {
@@ -420,28 +369,6 @@ export function AppDesk() {
                     icon: MessagesSquareIcon,
                     title: "CRM",
                     url: "/app/crm/overview"
-                  }
-                ]
-              : []),
-            ...(canUseIshop
-              ? [
-                  {
-                    active: page.startsWith("ishop."),
-                    description: "Manage LogicX iShop records on Frappe.",
-                    icon: ShoppingBagIcon,
-                    title: "iShop",
-                    url: "/app/ishop/catalogs"
-                  }
-                ]
-              : []),
-            ...(temaEnabled
-              ? [
-                  {
-                    active: page === "ai.honey",
-                    description: "AI chat, content writer, and sub-agent workers.",
-                    icon: BotIcon,
-                    title: "TEMA",
-                    url: "/app/ai/honey"
                   }
                 ]
               : []),
@@ -484,9 +411,6 @@ export function AppDesk() {
             </Suspense>
           </main>
         </ApplicationLayout>
-        {temaPetVisible && page !== "ai.honey" ? (
-          <TemaMascot onOpen={() => select("ai.honey")} />
-        ) : null}
       </>
     </AuthGate>
   );
@@ -530,6 +454,7 @@ function renderPage(
   if (page === "identity.permissions") return <PermissionWorkspace />;
   if (page === "identity.access") return <RolePermissionWorkspace />;
   if (page === "identity.profile") return <UserProfileWorkspace />;
+  if (page === "app.branding") return superAdmin ? <BrandingWorkspace /> : <UserProfileWorkspace />;
   if (page === "settings.frappe.overview") {
     return <FrappeOverview canUpdate={permissions.includes("settings.frappe.update")} />;
   }
@@ -652,10 +577,6 @@ function buildMenu(
   canUseHr: boolean,
   canViewAllHr: boolean,
   canUseIshop: boolean,
-  temaEnabled: boolean,
-  temaPetVisible: boolean,
-  temaPetToggleDisabled: boolean,
-  onTemaPetVisibleChange: (visible: boolean) => void,
   onOpenEnquiryDesk: (status: CrmEnquiryListFilter) => void,
   crmEnquiries?: CrmEnquiry[],
   crmStats?: CrmEnquiryOverview["stats"],
@@ -697,7 +618,6 @@ function buildMenu(
         ],
         title: "LogicX iShop"
       },
-      messagesMenu(page, item),
       ...(canUseHr
         ? [
             {
@@ -708,20 +628,6 @@ function buildMenu(
             }
           ]
         : []),
-      ...(temaEnabled || superAdmin
-        ? [
-            temaMenu(
-              page,
-              item,
-              superAdmin,
-              temaEnabled,
-              temaPetVisible,
-              temaPetToggleDisabled,
-              onTemaPetVisibleChange
-            )
-          ]
-        : []),
-      docsMenu(page, select),
       notificationSettings
     ];
   }
@@ -759,7 +665,6 @@ function buildMenu(
       ...(canViewAllEnquiries
         ? [enquiryDeskMenu(page, crmEnquiries ?? [], onOpenEnquiryDesk, crmStatusOptions)]
         : []),
-      messagesMenu(page, item),
       ...(canUseHr
         ? [
             {
@@ -779,25 +684,10 @@ function buildMenu(
             }
           ]
         : []),
-      ...(temaEnabled || superAdmin
-        ? [
-            temaMenu(
-              page,
-              item,
-              superAdmin,
-              temaEnabled,
-              temaPetVisible,
-              temaPetToggleDisabled,
-              onTemaPetVisibleChange
-            )
-          ]
-        : []),
-      docsMenu(page, select),
       notificationSettings
     ];
   }
   return [
-    messagesMenu(page, item),
     ...(canUseHr
       ? [
           {
@@ -819,20 +709,16 @@ function buildMenu(
       ],
       title: "Identity"
     },
-    ...(temaEnabled || superAdmin
+    ...(superAdmin
       ? [
-          temaMenu(
-            page,
-            item,
-            superAdmin,
-            temaEnabled,
-            temaPetVisible,
-            temaPetToggleDisabled,
-            onTemaPetVisibleChange
-          )
+          {
+            icon: PaletteIcon,
+            isActive: page === "app.branding",
+            onSelect: () => select("app.branding"),
+            title: "App branding"
+          }
         ]
       : []),
-    docsMenu(page, select),
     notificationSettings
   ];
 }
@@ -891,106 +777,13 @@ function accessiblePage(
   return page;
 }
 
-function messagesMenu(
-  page: Page,
-  item: (
-    title: string,
-    target: Page,
-    badge?: number
-  ) => {
-    badge?: number;
-    isActive: boolean;
-    onSelect: () => void;
-    title: string;
-  }
-): SidemenuItem {
-  return {
-    icon: MessageCircleIcon,
-    isActive: page === "messaging.inbox",
-    items: [{ ...item("Inbox", "messaging.inbox"), icon: InboxIcon }],
-    title: "Messages"
-  };
-}
-
-function docsMenu(page: Page, select: (page: Page) => void): SidemenuItem {
-  return {
-    icon: BookOpenIcon,
-    isActive: page.startsWith("docs."),
-    items: [
-      {
-        isActive: page === "docs.index",
-        onSelect: () => select("docs.index"),
-        title: "Overview"
-      },
-      {
-        isActive: page === "docs.crm",
-        onSelect: () => select("docs.crm"),
-        title: "Use CRM"
-      },
-      {
-        isActive: page === "docs.changelog",
-        onSelect: () => select("docs.changelog"),
-        title: "Changelog"
-      }
-    ],
-    title: "Docs"
-  };
-}
-
-function temaMenu(
-  page: Page,
-  item: (
-    title: string,
-    target: Page,
-    badge?: number
-  ) => {
-    badge?: number;
-    isActive: boolean;
-    onSelect: () => void;
-    title: string;
-  },
-  superAdmin: boolean,
-  temaEnabled: boolean,
-  temaPetVisible: boolean,
-  temaPetToggleDisabled: boolean,
-  onTemaPetVisibleChange: (visible: boolean) => void
-): SidemenuItem {
-  return {
-    icon: BotIcon,
-    isActive:
-      page === "ai.honey" ||
-      page === "ai.connector" ||
-      page === "ai.control" ||
-      page === "ai.skills",
-    items: [
-      ...(temaEnabled ? [item("Business agent chat", "ai.honey")] : []),
-      {
-        icon: BotIcon,
-        title: "TEMA pet",
-        toggle: {
-          checked: temaPetVisible,
-          disabled: temaPetToggleDisabled,
-          onCheckedChange: onTemaPetVisibleChange
-        }
-      },
-      ...(superAdmin
-        ? [
-            { ...item("TEMA control", "ai.control"), icon: Settings2Icon },
-            item("Agent Connector", "ai.connector"),
-            item("Skills & availability", "ai.skills")
-          ]
-        : [])
-    ],
-    title: "TEMA AI"
-  };
-}
-
 function isAdministratorPage(page: Page) {
   return (
     page === "crm.open" ||
     page === "ai.connector" ||
     page === "ai.control" ||
     page === "ai.skills" ||
+    page === "app.branding" ||
     (page.startsWith("settings.") && page !== "settings.notifications") ||
     (page.startsWith("identity.") && page !== "identity.profile")
   );
@@ -1005,6 +798,7 @@ function pageFromPath(pathname: string, role: string | undefined): Page {
     "identity.permissions",
     "identity.access",
     "identity.profile",
+    "app.branding",
     "settings.frappe.overview",
     "settings.frappe.users",
     "settings.notifications",
@@ -1057,6 +851,7 @@ function titleFor(page: Page) {
     "settings.frappe.overview": "Frappe connection",
     "settings.frappe.users": "Frappe Users",
     "settings.notifications": "Desktop notifications",
+    "app.branding": "App branding",
     "ai.honey": "TEMA AI",
     "ai.connector": "Agent Connector",
     "ai.control": "TEMA control",

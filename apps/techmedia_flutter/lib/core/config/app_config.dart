@@ -1,23 +1,23 @@
 class AppConfig {
   const AppConfig._();
 
-  static const brandName = String.fromEnvironment(
-    'TECHMEDIA_APP_BRAND',
-    defaultValue: 'Tech Media',
-  );
+  static const brandName = String.fromEnvironment('APP_BRAND');
 
-  static const appVersion = String.fromEnvironment(
-    'TECHMEDIA_APP_VERSION',
-    defaultValue: '1.0.99',
-  );
+  static const appVersion = String.fromEnvironment('APP_VERSION');
 
-  static const apiUrl = String.fromEnvironment(
-    'TECHMEDIA_API_URL',
-    defaultValue: 'https://app.techmedia.in/api/platform',
-  );
+  static const apiUrl = String.fromEnvironment('API_URL');
 
   static const releaseManifestUrl = String.fromEnvironment(
-    'TECHMEDIA_RELEASE_MANIFEST_URL',
-    defaultValue: 'https://app.techmedia.in/mobile/update/latest.json',
+    'RELEASE_MANIFEST_URL',
   );
+
+  static const nativeChannelPrefix = String.fromEnvironment(
+    'NATIVE_CHANNEL_PREFIX',
+  );
+
+  static const releaseFilePrefix = String.fromEnvironment(
+    'RELEASE_FILE_PREFIX',
+  );
+
+  static const logoAsset = String.fromEnvironment('APP_LOGO_ASSET');
 }

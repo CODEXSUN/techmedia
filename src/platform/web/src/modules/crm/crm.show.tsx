@@ -141,7 +141,10 @@ export function CrmShow({
     );
   async function updateProperties(
     patch: Partial<
-      Pick<CrmEnquirySavePayload, "assignedToUserId" | "enquiryGroup" | "priority" | "status">
+      Pick<
+        CrmEnquirySavePayload,
+        "assignedToUserId" | "enquiryGroup" | "priority" | "schedules" | "status"
+      >
     >
   ) {
     try {
@@ -1028,7 +1031,10 @@ function EnquiryProperties({
   loading: boolean;
   onSave: (
     patch: Partial<
-      Pick<CrmEnquirySavePayload, "assignedToUserId" | "enquiryGroup" | "priority" | "status">
+      Pick<
+        CrmEnquirySavePayload,
+        "assignedToUserId" | "enquiryGroup" | "priority" | "schedules" | "status"
+      >
     >
   ) => Promise<void>;
   onStartJob: () => Promise<unknown>;
@@ -1039,17 +1045,19 @@ function EnquiryProperties({
   const crmOptions = useCrmOptionLists();
   const runningJobs = record.jobs.filter((job) => job.status === "Running");
   const [editing, setEditing] = useState<
-    "assignedToUserId" | "enquiryGroup" | "priority" | "status" | null
+    "assignedToUserId" | "enquiryGroup" | "priority" | "schedules" | "status" | null
   >(null);
   const [assignedToUserId, setAssignedToUserId] = useState(record.assignedToUserId ?? "");
   const [enquiryGroup, setEnquiryGroup] = useState(record.enquiryGroup);
   const [priority, setPriority] = useState(record.priority);
+  const [scheduleDate, setScheduleDate] = useState(record.schedules[0]?.scheduledOn ?? "");
   const [status, setStatus] = useState(record.status);
 
   useEffect(() => {
     setAssignedToUserId(record.assignedToUserId ?? "");
     setEnquiryGroup(record.enquiryGroup);
     setPriority(record.priority);
+    setScheduleDate(record.schedules[0]?.scheduledOn ?? "");
     setStatus(record.status);
   }, [record]);
 
@@ -1063,6 +1071,7 @@ function EnquiryProperties({
     setAssignedToUserId(record.assignedToUserId ?? "");
     setEnquiryGroup(record.enquiryGroup);
     setPriority(record.priority);
+    setScheduleDate(record.schedules[0]?.scheduledOn ?? "");
     setStatus(record.status);
     setEditing(null);
   }
@@ -1076,7 +1085,9 @@ function EnquiryProperties({
           ? { enquiryGroup }
           : editing === "priority"
             ? { priority }
-            : { status };
+            : editing === "schedules"
+              ? { schedules: scheduleDate ? [{ scheduledOn: scheduleDate }] : [] }
+              : { status };
     await onSave(patch);
     setEditing(null);
   }
@@ -1145,6 +1156,23 @@ function EnquiryProperties({
             onValueChange={setAssignedToUserId}
           />
         </EditablePropertyRow>
+        <EditablePropertyRow
+          disabled={!canUpdate}
+          editing={editing === "schedules"}
+          label="Schedule date"
+          loading={loading}
+          value={scheduleDate ? formatDate(scheduleDate) : "—"}
+          onCancel={cancelEdit}
+          onEdit={() => setEditing("schedules")}
+          onSave={saveEdit}
+        >
+          <WorkspaceDatePicker
+            ariaLabel="Enquiry schedule date"
+            placeholder="Schedule date"
+            value={scheduleDate}
+            onValueChange={setScheduleDate}
+          />
+        </EditablePropertyRow>
         <div className="border-y border-border/70 p-3">
           <JobControlButton
             active={runningJobs[0]}
@@ -1181,7 +1209,7 @@ function EnquiryProperties({
             ["Mobile", record.mobile || "—"],
             ["Enquiry date", record.enquiryDate || "—"],
             [
-              "Schedules",
+              "Schedule date",
               record.schedules.length
                 ? record.schedules.map((item) => item.scheduledOn).join(", ")
                 : "—"

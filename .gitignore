@@ -69,12 +69,8 @@ web_modules/
 .env
 .env.*
 !.env.example
-!.container/.env.example
-!.container/deploy.env.example
-.container/deploy.env
-.container/vps.env
-/.container/deploy.env
-/.container/backups/
+/.container/techmedia/.env
+/.container/rainbow/.env
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

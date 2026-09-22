@@ -14,6 +14,7 @@
 - `permission`
 - `user-role`
 - `role-permission`
+- `branding`
 - `frappe`
 - `notification`
 - `crm`

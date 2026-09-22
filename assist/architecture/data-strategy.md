@@ -11,6 +11,7 @@ Local tables are limited to:
 - `permissions`
 - `user_roles`
 - `role_permissions`
+- `app_branding_settings`
 - `notifications`
 - `notification_outbox`
 - `ai_honey_threads`
@@ -26,6 +27,10 @@ Local tables are limited to:
 
 Per-user Frappe credentials and verification metadata are columns on `users`. Application-level
 Frappe connection values come only from `.env`; Settings owns no tables.
+
+Branding persists one application title and tagline. The initial values come from `.env` during
+the repeatable branding seed. A super-admin branding save updates the singleton record and the
+same two `.env` values, so runtime changes survive restarts and later container deployments.
 
 Honey persists actor-owned conversation history, global availability, platform pet visibility, and
 worker audit metadata. Each device stores its personal pet preference locally. Provider keys and

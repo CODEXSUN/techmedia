@@ -4,6 +4,8 @@ import { z } from "zod";
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
   AUTH_MODE: z.enum(["cookie", "jwt", "hybrid"]).default("jwt"),
+  APP_BRAND_NAME: z.string().trim().min(1).max(80),
+  APP_BRAND_TAGLINE: z.string().trim().min(1).max(180),
   PLATFORM_API_PORT: z.coerce.number().int().positive(),
   PLATFORM_API_URL: z.string().url("PLATFORM_API_URL must be a valid URL"),
   PLATFORM_WEB_PORT: z.coerce.number().int().positive().default(7060),

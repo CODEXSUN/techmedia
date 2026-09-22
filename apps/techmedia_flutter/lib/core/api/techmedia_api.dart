@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../config/app_config.dart';
+
 class TechMediaApi {
   TechMediaApi(String baseUrl) : _baseUri = Uri.parse(baseUrl);
 
@@ -469,7 +471,7 @@ class AppNotification {
   factory AppNotification.fromJson(Map<String, dynamic> json) =>
       AppNotification(
         id: json['id'] as int? ?? 0,
-        title: json['title'] as String? ?? 'Tech Media',
+        title: json['title'] as String? ?? AppConfig.brandName,
         body: json['body'] as String? ?? '',
         type: json['type'] as String? ?? '',
       );
@@ -660,7 +662,7 @@ class CrmJob {
       ),
       createdBy:
           (json['createdBy'] as Map<String, dynamic>?)?['name'] as String? ??
-          'Tech Media',
+          AppConfig.brandName,
       createdAt:
           DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
@@ -829,7 +831,7 @@ class CrmComment {
     comment: _plainTextComment(json['comment'] as String? ?? ''),
     createdAt:
         DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
-    createdByUserId: json['createdByUserId'] as String? ?? 'Tech Media',
+    createdByUserId: json['createdByUserId'] as String? ?? AppConfig.brandName,
   );
 }
 

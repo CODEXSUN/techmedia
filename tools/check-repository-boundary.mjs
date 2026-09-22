@@ -41,9 +41,10 @@ for (const manifestPath of packageManifests(root)) {
 }
 
 const boundaryFiles = [
-  ".container/docker-compose.yml",
-  ".container/setup.sh",
-  ".container/scripts/Dockerfile.stack",
+  ".container/techmedia/docker-compose.yml",
+  ".container/techmedia/Dockerfile",
+  ".container/rainbow/docker-compose.yml",
+  ".container/rainbow/Dockerfile",
   "components.json",
   "package.json",
   "package-lock.json",
@@ -59,7 +60,6 @@ const boundaryFiles = [
 const forbidden = [
   /file:\.\.\/(?:framework|ui)(?:\/|["'])/u,
   /\.\.\/\.\.\/\.\.\/\.\.\/(?:framework|ui)(?:\/|["'])/u,
-  /context:\s*\.\.\/\.\./u,
   /COPY\s+(?:framework|ui|core)\s/u,
   /resolve\([^)]*,\s*"\.\.",\s*"(?:framework|ui)"\)/u
 ];

@@ -17,7 +17,7 @@ API endpoint before announcing the update.
 Build the APK and copy it into portal storage with its checksum manifest:
 
 ```powershell
-C:\Users\sunda\development\flutter\bin\flutter.bat build apk --release --dart-define=TECHMEDIA_API_URL=https://app.techmedia.in/api/platform --dart-define=TECHMEDIA_APP_VERSION=1.0.49
+C:\Users\sunda\development\flutter\bin\flutter.bat build apk --release --dart-define=API_URL=https://crm.example.com/api/platform --dart-define=APP_VERSION=1.0.49
 npm.cmd run flutter:release:portal -- --base-url=https://app.techmedia.in/api/platform
 ```
 

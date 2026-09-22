@@ -1,9 +1,9 @@
 ﻿import { useEffect } from "react";
 
-import { appBrandName } from "../brand/app-brand";
+import { useAppBrand } from "../brand/app-brand";
 
-export function setPlatformDocumentTitle(pageTitle: string) {
-  document.title = `${appBrandName} | ${pageTitle}`;
+export function setPlatformDocumentTitle(brandTitle: string, pageTitle: string) {
+  document.title = `${brandTitle} | ${pageTitle}`;
 }
 
 const pageTitles: Record<string, string> = {
@@ -29,10 +29,11 @@ function resolvePageTitle(pathname: string) {
 }
 
 export function PageTitle() {
+  const brand = useAppBrand();
   useEffect(() => {
     const updateTitle = () => {
       if (window.location.pathname.startsWith("/app/")) return;
-      setPlatformDocumentTitle(resolvePageTitle(window.location.pathname));
+      setPlatformDocumentTitle(brand.title, resolvePageTitle(window.location.pathname));
     };
 
     const originalPushState = window.history.pushState;
@@ -56,7 +57,7 @@ export function PageTitle() {
       window.history.replaceState = originalReplaceState;
       window.removeEventListener("popstate", updateTitle);
     };
-  }, []);
+  }, [brand.title]);
 
   return null;
 }

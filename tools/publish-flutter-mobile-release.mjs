@@ -8,13 +8,17 @@ const root = resolve(import.meta.dirname, "..");
 const flutterRoot = join(root, "apps", "techmedia_flutter");
 const args = process.argv.slice(2);
 const baseUrl = args.find((arg) => arg.startsWith("--base-url="))?.slice("--base-url=".length);
+const releaseFilePrefix = args
+  .find((arg) => arg.startsWith("--release-file-prefix="))
+  ?.slice("--release-file-prefix=".length);
+const releaseNotes = args.find((arg) => arg.startsWith("--release-notes="))?.slice("--release-notes=".length);
 const mandatory = args.includes("--mandatory");
 const sourceApk = join(flutterRoot, "build", "app", "outputs", "flutter-apk", "app-release.apk");
 const releaseRoot = join(root, "storage", "mobile", "release");
 
-if (!baseUrl || !/^https:\/\/.+/u.test(baseUrl)) {
+if (!baseUrl || !/^https:\/\/.+/u.test(baseUrl) || !releaseFilePrefix || !releaseNotes) {
   fail(
-    "Usage: node tools/publish-flutter-mobile-release.mjs --base-url=https://app.techmedia.in/mobile/update [--mandatory]"
+    "Usage: node tools/publish-flutter-mobile-release.mjs --base-url=https://crm.example.com/mobile/update --release-file-prefix=client-crm --release-notes=\"Client CRM mobile update\" [--mandatory]"
   );
 }
 if (!existsSync(sourceApk))
@@ -22,7 +26,7 @@ if (!existsSync(sourceApk))
 
 const version = readVersion();
 const versionCode = readVersionCode();
-const apkName = `TechMedia-${version}.apk`;
+const apkName = `${releaseFilePrefix}-${version}.apk`;
 const apkPath = join(releaseRoot, apkName);
 const apk = readFileSync(sourceApk);
 
@@ -34,7 +38,7 @@ writeFileSync(
     {
       apkUrl: `${baseUrl.replace(/\/$/u, "")}/${apkName}`,
       mandatory,
-      notes: "Latest TechMedia mobile improvements.",
+      notes: releaseNotes,
       releasedAt: new Date().toISOString(),
       sha256: createHash("sha256").update(apk).digest("hex"),
       versionCode,

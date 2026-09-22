@@ -125,7 +125,10 @@ export default defineConfig(({ command, mode }) => {
     define: {
       __APP_VERSION__: JSON.stringify(rootPackage.version),
       "import.meta.env.VITE_APP_BRAND_NAME": JSON.stringify(
-        runtimeEnv.APP_BRAND_NAME?.trim() || "Tech Media"
+        requireEnvValue(runtimeEnv.APP_BRAND_NAME, "APP_BRAND_NAME")
+      ),
+      "import.meta.env.VITE_APP_BRAND_TAGLINE": JSON.stringify(
+        requireEnvValue(runtimeEnv.APP_BRAND_TAGLINE, "APP_BRAND_TAGLINE")
       ),
       "import.meta.env.VITE_DEV_AUTO_LOGIN": JSON.stringify(runtimeEnv.DEV_AUTO_LOGIN ?? "0"),
       "import.meta.env.VITE_PLATFORM_API_URL": JSON.stringify("/api/platform")

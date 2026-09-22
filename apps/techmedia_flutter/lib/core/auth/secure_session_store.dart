@@ -4,12 +4,15 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 
+import '../config/app_config.dart';
+
 class SecureSessionStore {
   SecureSessionStore({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel(_channelName);
+    : _channel =
+          channel ??
+          MethodChannel('${AppConfig.nativeChannelPrefix}/secure-session');
 
   static const inactivityLimit = Duration(days: 10);
-  static const _channelName = 'in.techmedia.techmedia_flutter/secure-session';
   static const _tokenKey = 'access_token';
   static const _pinSaltKey = 'pin_salt';
   static const _pinHashKey = 'pin_hash';
