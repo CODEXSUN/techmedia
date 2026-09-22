@@ -110,8 +110,8 @@ export function FrappeForm({
             <div>
               <p className="text-sm font-medium">Application connection</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Settings are saved to the TechMedia environment. Secrets are never returned to the
-                browser; leave them blank to keep the configured values.
+                Settings are saved in the application database. Secrets are encrypted and never
+                returned to the browser; leave them blank to keep the configured values.
               </p>
             </div>
           </div>
@@ -191,19 +191,6 @@ export function FrappeForm({
               inactiveLabel="Connection disabled"
               onCheckedChange={(enabled) => setValue((current) => ({ ...current, enabled }))}
             />
-            <WorkspaceSwitchCard
-              activeLabel="Save in root .env"
-              ariaLabel="Save Frappe connection in root environment file"
-              checked={value.saveToEnvironment}
-              className="md:col-span-2"
-              description="Persist the connection and credentials in TechMedia's root .env file. Turn this off to verify without saving."
-              disabled={disabled}
-              fieldLabel="Save destination"
-              inactiveLabel="Verify only — do not save"
-              onCheckedChange={(saveToEnvironment) =>
-                setValue((current) => ({ ...current, saveToEnvironment }))
-              }
-            />
           </WorkspaceFormGrid>
         </WorkspaceFormBody>
         {canUpdate ? (
@@ -220,9 +207,9 @@ export function FrappeForm({
               <PlugZapIcon className="size-4" />
               {verifying ? "Verifying…" : "Verify connection"}
             </Button>
-            <Button disabled={loading || verifying || !value.saveToEnvironment} type="submit">
+            <Button disabled={loading || verifying} type="submit">
               <SaveIcon className="size-4" />
-              {loading ? "Saving…" : "Save to .env"}
+              {loading ? "Saving…" : "Save connection"}
             </Button>
           </WorkspaceFormActions>
         ) : null}

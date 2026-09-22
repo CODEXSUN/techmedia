@@ -32,7 +32,7 @@ const envSchema = z.object({
     .positive()
     .default(10 * 1024 * 1024),
   DEV_AUTO_LOGIN: z.enum(["0", "1"]).default("0"),
-  INITIAL_ADMIN_EMAIL: z.string().default(""),
+  INITIAL_ADMIN_EMAIL: z.string().default("admin@admin.com"),
   INITIAL_ADMIN_NAME: z.string().default(""),
   INITIAL_ADMIN_PASSWORD: z.string().default(""),
   FRAPPE_APP_KEY: z.string().default(""),

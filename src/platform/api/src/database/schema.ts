@@ -174,6 +174,19 @@ export type AppBrandingSettingsTable = {
   updated_at: TimestampColumn;
 };
 
+export type FrappeConnectionSettingsTable = {
+  api_key_ciphertext: NullableStringColumn;
+  api_secret_ciphertext: NullableStringColumn;
+  base_url: string;
+  connection_name: string;
+  enabled: boolean | number;
+  id: number;
+  last_checked_at: NullableTimestampColumn;
+  last_verified_at: NullableTimestampColumn;
+  updated_at: TimestampColumn;
+  verification_status: DefaultedStringColumn<"live" | "offline" | "unverified">;
+};
+
 export type ConversationType =
   "DIRECT" | "GROUP" | "TEAM" | "PROJECT" | "CUSTOMER" | "SUPPORT" | "SYSTEM";
 export type ConversationStatus = "active" | "archived" | "deleted";
@@ -259,6 +272,7 @@ export type MessageReactionsTable = {
 
 export type TechMediaDatabase = {
   app_branding_settings: AppBrandingSettingsTable;
+  frappe_connection_settings: FrappeConnectionSettingsTable;
   ai_honey_messages: AiHoneyMessagesTable;
   ai_honey_settings: AiHoneySettingsTable;
   ai_honey_skills: AiHoneySkillsTable;

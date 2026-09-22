@@ -16,6 +16,7 @@ import type {
   FrappeUserVerificationResult
 } from "./frappe.types.js";
 import { updateFrappeEnvironment } from "./frappe.env-store.js";
+import { readFrappeConnection, readFrappeSettings, writeFrappeConnection } from "./frappe.connection-store.js";
 
 const handshakePath = "/api/method/frappe.auth.get_logged_user";
 const maximumHandshakeResponseBytes = 64 * 1024;
@@ -25,37 +26,21 @@ export class FrappeService {
 
   async get() {
     await this.context.authorize("settings.frappe.view");
-    return publicSettings();
+    return readFrappeSettings(this.context.database);
   }
 
   async save(input: FrappeConnectionSavePayload): Promise<FrappeConnectionSettings> {
     await this.context.authorize("settings.frappe.update");
-    if (!input.saveToEnvironment) {
-      throw AppError.validation("Select Save in .env before saving the Frappe connection.");
-    }
     const baseUrl = normalizeBaseUrl(input.baseUrl);
     const connectionName = input.connectionName.trim();
-    const now = new Date().toISOString();
-    const values = {
-      ...(input.appKey ? { FRAPPE_APP_KEY: input.appKey.trim() } : {}),
-      ...(input.appSecret ? { FRAPPE_APP_SECRET: input.appSecret.trim() } : {}),
-      FRAPPE_BASE_URL: baseUrl,
-      FRAPPE_CONNECTION_NAME: connectionName,
-      FRAPPE_ENABLED: input.enabled ? ("1" as const) : ("0" as const),
-      FRAPPE_LAST_CHECKED_AT: "",
-      FRAPPE_LAST_VERIFIED_AT: "",
-      FRAPPE_UPDATED_AT: now,
-      FRAPPE_VERIFICATION_STATUS: "unverified" as const
-    };
-    await updateFrappeEnvironment(values);
-    Object.assign(env, values);
+    const saved = await writeFrappeConnection(this.context.database, { ...(input.appKey ? { appKey: input.appKey.trim() } : {}), ...(input.appSecret ? { appSecret: input.appSecret.trim() } : {}), baseUrl, connectionName, enabled: input.enabled });
     await recordAuditEvent({
       action: "saved",
       actorEmail: this.context.actorEmail,
       moduleKey: "settings.frappe",
       recordLabel: connectionName
     });
-    return publicSettings()!;
+    return saved!;
   }
 
   async verify(

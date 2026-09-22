@@ -304,7 +304,7 @@ function BrandLogo({
       <img
         alt={brand.logoAlt ?? fallback.logoAlt ?? brand.title}
         className={`${imageSize} dark:hidden`}
-        src={brand.logoSrc ?? fallback.logoSrc ?? "/logo/techmedia-logo.svg"}
+        src={brand.logoSrc ?? fallback.logoSrc ?? "/logo/logo.svg"}
       />
       <img
         alt={brand.logoAlt ?? fallback.logoAlt ?? brand.title}

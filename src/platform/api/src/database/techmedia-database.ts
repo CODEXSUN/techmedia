@@ -17,6 +17,7 @@ import { migrateNotificationModule } from "../modules/notification/notification.
 import { migrateHoneyModule } from "../modules/honey/honey.migration.js";
 import { migrateMessagingModule } from "../modules/messaging/messaging.migration.js";
 import { migrateBrandingModule } from "../modules/branding/branding.migration.js";
+import { migrateFrappeModule } from "../modules/frappe/frappe.migration.js";
 import { seedBrandingModule } from "../modules/branding/branding.seed.js";
 import { assertDatabaseName, quoteIdentifier } from "./database-utils.js";
 import type { TechMediaDatabase } from "./schema.js";
@@ -32,6 +33,7 @@ export const techMediaMigrationOrder = Object.freeze([
   "identity.role-permission",
   "notification.inbox",
   "app.branding",
+  "settings.frappe",
   "ai.honey",
   "messaging"
 ]);
@@ -136,6 +138,7 @@ export async function migrateTechMediaDatabase() {
   await migrateRolePermissionModule(db);
   await migrateNotificationModule(db);
   await migrateBrandingModule(db);
+  await migrateFrappeModule(db);
   await migrateHoneyModule(db);
   await migrateMessagingModule(db);
 }

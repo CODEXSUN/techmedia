@@ -2,11 +2,11 @@
 
 ## Version State
 
-Current version: 1.0.118
+Current version: 1.0.119
 
-Release tag: v-1.0.118
+Release tag: v-1.0.119
 
-Changelog label: v 1.0.118
+Changelog label: v 1.0.119
 
 This changelog starts with TechMedia as an independent application composed from
 `framework + ui + core + platform`. Source-project release history is not TechMedia release history.
@@ -14,6 +14,21 @@ This changelog starts with TechMedia as an independent application composed from
 New entries must keep database-facing work and application code work separate.
 
 ## Unreleased
+
+## v-1.0.119
+
+### [v 1.0.119] 2026-09-22 4:59 pm - Database-backed Frappe connection
+
+#### Database Changes
+
+- Database update: Yes. Run the standard application migration to create `frappe_connection_settings`.
+
+#### App Codebase Changes
+
+- Bumped repository version to 1.0.119.
+- Added the database-owned Frappe application-connection record; its credentials are encrypted before storage and are never returned by the API.
+- Changed fresh-install defaults to create `admin@admin.com` as the protected `super-admin` when `INITIAL_ADMIN_PASSWORD` is supplied.
+- Updated TechMedia and Rainbow deployment templates to use the same protected administrator account default.
 
 ## v-1.0.118
 
